@@ -1,9 +1,9 @@
 # Task
 
 ## Make personal notes for the following ML terms.
-### Write them in your own words
-### Keep definitions short and simple (1–2 lines).
-### Add a tiny example where possible.
+- Write them in your own words
+- Keep definitions short and simple (1–2 lines).
+- Add a tiny example where possible.
 
 
 Core ML / Deep Learning Basics
