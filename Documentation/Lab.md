@@ -1,4 +1,4 @@
-# Raspberry Pi setup
+# Raspberry Pi setup (Local Lan Cable Setup)
 ## Step 1
 - Download VNCViewer and Putty
 ## Step 2
