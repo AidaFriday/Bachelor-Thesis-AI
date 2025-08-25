@@ -15,9 +15,9 @@
   <img width="391" height="443" alt="image" src="https://github.com/user-attachments/assets/008c4026-beed-4d0f-b36f-bdf626911b09" />
 
 ## Step 3
-## To check if we are able to connect with the Network Adapter
+### To check if we are able to connect with the Network Adapter
 - ping 192.168.137.10
-## To check if we are able to connect with Raspberry Pi
+### To check if we are able to connect with Raspberry Pi
 - ping 192.168.137.2
 
 
