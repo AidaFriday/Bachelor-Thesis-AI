@@ -8,8 +8,8 @@
 
 Core ML / Deep Learning Basics
 
-- Deep Learning
-- Neural Network
+- Deep Learning -  is a subfield of machine learning that uses artificial neural networks with many layers to automatically learn complex patterns and features from large amounts of data
+- Neural Network - is a machine learning program, or model, that makes decisions in a manner similar to the human brain, by using processes that mimic the way biological neurons work together to identify phenomena, weigh options and arrive at conclusions.
 - Layer (Convolutional, Fully Connected)
 - Activation Function
 - Embedding
