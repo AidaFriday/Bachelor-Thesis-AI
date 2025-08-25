@@ -4,7 +4,7 @@
 ## Step 2
 - Setup Network Adapter
 
-  <img width="800" height="600" alt="image" src="https://github.com/user-attachments/assets/74411328-1275-4e3c-a40c-9f6e2310a481" />
+  <img width="600" height="600" alt="image" src="https://github.com/user-attachments/assets/74411328-1275-4e3c-a40c-9f6e2310a481" />
   
 - Open Control Panel -> Network and Internet -> Network and Sharing Center -> Change Adapter Settings
 
