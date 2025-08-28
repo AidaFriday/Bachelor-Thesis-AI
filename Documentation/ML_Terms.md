@@ -15,7 +15,7 @@ Core ML / Deep Learning Basics
 - Fully Connected - (also known as a dense layer) is a fundamental type of neural network layer where every neuron in that layer is connected to every neuron in the previous layer.
 <img width="377" height="643" alt="image" src="https://github.com/user-attachments/assets/685b98d8-82b4-4ab6-92eb-ce47b5beb6a4" />
 
-- Activation Function
+- Activation Function - decides whether a neuron should be activated or not. This means that it will decide whether the neuron’s input to the network is important or not in the process of prediction using simpler mathematical operations. The primary role of the Activation Function is to transform the summed weighted input from the node into an output value to be fed to the next hidden layer or as output. 
 - Embedding
 - Feature Extraction
 
