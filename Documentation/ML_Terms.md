@@ -16,7 +16,7 @@ Core ML / Deep Learning Basics
 <img width="377" height="643" alt="image" src="https://github.com/user-attachments/assets/685b98d8-82b4-4ab6-92eb-ce47b5beb6a4" />
 
 - Activation Function - decides whether a neuron should be activated or not. This means that it will decide whether the neuron’s input to the network is important or not in the process of prediction using simpler mathematical operations. The primary role of the Activation Function is to transform the summed weighted input from the node into an output value to be fed to the next hidden layer or as output. 
-- Embedding
+- Embedding -  a learned representation of discrete data (like words, users, or items) as continuous, dense, lower-dimensional vectors. These vectors are designed so that entities with similar meanings or relationships in the original data are located close to each other in the vector space. Embeddings are a foundational technique for making complex data comprehensible to machine learning models, enabling tasks like semantic search, recommendation systems, and natural language processing. 
 - Feature Extraction
 
 Face Detection vs. Face Recognition
