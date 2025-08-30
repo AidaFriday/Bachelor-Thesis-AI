@@ -61,4 +61,4 @@ GUI with options to:
 
 **Testing**  
 - Test application with multiple datasets and live webcam.  
-- Optimize for responsiveness on limited hardware.  
+
