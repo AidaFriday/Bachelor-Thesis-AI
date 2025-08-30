@@ -60,5 +60,11 @@ GUI with options to:
 - Implement metrics display (accuracy, FPS, latency).  
 
 **Testing**  
-- Test application with multiple datasets and live webcam.  
+- Test application with multiple datasets and live webcam.
 
+**Open Questions**
+- 2nd Reviewer
+- GPU Access
+- Powerful Raspberry Pi
+- Weekly Meetings Time
+- Expectation for the weekly meeeting
