@@ -65,6 +65,5 @@ GUI with options to:
 **Open Questions**
 - 2nd Reviewer
 - GPU Access
-- Powerful Raspberry Pi
 - Weekly Meetings Time
 - Expectation for the weekly meeeting
