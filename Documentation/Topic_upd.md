@@ -35,7 +35,7 @@
 ### Phase 2 – Model Benchmarking  
 
 #### Load Pre-Trained Models  
-- Implement a unified interface (wrapper) for models
+- Implement a unified interface (wrapper) for models that will be later used in the PyQt application
 
 #### Analysis  
 - Compare results across models.  
