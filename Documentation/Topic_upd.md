@@ -57,5 +57,5 @@
 - Implement live monitoring and metric reporting.  
 
 #### Testing  
-- Test application with multiple datasets and webcam scenarios.  
+- Test application with multiple test images from available datasets and webcam scenarios.  
 - Evaluate usability and performance.  
