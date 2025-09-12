@@ -20,4 +20,8 @@ def load_model(model_name: str, config_path="models/model.config"):
     module = importlib.import_module(f"models.{module_name}")
     wrapper_class = getattr(module, class_name)
 
-    return wrapper_class(device, model_cfg["path"], tuple(model_cfg["input_size"]))
+    # Path can be None (e.g. arcface auto-downloads)
+    model_path = model_cfg.get("path", None)
+    input_size = tuple(model_cfg["input_size"])
+
+    return wrapper_class(device, model_path, input_size)
