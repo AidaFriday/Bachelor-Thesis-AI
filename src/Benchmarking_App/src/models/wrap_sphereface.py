@@ -1,28 +1,8 @@
-import os
 import cv2
 import numpy as np
 import torch
 import torch.nn as nn
 from insightface.app import FaceAnalysis
-
-
-# ---------------- Encoders ----------------
-class FaceNetEncoder:
-    name = "facenet"
-    input_size = (160, 160)
-
-    def __init__(self, device: torch.device):
-        from facenet_pytorch import InceptionResnetV1
-        self.device = device
-        self.model = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
-
-    def embed(self, bgr: np.ndarray) -> np.ndarray:
-        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
-        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
-        t = (t - 0.5) / 0.5
-        with torch.inference_mode():
-            v = self.model(t.unsqueeze(0).to(self.device))[0].detach().cpu().numpy().astype(np.float32)
-        return v
 
 
 class IBasicBlock(nn.Module):
@@ -93,17 +73,21 @@ def build_iresnet50():
     return IResNet([3, 4, 14, 3])
 
 
-class SphereFaceEncoder:
+class SphereFaceWrapper:
     name = "sphereface"
-    input_size = (112, 112)
 
-    def __init__(self, device: torch.device, ckpt_path: str):
-        self.device = device
-        self.model = build_iresnet50().to(device).eval()
-        sd = torch.load(ckpt_path, map_location="cpu")
+    def __init__(self, device: str, model_path: str, input_size=(112, 112)):
+        self.device = torch.device(device)
+        self.input_size = input_size
+        self.model = build_iresnet50().to(self.device).eval()
+        sd = torch.load(model_path, map_location="cpu")
         if "state_dict" in sd:
             sd = {k.replace("module.", "").replace("backbone.", ""): v for k, v in sd["state_dict"].items()}
         self.model.load_state_dict(sd, strict=False)
+
+        ctx_id = 0 if self.device.type == "cuda" else -1
+        self.detector = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
+        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
     def embed(self, bgr: np.ndarray) -> np.ndarray:
         img = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
@@ -114,43 +98,13 @@ class SphereFaceEncoder:
         feat /= (np.linalg.norm(feat) + 1e-12)
         return feat
 
-
-# ---------------- Model paths ----------------
-MODEL_PATHS = {
-    "arcface": "C:/programming/FaceRec_Models/buffalo_l",
-    "sphereface": "/absolute/path/to/sphereface.pth"
-}
-
-
-def select_model(choice: str, device: torch.device):
-    ctx_id = 0 if device.type == "cuda" else -1
-
-    if choice == "1":
-        buffalo_path = MODEL_PATHS["arcface"]
-        if not os.path.isdir(buffalo_path):
-            raise RuntimeError(f"ArcFace pack not found at {buffalo_path}")
-        app = FaceAnalysis(root=os.path.dirname(buffalo_path), name="buffalo_l")
-        app.prepare(ctx_id=ctx_id, det_size=(640, 640))
-        return app, None, (112, 112)
-
-    elif choice == "2":
-        app = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
-        app.prepare(ctx_id=ctx_id, det_size=(640, 640))
-        encoder = FaceNetEncoder(device=device)
-        return app, encoder, (160, 160)
-
-    elif choice == "3":
-        app = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
-        app.prepare(ctx_id=ctx_id, det_size=(640, 640))
-        ckpt_path = MODEL_PATHS["sphereface"]
-        if not os.path.exists(ckpt_path):
-            raise RuntimeError(f"SphereFace checkpoint not found at {ckpt_path}")
-        encoder = SphereFaceEncoder(device=device, ckpt_path=ckpt_path)
-        return app, encoder, (112, 112)
-
-    else:
-        print("Invalid choice, defaulting to ArcFace (buffalo_l).")
-        buffalo_path = MODEL_PATHS["arcface"]
-        app = FaceAnalysis(root=os.path.dirname(buffalo_path), name="buffalo_l")
-        app.prepare(ctx_id=ctx_id, det_size=(640, 640))
-        return app, None, (112, 112)
+    def detect_and_embed(self, frame):
+        faces = self.detector.get(frame)
+        results = []
+        for f in faces:
+            results.append({
+                "bbox": f.bbox.astype(int),
+                "kps": f.kps.astype(float),
+                "embedding": self.embed(frame)
+            })
+        return results
