@@ -17,3 +17,6 @@ venv/
 build/
 dist/
 *.egg-info/
+
+# Ignore local face recognition model weights
+src/Benchmarking_App/src/models/face_rec_models/
