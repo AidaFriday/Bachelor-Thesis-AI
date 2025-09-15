@@ -9,3 +9,5 @@ https://openaccess.thecvf.com/content_CVPR_2019/papers/Deng_ArcFace_Additive_Ang
 https://ieeexplore.ieee.org/document/10750931
 
 https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8615843&tag=1
+
+https://link.springer.com/chapter/10.1007/978-981-99-8479-4_24
