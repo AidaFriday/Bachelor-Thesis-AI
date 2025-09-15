@@ -7,3 +7,5 @@ https://arxiv.org/abs/1503.03832?utm_source=chatgpt.com
 https://openaccess.thecvf.com/content_CVPR_2019/papers/Deng_ArcFace_Additive_Angular_Margin_Loss_for_Deep_Face_Recognition_CVPR_2019_paper.pdf?utm_source=chatgpt.com
 
 https://ieeexplore.ieee.org/document/10750931
+
+https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8615843&tag=1
