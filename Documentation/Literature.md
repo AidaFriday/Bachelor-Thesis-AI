@@ -11,3 +11,4 @@
 - https://arxiv.org/abs/1708.08197
 - https://ieeexplore.ieee.org/document/7477558
 - https://vcl.fer.hr/papers_pdf/SCface%20-%20Surveillance%20Cameras%20Face%20Database.pdf
+- https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10036007
