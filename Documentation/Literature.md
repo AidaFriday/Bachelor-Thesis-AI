@@ -9,3 +9,4 @@
 - https://link.springer.com/chapter/10.1007/978-981-99-8479-4_24
 - https://people.cs.umass.edu/~elm/papers/lfw.pdf
 - https://arxiv.org/abs/1708.08197
+- https://ieeexplore.ieee.org/document/7477558
