@@ -7,3 +7,4 @@
 - https://ieeexplore.ieee.org/document/10750931
 - https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8615843&tag=1
 - https://link.springer.com/chapter/10.1007/978-981-99-8479-4_24
+- https://people.cs.umass.edu/~elm/papers/lfw.pdf
