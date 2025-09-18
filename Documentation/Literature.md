@@ -1,6 +1,15 @@
-https://link.springer.com/book/10.1007/978-0-85729-932-1?utm_source=chatgpt.com
-https://link.springer.com/content/pdf/10.1007/978-0-387-77326-1.pdf?utm_source=chatgpt.com
-https://link.springer.com/book/10.1007/978-3-319-28501-6?utm_source=chatgpt.com
-https://www.sciencedirect.com/science/article/pii/S0925231220316945?utm_source=chatgpt.com
-https://arxiv.org/abs/1503.03832?utm_source=chatgpt.com
-
+- https://link.springer.com/book/10.1007/978-0-85729-932-1
+- https://link.springer.com/content/pdf/10.1007/978-0-387-77326-1.pdf
+- https://link.springer.com/book/10.1007/978-3-319-28501-6?utm_source=chatgpt.com
+- https://www.sciencedirect.com/science/article/pii/S0925231220316945
+- https://arxiv.org/abs/1503.03832
+- https://openaccess.thecvf.com/content_CVPR_2019/papers/Deng_ArcFace_Additive_Angular_Margin_Loss_for_Deep_Face_Recognition_CVPR_2019_paper.pdf
+- https://ieeexplore.ieee.org/document/10750931
+- https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8615843&tag=1
+- https://link.springer.com/chapter/10.1007/978-981-99-8479-4_24
+- https://people.cs.umass.edu/~elm/papers/lfw.pdf
+- https://arxiv.org/abs/1708.08197
+- https://ieeexplore.ieee.org/document/7477558
+- https://vcl.fer.hr/papers_pdf/SCface%20-%20Surveillance%20Cameras%20Face%20Database.pdf
+- https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10036007
+- https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8014984
