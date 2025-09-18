@@ -11,9 +11,15 @@ class FaceNetWrapper:
     Loads model from local facenet repo in pretrained_models/facenet.
     Reference: Schroff et al., FaceNet (CVPR 2015).
     """
+
     name = "facenet"
 
-    def __init__(self, device: str, model_path: str, input_size=(160, 160)):
+    def __init__(
+        self,
+        device: str = "cpu",
+        model_path: str = "src/models/pretrained_models/facenet",
+        input_size=(160, 160),
+    ):
         self.device = torch.device(device)
         self.input_size = input_size
 
@@ -33,7 +39,7 @@ class FaceNetWrapper:
         # Load pretrained weights (downloads if not cached)
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
 
-        # RetinaFace detector from insightface
+        # RetinaFace detector from insightface (for alignment if needed)
         ctx_id = 0 if self.device.type == "cuda" else -1
         self.detector = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
         self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
@@ -44,11 +50,17 @@ class FaceNetWrapper:
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
         t = (t - 0.5) / 0.5
         with torch.inference_mode():
-            emb = self.model(t.unsqueeze(0).to(self.device))[0].detach().cpu().numpy().astype(np.float32)
+            emb = (
+                self.model(t.unsqueeze(0).to(self.device))[0]
+                .detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32)
+            )
         return emb
 
-    def detect_and_embed(self, frame):
-        """Detect faces and return bbox, landmarks, and embeddings."""
+    def detect_and_embed(self, frame: np.ndarray):
+        """Detect faces in a frame and return bbox, landmarks, and embeddings."""
         faces = self.detector.get(frame)
         results = []
         for f in faces:
@@ -56,9 +68,32 @@ class FaceNetWrapper:
             crop = frame[y1:y2, x1:x2]
             if crop.size == 0:
                 continue
-            results.append({
-                "bbox": f.bbox.astype(int),
-                "kps": f.kps.astype(float),
-                "embedding": self.embed(crop)
-            })
+            results.append(
+                {
+                    "bbox": f.bbox.astype(int),
+                    "kps": f.kps.astype(float),
+                    "embedding": self.embed(crop),
+                }
+            )
         return results
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        """
+        Load an image path, detect the main face, and return its embedding.
+        Falls back to center-crop if no face detected.
+        """
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[FaceNet] Could not read image: {img_path}")
+
+        faces = self.detect_and_embed(frame)
+        if len(faces) > 0:
+            return faces[0]["embedding"]
+
+        # fallback: use center crop
+        h, w = frame.shape[:2]
+        min_dim = min(h, w)
+        start_x = (w - min_dim) // 2
+        start_y = (h - min_dim) // 2
+        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
+        return self.embed(crop)

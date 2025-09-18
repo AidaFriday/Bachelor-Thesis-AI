@@ -1,0 +1,17 @@
+
+%%{init: {'theme':'forest'}}%%
+
+sequenceDiagram
+
+    Title Sequence diagram of .main() of /src/main.py
+
+    participant p1 as main()<br>:main.py/main.py
+    participant p2 as <br>:connector.py/connector.py
+    participant p3 as <br>:components/camera.py/camera.py
+
+
+	p1 ->>+ p2: 1: load_model(model_name)
+	p2 -->>- p1: 1: return value
+	p1 ->>+ p3: 2: run_camera_loop(wrapper)
+	p3 -->>- p1: 2: return value
+        
