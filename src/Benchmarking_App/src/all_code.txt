@@ -1,0 +1,683 @@
+
+
+# ==== .\connector.py ====
+
+import os
+import json
+import importlib
+import torch
+
+
+def load_model(model_name: str, config_path="models/model.config"):
+    """Load model wrapper based on config file."""
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    if model_name not in config:
+        raise ValueError(f"Model '{model_name}' not in config")
+
+    model_cfg = config[model_name]
+    wrapper_path = model_cfg["wrapper"]
+    module_name, class_name = wrapper_path.split(".")
+    module = importlib.import_module(f"models.{module_name}")
+    wrapper_class = getattr(module, class_name)
+
+    # Path can be None (e.g. arcface auto-downloads)
+    model_path = model_cfg.get("path", None)
+    input_size = tuple(model_cfg["input_size"])
+
+    return wrapper_class(device, model_path, input_size)
+
+
+
+# ==== .\extractor.py ====
+
+import os
+
+
+def collect_python_code(
+    root_dir=".", output_file="all_code.txt", exclude_folder="pretrained_models"
+):
+    with open(output_file, "w", encoding="utf-8") as out:
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            # Skip excluded folder
+            if exclude_folder in dirpath.split(os.sep):
+                continue
+
+            for filename in filenames:
+                if filename.endswith(".py"):
+                    file_path = os.path.join(dirpath, filename)
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            code = f.read()
+                        out.write(f"\n\n# ==== {file_path} ====\n\n")
+                        out.write(code)
+                        out.write("\n")
+                    except Exception as e:
+                        print(f"Skipping {file_path}: {e}")
+
+
+if __name__ == "__main__":
+    collect_python_code()
+    print(
+        "✅ All Python code has been collected into all_code.txt (excluding pretrained_models)"
+    )
+
+
+
+# ==== .\main.py ====
+
+from connector import load_model
+from components.camera import run_camera_loop
+
+
+def main():
+    print("Choose model:")
+    print("1 - ArcFace")
+    print("2 - FaceNet")
+    print("3 - MagFace")
+
+    choice = input("Enter choice [1/2/3]: ").strip()
+    mapping = {"1": "arcface", "2": "facenet", "3": "magface"}
+    model_name = mapping.get(choice, "arcface")
+
+    wrapper = load_model(model_name)
+    print(f"[INFO] Loaded model: {wrapper.name}")
+
+    run_camera_loop(wrapper)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\accuracy.py ====
+
+import os
+import json
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from insightface.app import FaceAnalysis
+
+# -------------------------------
+# Config
+# -------------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src root
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")  # adjust if dataset path different
+USER1_EMBED_DIR = os.path.join(BASE_DIR, "models", "embeddings", "user1")
+USER1_EMBED_FILE = os.path.join(USER1_EMBED_DIR, "embeddings.npy")
+
+# Threshold for cosine similarity (tune this after plotting)
+SIM_THRESHOLD = 0.5
+
+# Output text file (next to this script)
+OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "found_matches.txt")
+
+# -------------------------------
+# Load embeddings from user1
+# -------------------------------
+if not os.path.exists(USER1_EMBED_FILE):
+    raise FileNotFoundError(
+        f"[ERROR] Missing {USER1_EMBED_FILE}. Run embeddings.py first."
+    )
+
+user1_data = np.load(USER1_EMBED_FILE, allow_pickle=True)
+user1_embs = np.stack([entry["embedding"] for entry in user1_data])
+print(f"[INFO] Loaded {len(user1_embs)} user1 embeddings.")
+
+# -------------------------------
+# Init ArcFace
+# -------------------------------
+MODEL_ROOT = os.path.join(BASE_DIR, "models", "pretrained_models")
+app = FaceAnalysis(name="buffalo_l", root=MODEL_ROOT)
+app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.3)
+
+
+def extract_embedding(image_path):
+    """Get embedding with fallback mode."""
+    img = cv2.imread(image_path)
+    if img is None:
+        print(f"[WARN] Could not read: {image_path}")
+        return None
+    faces = app.get(img)
+    if len(faces) > 0:
+        return faces[0].embedding.astype(np.float32)
+    # fallback: resize only
+    resized = cv2.resize(img, (112, 112))
+    emb = app.models["recognition"].get(resized).astype(np.float32)
+    return emb
+
+
+def cosine_sim(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+# -------------------------------
+# Compare dataset images
+# -------------------------------
+y_true, scores = [], []  # for analysis
+matches = []  # store successful matches
+
+for root, _, files in os.walk(DATASET_DIR):
+    for fname in files:
+        if not fname.lower().endswith((".jpg", ".png", ".jpeg")):
+            continue
+        path = os.path.join(root, fname)
+        emb = extract_embedding(path)
+        if emb is None:
+            continue
+
+        sims = [cosine_sim(emb, u) for u in user1_embs]
+        best_sim = max(sims)
+
+        # Heuristic: if inside user1 folder → positive label, else negative
+        label = 1 if "user1" in root.lower() else 0
+        y_true.append(label)
+        scores.append(best_sim)
+
+        if best_sim >= SIM_THRESHOLD:
+            print(f"[MATCH] {path} (similarity={best_sim:.3f})")
+            matches.append(f"{path} (similarity={best_sim:.3f})")
+        else:
+            print(f"[NO MATCH] {path} (similarity={best_sim:.3f})")
+
+# -------------------------------
+# Save matches to txt file
+# -------------------------------
+if matches:
+    with open(OUTPUT_FILE, "w") as f:
+        for m in matches:
+            f.write(m + "\n")
+    print(f"[INFO] Saved {len(matches)} matches to {OUTPUT_FILE}")
+else:
+    print("[INFO] No matches found, nothing saved.")
+
+# -------------------------------
+# Plot similarity distributions
+# -------------------------------
+pos = [s for s, y in zip(scores, y_true) if y == 1]
+neg = [s for s, y in zip(scores, y_true) if y == 0]
+
+plt.hist(pos, bins=50, alpha=0.6, label="Positive (user1)", color="g")
+plt.hist(neg, bins=50, alpha=0.6, label="Negative (others)", color="r")
+plt.axvline(
+    SIM_THRESHOLD, color="blue", linestyle="--", label=f"Threshold={SIM_THRESHOLD}"
+)
+plt.xlabel("Cosine Similarity")
+plt.ylabel("Frequency")
+plt.legend()
+plt.title("Face Verification: Similarity Distributions")
+plt.show()
+
+
+
+# ==== .\components\camera.py ====
+
+import cv2
+import time
+import numpy as np
+from collections import deque
+from .face_detection import align_by_5pts
+
+
+def run_camera_loop(wrapper):
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("[ERROR] Cannot open camera")
+        return
+
+    print("Press ESC to exit.")
+    times_ms = deque(maxlen=200)
+    fps_hist = deque(maxlen=60)
+    last = time.perf_counter()
+
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+
+        faces = wrapper.detect_and_embed(frame)
+        disp = frame.copy()
+
+        for f in faces:
+            x1, y1, x2, y2 = f["bbox"]
+            emb = f["embedding"]
+            cv2.rectangle(disp, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            for (px, py) in f["kps"].astype(int):
+                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
+
+        now = time.perf_counter()
+        fps = 1.0 / (now - last)
+        last = now
+        fps_hist.append(fps)
+
+        cv2.putText(disp, f"{wrapper.name} | FPS: {np.mean(fps_hist):.1f} | faces: {len(faces)}",
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+        cv2.imshow("Live FR Wrapper", disp)
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+
+# ==== .\components\face_detection.py ====
+
+import cv2
+import numpy as np
+from insightface.app import FaceAnalysis
+
+# Reference landmarks for alignment
+REF_5PTS_112 = np.float32([
+    [38.2946, 51.6963],
+    [73.5318, 51.5014],
+    [56.0252, 71.7366],
+    [41.5493, 92.3655],
+    [70.7299, 92.2041]
+])
+scale_160 = 160.0 / 112.0
+REF_5PTS_160 = REF_5PTS_112 * scale_160
+
+def align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(112, 112)) -> np.ndarray:
+    ref = REF_5PTS_112 if out_size == (112, 112) else REF_5PTS_160
+    M = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)[0]
+    if M is None:
+        return None
+    return cv2.warpAffine(bgr, M, out_size, flags=cv2.INTER_LINEAR)
+
+
+class RetinaFaceDetector:
+    """Wrapper for RetinaFace-based face detection (from insightface)."""
+    def __init__(self, device: str = "cpu", det_size=(640, 640)):
+        ctx_id = 0 if device.lower().startswith("cuda") else -1
+        # initialize RetinaFace via insightface
+        self.app = FaceAnalysis(name="retinaface_r50", allowed_modules=["detection"])
+        self.app.prepare(ctx_id=ctx_id, det_size=det_size)
+    
+    def get(self, frame: np.ndarray):
+        """
+        Detect faces in frame.
+
+        Returns list of face objects with:
+            - bbox (x1, y1, x2, y2)
+            - kps: landmarks (5 points)
+            - (if available) confidence
+        """
+        faces = self.app.get(frame)
+        return faces
+
+
+
+# ==== .\models\wrap_arcface.py ====
+
+import os
+import cv2
+import numpy as np
+from insightface.app import FaceAnalysis
+
+
+class ArcFaceWrapper:
+    """
+    ArcFace wrapper using insightface buffalo_l pack.
+    Reference: Deng et al., ArcFace: Additive Angular Margin Loss, CVPR 2019.
+    """
+
+    name = "arcface"
+
+    def __init__(
+        self,
+        device: str = "cpu",
+        model_path: str = "src/models/pretrained_models",
+        input_size=(112, 112),
+    ):
+        self.device = device
+        self.input_size = input_size
+
+        # If user points directly to buffalo_l, strip it to get the parent
+        if model_path.endswith("buffalo_l"):
+            root_path = os.path.dirname(model_path)
+            buffalo_dir = model_path
+        else:
+            root_path = model_path
+            buffalo_dir = os.path.join(model_path, "buffalo_l")
+
+        # Ensure the buffalo_l folder exists (insightface will download here if missing)
+        os.makedirs(buffalo_dir, exist_ok=True)
+
+        ctx_id = 0 if device == "cuda" else -1
+
+        print(f"[ArcFace] Using buffalo_l at: {buffalo_dir}")
+
+        # InsightFace FaceAnalysis provides detection + embedding
+        self.detector = FaceAnalysis(root=root_path, name="buffalo_l")
+        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
+
+    def detect_and_embed(self, frame: np.ndarray):
+        """Detect faces and return bbox, landmarks, and ArcFace embeddings."""
+        faces = self.detector.get(frame)
+        results = []
+        for f in faces:
+            results.append(
+                {
+                    "bbox": f.bbox.astype(int),
+                    "kps": f.kps.astype(float),
+                    "embedding": f.embedding.astype(np.float32),
+                }
+            )
+        return results
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        """
+        Load image, detect main face, and return ArcFace embedding.
+        Falls back to center crop + no alignment if detector fails.
+        """
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[ArcFace] Could not read image: {img_path}")
+
+        faces = self.detect_and_embed(frame)
+        if len(faces) > 0:
+            return faces[0]["embedding"]
+
+
+
+# ==== .\models\wrap_facenet.py ====
+
+import os, sys
+import cv2
+import numpy as np
+import torch
+from insightface.app import FaceAnalysis
+
+
+class FaceNetWrapper:
+    """
+    FaceNet wrapper (InceptionResnetV1).
+    Loads model from local facenet repo in pretrained_models/facenet.
+    Reference: Schroff et al., FaceNet (CVPR 2015).
+    """
+
+    name = "facenet"
+
+    def __init__(
+        self,
+        device: str = "cpu",
+        model_path: str = "src/models/pretrained_models/facenet",
+        input_size=(160, 160),
+    ):
+        self.device = torch.device(device)
+        self.input_size = input_size
+
+        if not model_path or not os.path.isdir(model_path):
+            raise RuntimeError(f"[FaceNet] Local repo not found at: {model_path}")
+
+        # Add parent of facenet to sys.path → so we can `import facenet.models...`
+        facenet_parent = os.path.dirname(model_path)  # .../pretrained_models
+        if facenet_parent not in sys.path:
+            sys.path.insert(0, facenet_parent)
+
+        try:
+            from facenet.models.inception_resnet_v1 import InceptionResnetV1
+        except ImportError as e:
+            raise RuntimeError(f"[FaceNet] Could not import inception_resnet_v1: {e}")
+
+        # Load pretrained weights (downloads if not cached)
+        self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
+
+        # RetinaFace detector from insightface (for alignment if needed)
+        ctx_id = 0 if self.device.type == "cuda" else -1
+        self.detector = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
+        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
+
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """Return FaceNet embedding for a cropped face (BGR)."""
+        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
+        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
+        t = (t - 0.5) / 0.5
+        with torch.inference_mode():
+            emb = (
+                self.model(t.unsqueeze(0).to(self.device))[0]
+                .detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32)
+            )
+        return emb
+
+    def detect_and_embed(self, frame: np.ndarray):
+        """Detect faces in a frame and return bbox, landmarks, and embeddings."""
+        faces = self.detector.get(frame)
+        results = []
+        for f in faces:
+            x1, y1, x2, y2 = f.bbox.astype(int)
+            crop = frame[y1:y2, x1:x2]
+            if crop.size == 0:
+                continue
+            results.append(
+                {
+                    "bbox": f.bbox.astype(int),
+                    "kps": f.kps.astype(float),
+                    "embedding": self.embed(crop),
+                }
+            )
+        return results
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        """
+        Load an image path, detect the main face, and return its embedding.
+        Falls back to center-crop if no face detected.
+        """
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[FaceNet] Could not read image: {img_path}")
+
+        faces = self.detect_and_embed(frame)
+        if len(faces) > 0:
+            return faces[0]["embedding"]
+
+        # fallback: use center crop
+        h, w = frame.shape[:2]
+        min_dim = min(h, w)
+        start_x = (w - min_dim) // 2
+        start_y = (h - min_dim) // 2
+        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
+        return self.embed(crop)
+
+
+
+# ==== .\models\wrap_magface.py ====
+
+import os, sys
+import cv2
+import numpy as np
+import torch
+from insightface.app import FaceAnalysis
+
+
+def import_magface(model_path):
+    """Import MagFace backbone from local repo."""
+    if not model_path or not os.path.isdir(model_path):
+        raise RuntimeError(f"[MagFace] Repo not found at: {model_path}")
+
+    sys.path.insert(0, model_path)
+    sys.path.insert(0, os.path.join(model_path, "models"))
+
+    try:
+        from iresnet import iresnet100  # Backbone used in MagFace
+    except ImportError as e:
+        raise RuntimeError(
+            f"[MagFace] Could not import iresnet backbone. Check repo structure. Original error: {e}"
+        )
+
+    return iresnet100
+
+
+class MagFaceWrapper:
+    """
+    MagFace wrapper with IResNet backbone.
+    Reference: MagFace: A Universal Representation for Face Recognition and Quality Assessment (CVPR 2021).
+    """
+
+    name = "magface"
+
+    def __init__(
+        self,
+        device: str = "cpu",
+        model_path: str = "src/models/pretrained_models/magface",
+        input_size=(112, 112),
+    ):
+        self.device = torch.device(device)
+        self.input_size = input_size
+
+        # Import backbone
+        IResNet100 = import_magface(model_path)
+
+        # Initialize and load pretrained checkpoint (if available)
+        self.model = IResNet100().to(self.device).eval()
+
+        ckpt_path = os.path.join(model_path, "magface_epoch_00025.pth")
+        if os.path.exists(ckpt_path):
+            sd = torch.load(ckpt_path, map_location="cpu")
+            if "state_dict" in sd:
+                sd = {
+                    k.replace("module.", "").replace("backbone.", ""): v
+                    for k, v in sd["state_dict"].items()
+                }
+            self.model.load_state_dict(sd, strict=False)
+        else:
+            print(
+                f"[MagFace] Warning: no checkpoint found at {ckpt_path}, using random init."
+            )
+
+        # Face detector
+        ctx_id = 0 if self.device.type == "cuda" else -1
+        self.detector = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
+        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
+
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """Return normalized MagFace embedding for a cropped face (BGR)."""
+        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
+        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
+        t = (t - 0.5) / 0.5
+        with torch.inference_mode():
+            feat = (
+                self.model(t.unsqueeze(0).to(self.device))[0]
+                .detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32)
+            )
+        feat /= np.linalg.norm(feat) + 1e-12
+        return feat
+
+    def detect_and_embed(self, frame: np.ndarray):
+        """Detect faces in a frame and return bbox, landmarks, and embeddings."""
+        faces = self.detector.get(frame)
+        results = []
+        for f in faces:
+            x1, y1, x2, y2 = f.bbox.astype(int)
+            crop = frame[y1:y2, x1:x2]
+            if crop.size == 0:
+                continue
+            results.append(
+                {
+                    "bbox": f.bbox.astype(int),
+                    "kps": f.kps.astype(float),
+                    "embedding": self.embed(crop),
+                }
+            )
+        return results
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        """
+        Load image, detect main face, and return MagFace embedding.
+        Falls back to center crop if detector fails.
+        """
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[MagFace] Could not read image: {img_path}")
+
+        faces = self.detect_and_embed(frame)
+        if len(faces) > 0:
+            return faces[0]["embedding"]
+
+        # fallback: use center crop
+        h, w = frame.shape[:2]
+        min_dim = min(h, w)
+        start_x = (w - min_dim) // 2
+        start_y = (h - min_dim) // 2
+        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
+        return self.embed(crop)
+
+
+
+# ==== .\models\embeddings\embeddings.py ====
+
+import os
+import cv2
+import numpy as np
+from insightface.app import FaceAnalysis
+
+# Path to pretrained ArcFace buffalo_l
+MODEL_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "pretrained_models")
+)
+
+# Init ArcFace
+app = FaceAnalysis(name="buffalo_l", root=MODEL_ROOT)
+app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.3)  # lower threshold
+
+
+def extract_embedding(image_path):
+    """Extract ArcFace embedding. Falls back to resize-only mode if no face detected."""
+    img = cv2.imread(image_path)
+    if img is None:
+        print(f"[WARN] Could not read: {image_path}")
+        return None
+
+    faces = app.get(img)
+    if len(faces) > 0:
+        return faces[0].embedding.astype(np.float32)
+
+    # fallback: resize whole image
+    print(f"[FALLBACK] No face detected in {image_path}, using resize-only mode")
+    resized = cv2.resize(img, (112, 112))
+    # ArcFace recognition model expects BGR float32 input
+    emb = app.models["recognition"].get(resized).astype(np.float32)
+    return emb
+
+
+def process_directory(base_dir):
+    """Process each user folder and save embeddings.npy inside it."""
+    for person in os.listdir(base_dir):
+        person_dir = os.path.join(base_dir, person)
+        if not os.path.isdir(person_dir):
+            continue  # skip files
+
+        embeddings = []
+        for fname in os.listdir(person_dir):
+            if not fname.lower().endswith((".jpg", ".png", ".jpeg")):
+                continue
+            img_path = os.path.join(person_dir, fname)
+            emb = extract_embedding(img_path)
+            if emb is not None:
+                embeddings.append({"file": fname, "embedding": emb})
+
+        if embeddings:
+            save_path = os.path.join(person_dir, "embeddings.npy")
+            np.save(save_path, embeddings)
+            print(f"[OK] {person}: saved {len(embeddings)} embeddings -> {save_path}")
+        else:
+            print(f"[SKIP] {person}: no embeddings generated")
+
+
+if __name__ == "__main__":
+    BASE_DIR = os.path.dirname(__file__)  # current folder: embeddings/
+    process_directory(BASE_DIR)
+
