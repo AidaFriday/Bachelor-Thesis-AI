@@ -19,6 +19,7 @@ from connector import load_model
 
 
 class HomeWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
 
