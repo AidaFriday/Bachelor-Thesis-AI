@@ -8,23 +8,23 @@
   
 - Equal Error Rate (EER) - point where false accepts = false rejects
 - Occlusion (glasses, masks, partial face) - ???
-- Low resolution / blur
+- Low resolution / blur -> Test accuracy when input images are downsampled (e.g., 32×32, 64×64) or blurred (to simulates CCTV or motion blur scenarios)
 
 
 ## Demographic Fairness Metrics
-- Age-based accuracy - report separately for younger (<30) vs older (>50) groups (AgeDB, UTKFace)
-- Gender-based accuracy - report separately for male vs female
+- Age-based accuracy - report separately for younger (<30) vs older (>50) groups (Faces age differently, and models may bias toward one age group) (AgeDB, UTKFace)
+- Gender-based accuracy - report separately for male vs female (if models generalize fairly or show accuracy gaps between genders)
 - Ethnicity-based accuracy - using datasets like RFW or UTKFace (e.g., Asian, Caucasian, African, Indian)
 
 
 ## Efficiency / Runtime Metrics
-- Inference Time per Image (ms) - average latency per image
+- Inference Time per Image (ms) - average time (in milliseconds) to process a single image
 - Frames per Second (FPS) - useful for real-time webcam tests
-- Batch Size = 1 Latency - for true real-time evaluation
+- Batch Size = 1 Latency - for true real-time evaluation - ???
 
 ## Resource Usage
-- Model Size (MB) - storage footprint of pretrained weights
-- Memory Usage (RAM/VRAM) - peak during inference
+- Model Size (MB) - the file size on disk of the model’s pretrained weights
+- Memory Usage (RAM/VRAM) - peak memory consumption during inference. Affects whether models can run on low-resource devices
 - CPU vs GPU performance - performance drop on CPU-only setups
 
 ## Model Embedding Size
