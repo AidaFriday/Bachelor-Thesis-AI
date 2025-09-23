@@ -3,8 +3,8 @@
 ## Accuracy & Robustness Metrics
 - Verification Accuracy - Percentage of correctly verified pairs (same/different identity) on benchmark datasets like LFW, CFP-FP, AgeDB. It captures how well a model recognizes faces under normal     conditions
 - True Accept Rate (TAR), False Accept Rate (FAR) - biometric benchmark metric
-  - TAR = proportion of genuine pairs correctly accepted.
-  - FAR = proportion of impostor pairs incorrectly accepted.
+  - TAR = proportion of genuine pairs correctly accepted
+  - FAR = proportion of impostor pairs incorrectly accepted
   
 - Equal Error Rate (EER) - point where false accepts = false rejects
 - Occlusion (glasses, masks, partial face) - ???
