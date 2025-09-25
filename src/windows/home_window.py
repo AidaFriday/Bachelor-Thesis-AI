@@ -9,7 +9,8 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 from connector import load_model
 from components.sidebar import SideBar
-from components.settings import SettingsPage   # <-- NEW: not a popup
+from components.settings import SettingsPage   
+from windows.benchmark_window import BenchmarkPage
 
 
 class HomeWindow(QMainWindow):
@@ -26,8 +27,7 @@ class HomeWindow(QMainWindow):
         self.home_page = QWidget()
         home_layout = QVBoxLayout()
 
-        self.model_selector = QComboBox()
-        self.model_selector.addItems(["arcface", "facenet", "magface"])
+       
 
         self.start_btn = QPushButton("Start Camera")
         self.stop_btn = QPushButton("Stop Camera")
@@ -36,7 +36,6 @@ class HomeWindow(QMainWindow):
         self.video_label = QLabel("Camera feed will appear here")
         self.video_label.setAlignment(Qt.AlignCenter)
 
-        home_layout.addWidget(self.model_selector)
         home_layout.addWidget(self.start_btn)
         home_layout.addWidget(self.stop_btn)
         home_layout.addWidget(self.video_label)
@@ -44,10 +43,14 @@ class HomeWindow(QMainWindow):
 
         # Page 2: Settings
         self.settings_page = SettingsPage()
+        # Page 3: Benchmark
+        self.benchmark_page = BenchmarkPage()
+        self.stacked.addWidget(self.benchmark_page)  # index 2
 
         # Add pages to stacked
         self.stacked.addWidget(self.home_page)     # index 0
         self.stacked.addWidget(self.settings_page) # index 1
+        self.stacked.addWidget(self.benchmark_page)  # index 2
 
         # Sidebar
         self.sidebar = SideBar()
@@ -58,6 +61,7 @@ class HomeWindow(QMainWindow):
         # Sidebar navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
+        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2)) 
 
         # Layout wrapper
         wrapper_layout = QVBoxLayout()
@@ -86,7 +90,8 @@ class HomeWindow(QMainWindow):
         self.stop_btn.clicked.connect(self.stop_camera)
 
     def start_camera(self):
-        model_name = self.model_selector.currentText()
+        # get model from Settings page
+        model_name = self.settings_page.model_name
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
@@ -98,6 +103,7 @@ class HomeWindow(QMainWindow):
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
+
 
     def stop_camera(self):
         self.timer.stop()
