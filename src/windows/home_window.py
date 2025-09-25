@@ -1,71 +1,73 @@
 # ==== windows/home_window.py ====
-
-import sys
-import cv2
-import numpy as np
 from PyQt5.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QLabel,
-    QPushButton,
-    QVBoxLayout,
-    QHBoxLayout,
-    QWidget,
-    QComboBox,
+    QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QWidget, QComboBox, QStackedWidget
 )
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
 
+import cv2
 from connector import load_model
 from components.sidebar import SideBar
+from components.settings import SettingsPage   # <-- NEW: not a popup
 
 
 class HomeWindow(QMainWindow):
-
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Face Recognition Benchmark App")
         self.setGeometry(100, 100, 900, 700)
 
-         # === Right-side content widgets ===
+        # --- Stacked pages ---
+        self.stacked = QStackedWidget()
+
+        # Page 1: Home (camera UI)
+        self.home_page = QWidget()
+        home_layout = QVBoxLayout()
+
         self.model_selector = QComboBox()
         self.model_selector.addItems(["arcface", "facenet", "magface"])
 
-        # Buttons
         self.start_btn = QPushButton("Start Camera")
         self.stop_btn = QPushButton("Stop Camera")
         self.stop_btn.setEnabled(False)
 
-        # Video display
         self.video_label = QLabel("Camera feed will appear here")
         self.video_label.setAlignment(Qt.AlignCenter)
 
-        # === Layout for right side ===
-        right_layout = QVBoxLayout()
-        right_layout.addWidget(self.model_selector)
-        right_layout.addWidget(self.start_btn)
-        right_layout.addWidget(self.stop_btn)
-        right_layout.addWidget(self.video_label)
+        home_layout.addWidget(self.model_selector)
+        home_layout.addWidget(self.start_btn)
+        home_layout.addWidget(self.stop_btn)
+        home_layout.addWidget(self.video_label)
+        self.home_page.setLayout(home_layout)
 
-        right_container = QWidget()
-        right_container.setLayout(right_layout)
+        # Page 2: Settings
+        self.settings_page = SettingsPage()
+
+        # Add pages to stacked
+        self.stacked.addWidget(self.home_page)     # index 0
+        self.stacked.addWidget(self.settings_page) # index 1
 
         # Sidebar
         self.sidebar = SideBar()
-        self.toggle_btn = QPushButton ("☰ Menu") # hamburger button
+        self.toggle_btn = QPushButton("☰ Menu")
         self.toggle_btn.setFixedHeight(40)
         self.toggle_btn.clicked.connect(self.sidebar.toggle)
 
-         # Place toggle + content vertically
+        # Sidebar navigation
+        self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
+        self.sidebar.btn_settings.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
+
+        # Layout wrapper
         wrapper_layout = QVBoxLayout()
         wrapper_layout.addWidget(self.toggle_btn, alignment=Qt.AlignLeft)
-        wrapper_layout.addWidget(right_container)
+        wrapper_layout.addWidget(self.stacked)
 
         wrapper = QWidget()
         wrapper.setLayout(wrapper_layout)
 
-        # === Main layout (sidebar + right content) ===
+        # Main layout
         main_layout = QHBoxLayout()
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(wrapper)
@@ -74,14 +76,12 @@ class HomeWindow(QMainWindow):
         container.setLayout(main_layout)
         self.setCentralWidget(container)
 
-        # Camera handling
+        # Camera
         self.cap = None
         self.wrapper = None
-
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
 
-        # Connect buttons
         self.start_btn.clicked.connect(self.start_camera)
         self.stop_btn.clicked.connect(self.stop_camera)
 
@@ -97,7 +97,7 @@ class HomeWindow(QMainWindow):
 
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.timer.start(30)  # update ~30fps
+        self.timer.start(30)
 
     def stop_camera(self):
         self.timer.stop()
@@ -115,7 +115,6 @@ class HomeWindow(QMainWindow):
         if not ok:
             return
 
-        # Detect + embed
         faces = self.wrapper.detect_and_embed(frame)
         disp = frame.copy()
         for f in faces:
@@ -124,7 +123,6 @@ class HomeWindow(QMainWindow):
             for px, py in f["kps"].astype(int):
                 cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
 
-        # Convert to Qt image
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
