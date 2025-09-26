@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QWidget, QComboBox, QStackedWidget
 )
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QSize
 from PyQt5.QtGui import QImage, QPixmap
 
 import cv2
@@ -54,9 +54,9 @@ class HomeWindow(QMainWindow):
 
         # Sidebar
         self.sidebar = SideBar()
-        self.toggle_btn = QPushButton("☰ Menu")
-        self.toggle_btn.setFixedHeight(40)
-        self.toggle_btn.clicked.connect(self.sidebar.toggle)
+        self.toggle_btn = QPushButton("☰")
+        self.toggle_btn.setFixedSize(QSize(40, 40))  # square button
+        self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
         # Sidebar navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
@@ -133,3 +133,11 @@ class HomeWindow(QMainWindow):
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(qimg))
+
+    def toggle_sidebar(self):
+        """Toggle sidebar and update button text."""
+        self.sidebar.toggle()
+        if self.sidebar._collapsed:
+            self.toggle_btn.setText("☰")   # burger
+        else:
+            self.toggle_btn.setText("←")   # back arrow
