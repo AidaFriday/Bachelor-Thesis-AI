@@ -5,33 +5,18 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-# --- Bootstrap sys.path so "models" etc. are importable ---
+# --- Bootstrap sys.path so project root is importable ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-# Wrappers
-from models.wrap_arcface import ArcFaceWrapper
-from models.wrap_facenet import FaceNetWrapper
-from models.wrap_magface import MagFaceWrapper
-
-
-def load_wrapper(model_name: str):
-    if model_name.lower() == "arcface":
-        return ArcFaceWrapper(device="cpu")
-    elif model_name.lower() == "facenet":
-        return FaceNetWrapper(device="cpu")
-    elif model_name.lower() == "magface":
-        return MagFaceWrapper(device="cpu")
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
-
+from connector import load_model
 
 # -------------------------------
 # Args
 # -------------------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, required=True, help="Model name from settings")
+parser.add_argument("--model", type=str, required=True, help="Model name (arcface|facenet|deepface)")
 args = parser.parse_args()
 print(f"[DEBUG] accuracy.py running with model={args.model}")
 
@@ -58,7 +43,7 @@ print(f"[INFO] Loaded {len(user1_embs)} user1 embeddings.")
 # -------------------------------
 # Init selected model wrapper
 # -------------------------------
-wrapper = load_wrapper(args.model)
+wrapper = load_model(args.model)
 
 
 def extract_embedding(image_path):
@@ -75,16 +60,9 @@ def extract_embedding(image_path):
     # fallback: center crop + embed
     h, w = img.shape[:2]
     min_dim = min(h, w)
-    crop = img[(h - min_dim)//2:(h + min_dim)//2, (w - min_dim)//2:(w + min_dim)//2]
-    return wrapper.get_embedding_from_array(crop)
-
-
-# Patch wrappers to allow array embedding if not defined
-def emb_from_array(bgr):
-    faces = wrapper.detect_and_embed(bgr)
-    return faces[0]["embedding"] if faces else np.zeros((512,), dtype=np.float32)
-
-wrapper.get_embedding_from_array = emb_from_array
+    crop = img[(h - min_dim)//2:(h + min_dim)//2,
+               (w - min_dim)//2:(w + min_dim)//2]
+    return wrapper.embed(crop)
 
 
 def cosine_sim(a, b):

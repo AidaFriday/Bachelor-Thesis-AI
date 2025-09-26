@@ -3,27 +3,14 @@ import time
 import numpy as np
 import os, json, sys
 
-# --- Bootstrap sys.path so "models" etc. are importable ---
+# --- Bootstrap sys.path ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from models.wrap_arcface import ArcFaceWrapper
-from models.wrap_facenet import FaceNetWrapper
-from models.wrap_magface import MagFaceWrapper
+from connector import load_model
 
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
-
-
-def load_wrapper(model_name: str):
-    if model_name.lower() == "arcface":
-        return ArcFaceWrapper(device="cpu")
-    elif model_name.lower() == "facenet":
-        return FaceNetWrapper(device="cpu")
-    elif model_name.lower() == "magface":
-        return MagFaceWrapper(device="cpu")
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
 
 
 def measure_inference_time(wrapper, model_name: str, iters: int = 50):
@@ -33,11 +20,11 @@ def measure_inference_time(wrapper, model_name: str, iters: int = 50):
 
     # Warm-up
     for _ in range(5):
-        _ = wrapper.get_embedding_from_array(x)
+        _ = wrapper.embed(x)
 
     start = time.perf_counter()
     for _ in range(iters):
-        _ = wrapper.get_embedding_from_array(x)
+        _ = wrapper.embed(x)
     end = time.perf_counter()
 
     avg_ms = (end - start) * 1000.0 / iters
@@ -49,7 +36,7 @@ def measure_inference_time(wrapper, model_name: str, iters: int = 50):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, help="Model name from settings")
+    parser.add_argument("--model", type=str, help="Model name (arcface|facenet|deepface)")
     parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
     args = parser.parse_args()
 
@@ -64,13 +51,7 @@ def main():
         sys.exit(1)
 
     print(f"[DEBUG] performance.py running with model={args.model}")
-    wrapper = load_wrapper(args.model)
-
-    def emb_from_array(bgr):
-        faces = wrapper.detect_and_embed(bgr)
-        return faces[0]["embedding"] if faces else np.zeros((512,), dtype=np.float32)
-
-    wrapper.get_embedding_from_array = emb_from_array
+    wrapper = load_model(args.model)
     measure_inference_time(wrapper, args.model, iters=args.iters)
 
 

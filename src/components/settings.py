@@ -29,7 +29,7 @@ class SettingsPage(QWidget):
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["arcface", "facenet", "magface"])
+        self.model_combo.addItems(["arcface", "facenet", "insightface"])
         # set current selection from saved settings
         idx = self.model_combo.findText(self.model_name)
         if idx >= 0:
