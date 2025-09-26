@@ -15,29 +15,24 @@ class ArcFaceWrapper:
     def __init__(
         self,
         device: str = "cpu",
-        model_path: str = "src/models/pretrained_models",
+        model_path: str = "src/models/pretrained_models/arcface_repo/models",
         input_size=(112, 112),
     ):
         self.device = device
         self.input_size = input_size
 
-        # If user points directly to buffalo_l, strip to get the parent
-        if model_path.endswith("buffalo_l"):
-            root_path = os.path.dirname(model_path)
-            buffalo_dir = model_path
-        else:
-            root_path = model_path
-            buffalo_dir = os.path.join(model_path, "buffalo_l")
+        # Always resolve to absolute paths
+        model_path = os.path.abspath(model_path)
 
-        # --- Fix: handle InsightFace auto-download under "models/buffalo_l"
-        alt_dir = os.path.join(root_path, "models", "buffalo_l")
-        if not os.path.isdir(buffalo_dir) and os.path.isdir(alt_dir):
-            print(f"[ArcFace] Found buffalo_l under unexpected path, using: {alt_dir}")
-            buffalo_dir = alt_dir
-            root_path = os.path.dirname(buffalo_dir)
+        # Expected buffalo_l directory
+        buffalo_dir = os.path.join(model_path, "buffalo_l")
+        root_path = model_path
 
-        # Ensure buffalo_l exists (insightface will auto-download if missing)
-        os.makedirs(buffalo_dir, exist_ok=True)
+        if not os.path.isdir(buffalo_dir):
+            raise RuntimeError(
+                f"[ArcFace] buffalo_l not found at {buffalo_dir}. "
+                "Run download_arcface_models.py to fetch it."
+            )
 
         ctx_id = 0 if device == "cuda" else -1
 
