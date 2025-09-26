@@ -1,7 +1,6 @@
-# ==== windows/home_window.py ====
 from PyQt5.QtWidgets import (
     QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QWidget, QComboBox, QStackedWidget
+    QWidget, QStackedWidget
 )
 from PyQt5.QtCore import QTimer, Qt, QSize
 from PyQt5.QtGui import QImage, QPixmap
@@ -9,7 +8,7 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 from connector import load_model
 from components.sidebar import SideBar
-from components.settings import SettingsPage
+from components.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from windows.benchmark_window import BenchmarkPage
 
 
@@ -41,21 +40,22 @@ class HomeWindow(QMainWindow):
 
         # Page 2: Settings
         self.settings_page = SettingsPage()
+        self.settings_page.theme_changed.connect(self.apply_theme)  # 🔔 listen for theme change
 
-        # Page 3: Benchmark (pass callback for model name)
+        # Page 3: Benchmark
         self.benchmark_page = BenchmarkPage(
             get_model_name=lambda: self.settings_page.model_name
         )
 
         # Add pages to stacked
-        self.stacked.addWidget(self.home_page)      # index 0
-        self.stacked.addWidget(self.settings_page)  # index 1
-        self.stacked.addWidget(self.benchmark_page) # index 2
+        self.stacked.addWidget(self.home_page)
+        self.stacked.addWidget(self.settings_page)
+        self.stacked.addWidget(self.benchmark_page)
 
         # Sidebar
         self.sidebar = SideBar()
         self.toggle_btn = QPushButton("☰")
-        self.toggle_btn.setFixedSize(QSize(40, 40))  # square button
+        self.toggle_btn.setFixedSize(QSize(40, 40))
         self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
         # Sidebar navigation
@@ -89,8 +89,10 @@ class HomeWindow(QMainWindow):
         self.start_btn.clicked.connect(self.start_camera)
         self.stop_btn.clicked.connect(self.stop_camera)
 
+        # Apply initial theme
+        self.apply_theme(self.settings_page.theme)
+
     def start_camera(self):
-        # get model from Settings page
         model_name = self.settings_page.model_name
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
@@ -134,9 +136,19 @@ class HomeWindow(QMainWindow):
         self.video_label.setPixmap(QPixmap.fromImage(qimg))
 
     def toggle_sidebar(self):
-        """Toggle sidebar and update button text."""
         self.sidebar.toggle()
         if self.sidebar._collapsed:
-            self.toggle_btn.setText("☰")   # burger
+            self.toggle_btn.setText("☰")
         else:
-            self.toggle_btn.setText("←")   # back arrow
+            self.toggle_btn.setText("←")
+
+    def apply_theme(self, theme: str):
+        """Apply theme globally to the entire window."""
+        if theme == "dark":
+            self.setStyleSheet(DARK_THEME)
+        else:
+            self.setStyleSheet(LIGHT_THEME)
+
+        # also update sidebar buttons
+        self.sidebar.apply_theme(theme)
+
