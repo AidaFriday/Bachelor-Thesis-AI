@@ -14,16 +14,16 @@ class FaceNetWrapper:
 
     name = "facenet"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models/facenet",
-        input_size=(160, 160),
-    ):
+    def __init__(self, device: str = "cpu", model_path: str = None, input_size=(160, 160)):
         self.device = torch.device(device)
         self.input_size = input_size
 
-        if not model_path or not os.path.isdir(model_path):
+        # Resolve project root (the "src" directory)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if model_path is None:
+            model_path = os.path.join(base_dir, "models", "pretrained_models", "facenet")
+
+        if not os.path.isdir(model_path):
             raise RuntimeError(f"[FaceNet] Local repo not found at: {model_path}")
 
         # Add parent of facenet to sys.path → so we can `import facenet.models...`
@@ -95,5 +95,5 @@ class FaceNetWrapper:
         min_dim = min(h, w)
         start_x = (w - min_dim) // 2
         start_y = (h - min_dim) // 2
-        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
+        crop = frame[start_y:start_y + min_dim, start_x:start_x + min_dim]
         return self.embed(crop)

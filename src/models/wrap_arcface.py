@@ -12,22 +12,20 @@ class ArcFaceWrapper:
 
     name = "arcface"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models/arcface_repo/models",
-        input_size=(112, 112),
-    ):
+    def __init__(self, device: str = "cpu", model_path: str = None, input_size=(112, 112)):
         self.device = device
         self.input_size = input_size
 
-        # Always resolve to absolute paths
+        # Resolve project root (the "src" directory)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if model_path is None:
+            model_path = os.path.join(
+                base_dir, "models", "pretrained_models", "arcface_repo", "models"
+            )
         model_path = os.path.abspath(model_path)
 
         # Expected buffalo_l directory
         buffalo_dir = os.path.join(model_path, "buffalo_l")
-        root_path = model_path
-
         if not os.path.isdir(buffalo_dir):
             raise RuntimeError(
                 f"[ArcFace] buffalo_l not found at {buffalo_dir}. "
@@ -35,14 +33,12 @@ class ArcFaceWrapper:
             )
 
         ctx_id = 0 if device == "cuda" else -1
-
         print(f"[ArcFace] Using buffalo_l at: {buffalo_dir}")
 
         # InsightFace FaceAnalysis provides detection + embedding
-        self.detector = FaceAnalysis(root=root_path, name="buffalo_l")
+        self.detector = FaceAnalysis(root=model_path, name="buffalo_l")
         self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
-        # Verify recognition model is loaded
         if (
             "recognition" not in self.detector.models
             or self.detector.models["recognition"] is None
@@ -53,12 +49,11 @@ class ArcFaceWrapper:
             )
 
     def detect_and_embed(self, frame: np.ndarray):
-        """Detect faces and return bbox, landmarks, and ArcFace embeddings."""
         faces = self.detector.get(frame)
         results = []
         for f in faces:
             if getattr(f, "embedding", None) is None:
-                continue  # skip if embedding not available
+                continue
             results.append(
                 {
                     "bbox": f.bbox.astype(int),
@@ -69,16 +64,12 @@ class ArcFaceWrapper:
         return results
 
     def get_embedding(self, img_path: str) -> np.ndarray:
-        """
-        Load image, detect main face, and return ArcFace embedding.
-        Falls back to center crop + no alignment if detector fails.
-        """
         frame = cv2.imread(img_path)
         if frame is None:
             raise ValueError(f"[ArcFace] Could not read image: {img_path}")
 
         faces = self.detect_and_embed(frame)
-        if len(faces) > 0:
+        if faces:
             return faces[0]["embedding"]
 
         # fallback: center crop

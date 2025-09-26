@@ -1,3 +1,22 @@
+# ==== Collected Python Files ====
+.\connector.py
+.\extractor.py
+.\main.py
+.\benchmark_parameters\accuracy.py
+.\benchmark_parameters\performance.py
+.\components\camera.py
+.\components\face_detection.py
+.\components\settings.py
+.\components\sidebar.py
+.\example1\train_lfw_arcface_cpu.py
+.\models\wrap_arcface.py
+.\models\wrap_facenet.py
+.\models\wrap_magface.py
+.\windows\benchmark_window.py
+.\windows\home_window.py
+
+
+# ==== File Contents Below ====
 
 
 # ==== .\connector.py ====
@@ -40,23 +59,36 @@ import os
 def collect_python_code(
     root_dir=".", output_file="all_code.txt", exclude_folder="pretrained_models"
 ):
-    with open(output_file, "w", encoding="utf-8") as out:
-        for dirpath, dirnames, filenames in os.walk(root_dir):
-            # Skip excluded folder
-            if exclude_folder in dirpath.split(os.sep):
-                continue
+    python_files = []
 
-            for filename in filenames:
-                if filename.endswith(".py"):
-                    file_path = os.path.join(dirpath, filename)
-                    try:
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            code = f.read()
-                        out.write(f"\n\n# ==== {file_path} ====\n\n")
-                        out.write(code)
-                        out.write("\n")
-                    except Exception as e:
-                        print(f"Skipping {file_path}: {e}")
+    # First, collect all file paths
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Skip excluded folder
+        if exclude_folder in dirpath.split(os.sep):
+            continue
+
+        for filename in filenames:
+            if filename.endswith(".py"):
+                file_path = os.path.join(dirpath, filename)
+                python_files.append(file_path)
+
+    with open(output_file, "w", encoding="utf-8") as out:
+        # Write file list header
+        out.write("# ==== Collected Python Files ====\n")
+        for path in python_files:
+            out.write(path + "\n")
+        out.write("\n\n# ==== File Contents Below ====\n")
+
+        # Write each file’s content
+        for file_path in python_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    code = f.read()
+                out.write(f"\n\n# ==== {file_path} ====\n\n")
+                out.write(code)
+                out.write("\n")
+            except Exception as e:
+                print(f"Skipping {file_path}: {e}")
 
 
 if __name__ == "__main__":
@@ -91,59 +123,87 @@ if __name__ == "__main__":
 # ==== .\benchmark_parameters\accuracy.py ====
 
 import os
-import json
+import argparse
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from insightface.app import FaceAnalysis
+
+# Wrappers
+from models.wrap_arcface import ArcFaceWrapper
+from models.wrap_facenet import FaceNetWrapper
+from models.wrap_magface import MagFaceWrapper
+
+
+def load_wrapper(model_name: str):
+    if model_name.lower() == "arcface":
+        return ArcFaceWrapper(device="cpu")
+    elif model_name.lower() == "facenet":
+        return FaceNetWrapper(device="cpu")
+    elif model_name.lower() == "magface":
+        return MagFaceWrapper(device="cpu")
+    else:
+        raise ValueError(f"Unknown model: {model_name}")
+
+
+# -------------------------------
+# Args
+# -------------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", type=str, required=True, help="Model name from settings")
+args = parser.parse_args()
+print(f"[DEBUG] accuracy.py running with model={args.model}")
 
 # -------------------------------
 # Config
 # -------------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src root
-DATASET_DIR = os.path.join(BASE_DIR, "dataset")  # adjust if dataset path different
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 USER1_EMBED_DIR = os.path.join(BASE_DIR, "models", "embeddings", "user1")
 USER1_EMBED_FILE = os.path.join(USER1_EMBED_DIR, "embeddings.npy")
 
-# Threshold for cosine similarity (tune this after plotting)
 SIM_THRESHOLD = 0.5
-
-# Output text file (next to this script)
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "found_matches.txt")
 
 # -------------------------------
-# Load embeddings from user1
+# Load user1 embeddings
 # -------------------------------
 if not os.path.exists(USER1_EMBED_FILE):
-    raise FileNotFoundError(
-        f"[ERROR] Missing {USER1_EMBED_FILE}. Run embeddings.py first."
-    )
+    raise FileNotFoundError(f"[ERROR] Missing {USER1_EMBED_FILE}. Run embeddings.py first.")
 
 user1_data = np.load(USER1_EMBED_FILE, allow_pickle=True)
 user1_embs = np.stack([entry["embedding"] for entry in user1_data])
 print(f"[INFO] Loaded {len(user1_embs)} user1 embeddings.")
 
 # -------------------------------
-# Init ArcFace
+# Init selected model wrapper
 # -------------------------------
-MODEL_ROOT = os.path.join(BASE_DIR, "models", "pretrained_models")
-app = FaceAnalysis(name="buffalo_l", root=MODEL_ROOT)
-app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.3)
+wrapper = load_wrapper(args.model)
 
 
 def extract_embedding(image_path):
-    """Get embedding with fallback mode."""
+    """Get embedding for an image using the wrapper."""
     img = cv2.imread(image_path)
     if img is None:
         print(f"[WARN] Could not read: {image_path}")
         return None
-    faces = app.get(img)
-    if len(faces) > 0:
-        return faces[0].embedding.astype(np.float32)
-    # fallback: resize only
-    resized = cv2.resize(img, (112, 112))
-    emb = app.models["recognition"].get(resized).astype(np.float32)
-    return emb
+
+    faces = wrapper.detect_and_embed(img)
+    if faces:
+        return faces[0]["embedding"]
+
+    # fallback: center crop + embed
+    h, w = img.shape[:2]
+    min_dim = min(h, w)
+    crop = img[(h - min_dim)//2:(h + min_dim)//2, (w - min_dim)//2:(w + min_dim)//2]
+    return wrapper.get_embedding_from_array(crop)
+
+
+# Patch wrappers to allow array embedding if not defined
+def emb_from_array(bgr):
+    faces = wrapper.detect_and_embed(bgr)
+    return faces[0]["embedding"] if faces else np.zeros((512,), dtype=np.float32)
+
+wrapper.get_embedding_from_array = emb_from_array
 
 
 def cosine_sim(a, b):
@@ -153,8 +213,7 @@ def cosine_sim(a, b):
 # -------------------------------
 # Compare dataset images
 # -------------------------------
-y_true, scores = [], []  # for analysis
-matches = []  # store successful matches
+y_true, scores, matches = [], [], []
 
 for root, _, files in os.walk(DATASET_DIR):
     for fname in files:
@@ -168,7 +227,6 @@ for root, _, files in os.walk(DATASET_DIR):
         sims = [cosine_sim(emb, u) for u in user1_embs]
         best_sim = max(sims)
 
-        # Heuristic: if inside user1 folder → positive label, else negative
         label = 1 if "user1" in root.lower() else 0
         y_true.append(label)
         scores.append(best_sim)
@@ -180,7 +238,7 @@ for root, _, files in os.walk(DATASET_DIR):
             print(f"[NO MATCH] {path} (similarity={best_sim:.3f})")
 
 # -------------------------------
-# Save matches to txt file
+# Save matches
 # -------------------------------
 if matches:
     with open(OUTPUT_FILE, "w") as f:
@@ -191,21 +249,98 @@ else:
     print("[INFO] No matches found, nothing saved.")
 
 # -------------------------------
-# Plot similarity distributions
+# Plot results
 # -------------------------------
 pos = [s for s, y in zip(scores, y_true) if y == 1]
 neg = [s for s, y in zip(scores, y_true) if y == 0]
 
 plt.hist(pos, bins=50, alpha=0.6, label="Positive (user1)", color="g")
 plt.hist(neg, bins=50, alpha=0.6, label="Negative (others)", color="r")
-plt.axvline(
-    SIM_THRESHOLD, color="blue", linestyle="--", label=f"Threshold={SIM_THRESHOLD}"
-)
+plt.axvline(SIM_THRESHOLD, color="blue", linestyle="--", label=f"Threshold={SIM_THRESHOLD}")
 plt.xlabel("Cosine Similarity")
 plt.ylabel("Frequency")
 plt.legend()
-plt.title("Face Verification: Similarity Distributions")
+plt.title(f"Face Verification (model={args.model})")
 plt.show()
+
+
+
+# ==== .\benchmark_parameters\performance.py ====
+
+import argparse
+import time
+import numpy as np
+import os, json, sys
+
+from models.wrap_arcface import ArcFaceWrapper
+from models.wrap_facenet import FaceNetWrapper
+from models.wrap_magface import MagFaceWrapper
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+
+
+def load_wrapper(model_name: str):
+    if model_name.lower() == "arcface":
+        return ArcFaceWrapper(device="cpu")
+    elif model_name.lower() == "facenet":
+        return FaceNetWrapper(device="cpu")
+    elif model_name.lower() == "magface":
+        return MagFaceWrapper(device="cpu")
+    else:
+        raise ValueError(f"Unknown model: {model_name}")
+
+
+def measure_inference_time(wrapper, model_name: str, iters: int = 50):
+    print(f"[DEBUG] Starting performance test for model '{model_name}'")
+    h, w = wrapper.input_size
+    x = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+
+    # Warm-up
+    for _ in range(5):
+        _ = wrapper.get_embedding_from_array(x)
+
+    start = time.perf_counter()
+    for _ in range(iters):
+        _ = wrapper.get_embedding_from_array(x)
+    end = time.perf_counter()
+
+    avg_ms = (end - start) * 1000.0 / iters
+    fps = 1000.0 / avg_ms if avg_ms > 0 else float("inf")
+
+    print(f"[RESULT] Model: {model_name}")
+    print(f"         Avg inference: {avg_ms:.2f} ms | {fps:.1f} FPS")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, help="Model name from settings")
+    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
+    args = parser.parse_args()
+
+    # If not given via CLI → load from settings.json
+    if not args.model:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, "r") as f:
+                data = json.load(f)
+            args.model = data.get("model")
+    if not args.model:
+        print("[ERROR] No model selected in settings.")
+        sys.exit(1)
+
+    print(f"[DEBUG] performance.py running with model={args.model}")
+    wrapper = load_wrapper(args.model)
+
+    def emb_from_array(bgr):
+        faces = wrapper.detect_and_embed(bgr)
+        return faces[0]["embedding"] if faces else np.zeros((512,), dtype=np.float32)
+
+    wrapper.get_embedding_from_array = emb_from_array
+    measure_inference_time(wrapper, args.model, iters=args.iters)
+
+
+if __name__ == "__main__":
+    main()
 
 
 
@@ -310,12 +445,14 @@ class RetinaFaceDetector:
 
 # ==== .\components\settings.py ====
 
-# ==== components/settings.py ====
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QComboBox,
     QFileDialog, QMessageBox
 )
 import os
+import json
+
+SETTINGS_FILE = "settings.json"
 
 
 class SettingsPage(QWidget):
@@ -324,10 +461,15 @@ class SettingsPage(QWidget):
         self.dataset_path = None
         self.model_name = "arcface"
 
+        # Try to load saved settings
+        self.load_settings()
+
         layout = QVBoxLayout()
 
         # --- Dataset selection ---
         self.dataset_label = QLabel("Choose dataset folder:")
+        if self.dataset_path:
+            self.dataset_label.setText(f"Dataset: {self.dataset_path}")
         self.dataset_btn = QPushButton("Browse Dataset")
         self.dataset_btn.clicked.connect(self.browse_dataset)
 
@@ -335,7 +477,11 @@ class SettingsPage(QWidget):
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
         self.model_combo.addItems(["arcface", "facenet", "magface"])
-        self.model_combo.currentTextChanged.connect(self.update_model)  # 👈 instant sync
+        # set current selection from saved settings
+        idx = self.model_combo.findText(self.model_name)
+        if idx >= 0:
+            self.model_combo.setCurrentIndex(idx)
+        self.model_combo.currentTextChanged.connect(self.update_model)
 
         # --- Save button ---
         self.save_btn = QPushButton("Save Settings")
@@ -365,12 +511,31 @@ class SettingsPage(QWidget):
         self.model_name = text
 
     def save_settings(self):
-        """Still show confirmation dialog if user clicks save."""
+        """Save settings to JSON file and show confirmation."""
+        data = {
+            "model": self.model_name,
+            "dataset": self.dataset_path,
+        }
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+
         msg = (
             f"✅ Settings saved:\n\n"
             f"Model: {self.model_name}\nDataset: {self.dataset_path or 'Not selected'}"
         )
         QMessageBox.information(self, "Settings", msg)
+
+    def load_settings(self):
+        """Load settings from JSON if exists."""
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                self.model_name = data.get("model", "arcface")
+                self.dataset_path = data.get("dataset", None)
+                print(f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}")
+            except Exception as e:
+                print(f"[WARN] Could not load settings.json: {e}")
 
 
 
@@ -825,29 +990,24 @@ class ArcFaceWrapper:
     def __init__(
         self,
         device: str = "cpu",
-        model_path: str = "src/models/pretrained_models",
+        model_path: str = "src/models/pretrained_models/arcface_repo/models",
         input_size=(112, 112),
     ):
         self.device = device
         self.input_size = input_size
 
-        # If user points directly to buffalo_l, strip to get the parent
-        if model_path.endswith("buffalo_l"):
-            root_path = os.path.dirname(model_path)
-            buffalo_dir = model_path
-        else:
-            root_path = model_path
-            buffalo_dir = os.path.join(model_path, "buffalo_l")
+        # Always resolve to absolute paths
+        model_path = os.path.abspath(model_path)
 
-        # --- Fix: handle InsightFace auto-download under "models/buffalo_l"
-        alt_dir = os.path.join(root_path, "models", "buffalo_l")
-        if not os.path.isdir(buffalo_dir) and os.path.isdir(alt_dir):
-            print(f"[ArcFace] Found buffalo_l under unexpected path, using: {alt_dir}")
-            buffalo_dir = alt_dir
-            root_path = os.path.dirname(buffalo_dir)
+        # Expected buffalo_l directory
+        buffalo_dir = os.path.join(model_path, "buffalo_l")
+        root_path = model_path
 
-        # Ensure buffalo_l exists (insightface will auto-download if missing)
-        os.makedirs(buffalo_dir, exist_ok=True)
+        if not os.path.isdir(buffalo_dir):
+            raise RuntimeError(
+                f"[ArcFace] buffalo_l not found at {buffalo_dir}. "
+                "Run download_arcface_models.py to fetch it."
+            )
 
         ctx_id = 0 if device == "cuda" else -1
 
@@ -1138,37 +1298,133 @@ class MagFaceWrapper:
 
 # ==== .\windows\benchmark_window.py ====
 
-# ==== windows/benchmark_window.py ====
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton
+import os
+import sys
+import subprocess
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QStackedWidget, QFrame, QTextEdit
+)
+from PyQt5.QtCore import QThread, pyqtSignal
+
+
+class RunnerThread(QThread):
+    output_signal = pyqtSignal(str)
+
+    def __init__(self, file_path, model_name):
+        super().__init__()
+        self.file_path = file_path
+        self.model_name = model_name
+
+    def run(self):
+        try:
+            cmd = [sys.executable, self.file_path, "--model", self.model_name]
+            self.output_signal.emit(f"[DEBUG] Running command: {' '.join(cmd)}\n")
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            for line in process.stdout:
+                self.output_signal.emit(line.rstrip())
+            process.stdout.close()
+            process.wait()
+            self.output_signal.emit(f"\n[INFO] Finished {os.path.basename(self.file_path)}\n")
+        except Exception as e:
+            self.output_signal.emit(f"[ERROR] Failed to run {self.file_path}: {e}\n")
+
 
 class BenchmarkPage(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, get_model_name=None):
+        """
+        get_model_name: callback returning the currently selected model
+        """
         super().__init__(parent)
+        self.get_model_name = get_model_name
 
-        layout = QVBoxLayout()
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
 
-        # --- Benchmark parameter buttons ---
-        self.btn_accuracy   = QPushButton("Accuracy")
-        self.btn_efficiency = QPushButton("Efficiency / Runtime Metrics")
-        self.btn_resources  = QPushButton("Resource Usage")
-        self.btn_memory     = QPushButton("Memory Consumption")   # placeholder
-        self.btn_latency    = QPushButton("Latency")              # placeholder
-        self.btn_energy     = QPushButton("Energy Usage")         # placeholder
+        main_layout = QVBoxLayout()
 
-        # Add them to layout
-        for btn in [
-            self.btn_accuracy,
-            self.btn_efficiency,
-            self.btn_resources,
-            self.btn_memory,
-            self.btn_latency,
-            self.btn_energy,
-        ]:
+        # --- row of buttons ---
+        self.button_layout = QHBoxLayout()
+        main_layout.addLayout(self.button_layout)
+
+        # --- output area ---
+        self.output_stack = QStackedWidget()
+        self.pages = {}
+
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                border: 2px solid #800080;
+                border-radius: 6px;
+                background-color: #fafafa;
+            }
+        """)
+        frame_layout = QVBoxLayout()
+        frame_layout.addWidget(self.output_stack)
+        frame.setLayout(frame_layout)
+
+        main_layout.addWidget(frame)
+        self.setLayout(main_layout)
+
+        self.load_benchmark_tabs()
+        self.output_stack.setCurrentIndex(-1)
+        self.current_thread = None
+
+    def load_benchmark_tabs(self):
+        if not os.path.isdir(self.benchmark_dir):
+            print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
+            return
+
+        for fname in sorted(os.listdir(self.benchmark_dir)):
+            if not fname.endswith(".py"):
+                continue
+            file_path = os.path.join(self.benchmark_dir, fname)
+            tab_name = os.path.splitext(fname)[0]
+
+            # button
+            btn = QPushButton(tab_name.capitalize())
             btn.setMinimumHeight(40)
-            layout.addWidget(btn)
+            btn.clicked.connect(lambda _, n=tab_name, p=file_path: self.run_script(n, p))
+            self.button_layout.addWidget(btn)
 
-        layout.addStretch()
-        self.setLayout(layout)
+            # output page
+            page = QWidget()
+            layout = QVBoxLayout()
+            text_box = QTextEdit()
+            text_box.setReadOnly(True)
+            layout.addWidget(text_box)
+            page.setLayout(layout)
+            idx = self.output_stack.addWidget(page)
+
+            self.pages[tab_name] = (idx, text_box)
+
+    def run_script(self, name, file_path):
+        if name not in self.pages:
+            return
+        idx, text_box = self.pages[name]
+        self.output_stack.setCurrentIndex(idx)
+        text_box.clear()
+
+        model_name = self.get_model_name() if self.get_model_name else None
+        if not model_name:
+            msg = "[ERROR] No model selected in settings."
+            text_box.setPlainText(msg)
+            return
+
+        text_box.append(f"[DEBUG] Selected model: {model_name}\n▶ Running {os.path.basename(file_path)}...\n")
+
+        if self.current_thread and self.current_thread.isRunning():
+            self.current_thread.terminate()
+
+        self.current_thread = RunnerThread(file_path, model_name)
+        self.current_thread.output_signal.connect(lambda msg: text_box.append(msg))
+        self.current_thread.start()
 
 
 
@@ -1179,7 +1435,7 @@ from PyQt5.QtWidgets import (
     QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QWidget, QComboBox, QStackedWidget
 )
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QSize
 from PyQt5.QtGui import QImage, QPixmap
 
 import cv2
@@ -1230,9 +1486,9 @@ class HomeWindow(QMainWindow):
 
         # Sidebar
         self.sidebar = SideBar()
-        self.toggle_btn = QPushButton("☰ Menu")
-        self.toggle_btn.setFixedHeight(40)
-        self.toggle_btn.clicked.connect(self.sidebar.toggle)
+        self.toggle_btn = QPushButton("☰")
+        self.toggle_btn.setFixedSize(QSize(40, 40))  # square button
+        self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
         # Sidebar navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
@@ -1309,4 +1565,12 @@ class HomeWindow(QMainWindow):
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(qimg))
+
+    def toggle_sidebar(self):
+        """Toggle sidebar and update button text."""
+        self.sidebar.toggle()
+        if self.sidebar._collapsed:
+            self.toggle_btn.setText("☰")   # burger
+        else:
+            self.toggle_btn.setText("←")   # back arrow
 

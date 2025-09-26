@@ -31,14 +31,14 @@ class MagFaceWrapper:
 
     name = "magface"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models/magface",
-        input_size=(112, 112),
-    ):
+    def __init__(self, device: str = "cpu", model_path: str = None, input_size=(112, 112)):
         self.device = torch.device(device)
         self.input_size = input_size
+
+        # Resolve project root (the "src" directory)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if model_path is None:
+            model_path = os.path.join(base_dir, "models", "pretrained_models", "magface")
 
         # Import backbone
         IResNet100 = import_magface(model_path)
@@ -56,9 +56,7 @@ class MagFaceWrapper:
                 }
             self.model.load_state_dict(sd, strict=False)
         else:
-            print(
-                f"[MagFace] Warning: no checkpoint found at {ckpt_path}, using random init."
-            )
+            print(f"[MagFace] Warning: no checkpoint found at {ckpt_path}, using random init.")
 
         # Face detector
         ctx_id = 0 if self.device.type == "cuda" else -1
@@ -117,5 +115,5 @@ class MagFaceWrapper:
         min_dim = min(h, w)
         start_x = (w - min_dim) // 2
         start_y = (h - min_dim) // 2
-        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
+        crop = frame[start_y:start_y + min_dim, start_x:start_x + min_dim]
         return self.embed(crop)

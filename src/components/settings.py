@@ -1,9 +1,11 @@
-# ==== components/settings.py ====
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QComboBox,
     QFileDialog, QMessageBox
 )
 import os
+import json
+
+SETTINGS_FILE = "settings.json"
 
 
 class SettingsPage(QWidget):
@@ -12,10 +14,15 @@ class SettingsPage(QWidget):
         self.dataset_path = None
         self.model_name = "arcface"
 
+        # Try to load saved settings
+        self.load_settings()
+
         layout = QVBoxLayout()
 
         # --- Dataset selection ---
         self.dataset_label = QLabel("Choose dataset folder:")
+        if self.dataset_path:
+            self.dataset_label.setText(f"Dataset: {self.dataset_path}")
         self.dataset_btn = QPushButton("Browse Dataset")
         self.dataset_btn.clicked.connect(self.browse_dataset)
 
@@ -23,7 +30,11 @@ class SettingsPage(QWidget):
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
         self.model_combo.addItems(["arcface", "facenet", "magface"])
-        self.model_combo.currentTextChanged.connect(self.update_model)  # 👈 instant sync
+        # set current selection from saved settings
+        idx = self.model_combo.findText(self.model_name)
+        if idx >= 0:
+            self.model_combo.setCurrentIndex(idx)
+        self.model_combo.currentTextChanged.connect(self.update_model)
 
         # --- Save button ---
         self.save_btn = QPushButton("Save Settings")
@@ -53,9 +64,28 @@ class SettingsPage(QWidget):
         self.model_name = text
 
     def save_settings(self):
-        """Still show confirmation dialog if user clicks save."""
+        """Save settings to JSON file and show confirmation."""
+        data = {
+            "model": self.model_name,
+            "dataset": self.dataset_path,
+        }
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+
         msg = (
             f"✅ Settings saved:\n\n"
             f"Model: {self.model_name}\nDataset: {self.dataset_path or 'Not selected'}"
         )
         QMessageBox.information(self, "Settings", msg)
+
+    def load_settings(self):
+        """Load settings from JSON if exists."""
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                self.model_name = data.get("model", "arcface")
+                self.dataset_path = data.get("dataset", None)
+                print(f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}")
+            except Exception as e:
+                print(f"[WARN] Could not load settings.json: {e}")

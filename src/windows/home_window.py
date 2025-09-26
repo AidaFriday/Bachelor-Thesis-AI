@@ -9,7 +9,7 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 from connector import load_model
 from components.sidebar import SideBar
-from components.settings import SettingsPage   
+from components.settings import SettingsPage
 from windows.benchmark_window import BenchmarkPage
 
 
@@ -27,8 +27,6 @@ class HomeWindow(QMainWindow):
         self.home_page = QWidget()
         home_layout = QVBoxLayout()
 
-       
-
         self.start_btn = QPushButton("Start Camera")
         self.stop_btn = QPushButton("Stop Camera")
         self.stop_btn.setEnabled(False)
@@ -43,14 +41,16 @@ class HomeWindow(QMainWindow):
 
         # Page 2: Settings
         self.settings_page = SettingsPage()
-        # Page 3: Benchmark
-        self.benchmark_page = BenchmarkPage()
-        self.stacked.addWidget(self.benchmark_page)  # index 2
+
+        # Page 3: Benchmark (pass callback for model name)
+        self.benchmark_page = BenchmarkPage(
+            get_model_name=lambda: self.settings_page.model_name
+        )
 
         # Add pages to stacked
-        self.stacked.addWidget(self.home_page)     # index 0
-        self.stacked.addWidget(self.settings_page) # index 1
-        self.stacked.addWidget(self.benchmark_page)  # index 2
+        self.stacked.addWidget(self.home_page)      # index 0
+        self.stacked.addWidget(self.settings_page)  # index 1
+        self.stacked.addWidget(self.benchmark_page) # index 2
 
         # Sidebar
         self.sidebar = SideBar()
@@ -61,7 +61,7 @@ class HomeWindow(QMainWindow):
         # Sidebar navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
-        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2)) 
+        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2))
 
         # Layout wrapper
         wrapper_layout = QVBoxLayout()
@@ -103,7 +103,6 @@ class HomeWindow(QMainWindow):
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
-
 
     def stop_camera(self):
         self.timer.stop()
