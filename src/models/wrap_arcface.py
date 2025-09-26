@@ -21,7 +21,7 @@ class ArcFaceWrapper:
         self.device = device
         self.input_size = input_size
 
-        # If user points directly to buffalo_l, strip it to get the parent
+        # If user points directly to buffalo_l, strip to get the parent
         if model_path.endswith("buffalo_l"):
             root_path = os.path.dirname(model_path)
             buffalo_dir = model_path
@@ -29,7 +29,14 @@ class ArcFaceWrapper:
             root_path = model_path
             buffalo_dir = os.path.join(model_path, "buffalo_l")
 
-        # Ensure the buffalo_l folder exists (insightface will download here if missing)
+        # --- Fix: handle InsightFace auto-download under "models/buffalo_l"
+        alt_dir = os.path.join(root_path, "models", "buffalo_l")
+        if not os.path.isdir(buffalo_dir) and os.path.isdir(alt_dir):
+            print(f"[ArcFace] Found buffalo_l under unexpected path, using: {alt_dir}")
+            buffalo_dir = alt_dir
+            root_path = os.path.dirname(buffalo_dir)
+
+        # Ensure buffalo_l exists (insightface will auto-download if missing)
         os.makedirs(buffalo_dir, exist_ok=True)
 
         ctx_id = 0 if device == "cuda" else -1
@@ -40,11 +47,23 @@ class ArcFaceWrapper:
         self.detector = FaceAnalysis(root=root_path, name="buffalo_l")
         self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
+        # Verify recognition model is loaded
+        if (
+            "recognition" not in self.detector.models
+            or self.detector.models["recognition"] is None
+        ):
+            raise RuntimeError(
+                "[ArcFace] Recognition model not loaded. "
+                f"Check {buffalo_dir}/w600k_r50.onnx"
+            )
+
     def detect_and_embed(self, frame: np.ndarray):
         """Detect faces and return bbox, landmarks, and ArcFace embeddings."""
         faces = self.detector.get(frame)
         results = []
         for f in faces:
+            if getattr(f, "embedding", None) is None:
+                continue  # skip if embedding not available
             results.append(
                 {
                     "bbox": f.bbox.astype(int),
@@ -66,3 +85,11 @@ class ArcFaceWrapper:
         faces = self.detect_and_embed(frame)
         if len(faces) > 0:
             return faces[0]["embedding"]
+
+        # fallback: center crop
+        h, w = frame.shape[:2]
+        min_dim = min(h, w)
+        start_x = (w - min_dim) // 2
+        start_y = (h - min_dim) // 2
+        crop = frame[start_y:start_y + min_dim, start_x:start_x + min_dim]
+        return self.detector.models["recognition"].get(crop).astype(np.float32)
