@@ -11,7 +11,7 @@
 .\example1\train_lfw_arcface_cpu.py
 .\models\wrap_arcface.py
 .\models\wrap_facenet.py
-.\models\wrap_magface.py
+.\models\wrap_insightface.py
 .\windows\benchmark_window.py
 .\windows\home_window.py
 
@@ -21,33 +21,27 @@
 
 # ==== .\connector.py ====
 
-import os
-import json
 import importlib
 import torch
 
 
-def load_model(model_name: str, config_path="models/model.config"):
-    """Load model wrapper based on config file."""
+def load_model(model_name: str, config_path=None):
+    """Load model wrapper from package (pip-available only)."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    with open(config_path, "r") as f:
-        config = json.load(f)
+    wrappers = {
+        "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
+        "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
+        "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
+    }
+    if model_name not in wrappers:
+        raise ValueError(f"Unknown model: {model_name}")
 
-    if model_name not in config:
-        raise ValueError(f"Model '{model_name}' not in config")
-
-    model_cfg = config[model_name]
-    wrapper_path = model_cfg["wrapper"]
-    module_name, class_name = wrapper_path.split(".")
-    module = importlib.import_module(f"models.{module_name}")
+    module_name, class_name = wrappers[model_name]
+    module = importlib.import_module(module_name)
     wrapper_class = getattr(module, class_name)
 
-    # Path can be None (e.g. arcface auto-downloads)
-    model_path = model_cfg.get("path", None)
-    input_size = tuple(model_cfg["input_size"])
-
-    return wrapper_class(device, model_path, input_size)
+    return wrapper_class(device)
 
 
 
@@ -123,40 +117,30 @@ if __name__ == "__main__":
 # ==== .\benchmark_parameters\accuracy.py ====
 
 import os
+import sys
 import argparse
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-# Wrappers
-from models.wrap_arcface import ArcFaceWrapper
-from models.wrap_facenet import FaceNetWrapper
-from models.wrap_magface import MagFaceWrapper
+# --- Bootstrap sys.path so project root is importable ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
-
-def load_wrapper(model_name: str):
-    if model_name.lower() == "arcface":
-        return ArcFaceWrapper(device="cpu")
-    elif model_name.lower() == "facenet":
-        return FaceNetWrapper(device="cpu")
-    elif model_name.lower() == "magface":
-        return MagFaceWrapper(device="cpu")
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
-
+from connector import load_model
 
 # -------------------------------
 # Args
 # -------------------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, required=True, help="Model name from settings")
+parser.add_argument("--model", type=str, required=True, help="Model name (arcface|facenet|deepface)")
 args = parser.parse_args()
 print(f"[DEBUG] accuracy.py running with model={args.model}")
 
 # -------------------------------
 # Config
 # -------------------------------
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src root
 DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 USER1_EMBED_DIR = os.path.join(BASE_DIR, "models", "embeddings", "user1")
 USER1_EMBED_FILE = os.path.join(USER1_EMBED_DIR, "embeddings.npy")
@@ -177,7 +161,7 @@ print(f"[INFO] Loaded {len(user1_embs)} user1 embeddings.")
 # -------------------------------
 # Init selected model wrapper
 # -------------------------------
-wrapper = load_wrapper(args.model)
+wrapper = load_model(args.model)
 
 
 def extract_embedding(image_path):
@@ -194,16 +178,9 @@ def extract_embedding(image_path):
     # fallback: center crop + embed
     h, w = img.shape[:2]
     min_dim = min(h, w)
-    crop = img[(h - min_dim)//2:(h + min_dim)//2, (w - min_dim)//2:(w + min_dim)//2]
-    return wrapper.get_embedding_from_array(crop)
-
-
-# Patch wrappers to allow array embedding if not defined
-def emb_from_array(bgr):
-    faces = wrapper.detect_and_embed(bgr)
-    return faces[0]["embedding"] if faces else np.zeros((512,), dtype=np.float32)
-
-wrapper.get_embedding_from_array = emb_from_array
+    crop = img[(h - min_dim)//2:(h + min_dim)//2,
+               (w - min_dim)//2:(w + min_dim)//2]
+    return wrapper.embed(crop)
 
 
 def cosine_sim(a, b):
@@ -272,23 +249,14 @@ import time
 import numpy as np
 import os, json, sys
 
-from models.wrap_arcface import ArcFaceWrapper
-from models.wrap_facenet import FaceNetWrapper
-from models.wrap_magface import MagFaceWrapper
-
+# --- Bootstrap sys.path ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from connector import load_model
+
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
-
-
-def load_wrapper(model_name: str):
-    if model_name.lower() == "arcface":
-        return ArcFaceWrapper(device="cpu")
-    elif model_name.lower() == "facenet":
-        return FaceNetWrapper(device="cpu")
-    elif model_name.lower() == "magface":
-        return MagFaceWrapper(device="cpu")
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
 
 
 def measure_inference_time(wrapper, model_name: str, iters: int = 50):
@@ -298,11 +266,11 @@ def measure_inference_time(wrapper, model_name: str, iters: int = 50):
 
     # Warm-up
     for _ in range(5):
-        _ = wrapper.get_embedding_from_array(x)
+        _ = wrapper.embed(x)
 
     start = time.perf_counter()
     for _ in range(iters):
-        _ = wrapper.get_embedding_from_array(x)
+        _ = wrapper.embed(x)
     end = time.perf_counter()
 
     avg_ms = (end - start) * 1000.0 / iters
@@ -314,7 +282,7 @@ def measure_inference_time(wrapper, model_name: str, iters: int = 50):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, help="Model name from settings")
+    parser.add_argument("--model", type=str, help="Model name (arcface|facenet|deepface)")
     parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
     args = parser.parse_args()
 
@@ -329,13 +297,7 @@ def main():
         sys.exit(1)
 
     print(f"[DEBUG] performance.py running with model={args.model}")
-    wrapper = load_wrapper(args.model)
-
-    def emb_from_array(bgr):
-        faces = wrapper.detect_and_embed(bgr)
-        return faces[0]["embedding"] if faces else np.zeros((512,), dtype=np.float32)
-
-    wrapper.get_embedding_from_array = emb_from_array
+    wrapper = load_model(args.model)
     measure_inference_time(wrapper, args.model, iters=args.iters)
 
 
@@ -449,17 +411,58 @@ from PyQt5.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QComboBox,
     QFileDialog, QMessageBox
 )
+from PyQt5.QtCore import pyqtSignal
 import os
 import json
 
 SETTINGS_FILE = "settings.json"
 
+LIGHT_THEME = """
+    QWidget {
+        background-color: #ffffff;
+        color: #000000;
+    }
+    QPushButton {
+        background-color: #f0f0f0;
+        border: 1px solid #888;
+        padding: 6px;
+    }
+    QPushButton:hover {
+        background-color: #e0e0e0;
+    }
+    QLabel {
+        color: #000000;
+    }
+"""
+
+DARK_THEME = """
+    QWidget {
+        background-color: #2d2d2d;
+        color: #dddddd;
+    }
+    QPushButton {
+        background-color: #444;
+        border: 1px solid #888;
+        padding: 6px;
+        color: #ffffff;
+    }
+    QPushButton:hover {
+        background-color: #555;
+    }
+    QLabel {
+        color: #dddddd;
+    }
+"""
+
 
 class SettingsPage(QWidget):
+    theme_changed = pyqtSignal(str)  # 🔔 signal to notify theme changes
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.dataset_path = None
         self.model_name = "arcface"
+        self.theme = "light"
 
         # Try to load saved settings
         self.load_settings()
@@ -476,12 +479,20 @@ class SettingsPage(QWidget):
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["arcface", "facenet", "magface"])
-        # set current selection from saved settings
+        self.model_combo.addItems(["arcface", "facenet", "insightface"])
         idx = self.model_combo.findText(self.model_name)
         if idx >= 0:
             self.model_combo.setCurrentIndex(idx)
         self.model_combo.currentTextChanged.connect(self.update_model)
+
+        # --- Theme selection ---
+        self.theme_label = QLabel("Select theme:")
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["light", "dark"])
+        idx = self.theme_combo.findText(self.theme)
+        if idx >= 0:
+            self.theme_combo.setCurrentIndex(idx)
+        self.theme_combo.currentTextChanged.connect(self.update_theme)
 
         # --- Save button ---
         self.save_btn = QPushButton("Save Settings")
@@ -493,6 +504,9 @@ class SettingsPage(QWidget):
         layout.addSpacing(15)
         layout.addWidget(self.model_label)
         layout.addWidget(self.model_combo)
+        layout.addSpacing(15)
+        layout.addWidget(self.theme_label)
+        layout.addWidget(self.theme_combo)
         layout.addStretch()
         layout.addWidget(self.save_btn)
 
@@ -507,33 +521,38 @@ class SettingsPage(QWidget):
             self.dataset_label.setText(f"Dataset: {path}")
 
     def update_model(self, text):
-        """Update model_name whenever combo changes."""
         self.model_name = text
 
+    def update_theme(self, text):
+        self.theme = text
+        self.theme_changed.emit(text)  # 🔔 tell parent window
+
     def save_settings(self):
-        """Save settings to JSON file and show confirmation."""
         data = {
             "model": self.model_name,
             "dataset": self.dataset_path,
+            "theme": self.theme,
         }
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
         msg = (
             f"✅ Settings saved:\n\n"
-            f"Model: {self.model_name}\nDataset: {self.dataset_path or 'Not selected'}"
+            f"Model: {self.model_name}\n"
+            f"Dataset: {self.dataset_path or 'Not selected'}\n"
+            f"Theme: {self.theme}"
         )
         QMessageBox.information(self, "Settings", msg)
 
     def load_settings(self):
-        """Load settings from JSON if exists."""
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
                     data = json.load(f)
                 self.model_name = data.get("model", "arcface")
                 self.dataset_path = data.get("dataset", None)
-                print(f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}")
+                self.theme = data.get("theme", "light")
+                print(f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}, theme={self.theme}")
             except Exception as e:
                 print(f"[WARN] Could not load settings.json: {e}")
 
@@ -544,52 +563,90 @@ class SettingsPage(QWidget):
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt5.QtCore import Qt, QPropertyAnimation
 
-class SideBar (QWidget):
-    def __init__(self, parent = None):
+class SideBar(QWidget):
+    def __init__(self, parent=None):
         super().__init__(parent)
 
-        # Layout (vertical, aligned top)
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
+        layout.setSpacing(12)  # more breathing space
 
         # Buttons
-        self.btn_home = QPushButton ("Home")
-        self.btn_dataset = QPushButton ("Dataset")
-        self.btn_models = QPushButton ("Models")
-        self.btn_benchmark = QPushButton ("Benchmark")
-        self.btn_settings = QPushButton ("Settings")
+        self.btn_home = QPushButton("Home")
+        self.btn_dataset = QPushButton("Dataset")
+        self.btn_models = QPushButton("Models")
+        self.btn_benchmark = QPushButton("Benchmark")
+        self.btn_settings = QPushButton("Settings")
 
-        
-        for btn in [
+        self.buttons = [
             self.btn_home,
             self.btn_dataset,
             self.btn_models,
             self.btn_benchmark,
             self.btn_settings,
-        ]:
-            btn.setMinimumHeight(40)
+        ]
+
+        for btn in self.buttons:
+            btn.setMinimumHeight(45)
+            btn.setCursor(Qt.PointingHandCursor)   # hand cursor
+            btn.setFlat(True)  # remove old 3D look
             layout.addWidget(btn)
-        
+
         self.setLayout(layout)
-        self.setFixedWidth(0) # start hidden
+        self.setFixedWidth(0)
         self._collapsed = True
 
-        # Animation for sliding
         self.anim = QPropertyAnimation(self, b"maximumWidth")
-        self.anim.setDuration(300) #ms
+        self.anim.setDuration(300)
 
     def toggle(self):
-        """Show/hide sidebar with slide animation"""
         if self._collapsed:
             self.anim.setStartValue(0)
-            self.anim.setEndValue(200)
+            self.anim.setEndValue(220)  # a little wider for nicer look
         else:
-            self.anim.setStartValue(200)
+            self.anim.setStartValue(220)
             self.anim.setEndValue(0)
         self.anim.start()
         self._collapsed = not self._collapsed
 
-
+    def apply_theme(self, theme: str):
+        """Update button styles when theme changes."""
+        if theme == "dark":
+            style = """
+                QPushButton {
+                    background-color: #3a3a3a;
+                    color: #f0f0f0;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #505050;
+                }
+                QPushButton:pressed {
+                    background-color: #2d2d2d;
+                }
+            """
+        else:
+            style = """
+                QPushButton {
+                    background-color: #f5f5f5;
+                    color: #222;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #e0e0e0;
+                }
+                QPushButton:pressed {
+                    background-color: #d0d0d0;
+                }
+            """
+        for btn in self.buttons:
+            btn.setStyleSheet(style)
 
 
 
@@ -973,67 +1030,32 @@ if __name__ == "__main__":
 
 # ==== .\models\wrap_arcface.py ====
 
-import os
-import cv2
 import numpy as np
+import cv2
 from insightface.app import FaceAnalysis
 
 
 class ArcFaceWrapper:
     """
-    ArcFace wrapper using insightface buffalo_l pack.
-    Reference: Deng et al., ArcFace: Additive Angular Margin Loss, CVPR 2019.
+    ArcFace wrapper using insightface buffalo_l package models.
     """
 
     name = "arcface"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models/arcface_repo/models",
-        input_size=(112, 112),
-    ):
+    def __init__(self, device: str = "cpu", input_size=(112, 112)):
         self.device = device
         self.input_size = input_size
 
-        # Always resolve to absolute paths
-        model_path = os.path.abspath(model_path)
-
-        # Expected buffalo_l directory
-        buffalo_dir = os.path.join(model_path, "buffalo_l")
-        root_path = model_path
-
-        if not os.path.isdir(buffalo_dir):
-            raise RuntimeError(
-                f"[ArcFace] buffalo_l not found at {buffalo_dir}. "
-                "Run download_arcface_models.py to fetch it."
-            )
-
         ctx_id = 0 if device == "cuda" else -1
-
-        print(f"[ArcFace] Using buffalo_l at: {buffalo_dir}")
-
-        # InsightFace FaceAnalysis provides detection + embedding
-        self.detector = FaceAnalysis(root=root_path, name="buffalo_l")
+        self.detector = FaceAnalysis(name="buffalo_l")
         self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
-        # Verify recognition model is loaded
-        if (
-            "recognition" not in self.detector.models
-            or self.detector.models["recognition"] is None
-        ):
-            raise RuntimeError(
-                "[ArcFace] Recognition model not loaded. "
-                f"Check {buffalo_dir}/w600k_r50.onnx"
-            )
-
     def detect_and_embed(self, frame: np.ndarray):
-        """Detect faces and return bbox, landmarks, and ArcFace embeddings."""
         faces = self.detector.get(frame)
         results = []
         for f in faces:
             if getattr(f, "embedding", None) is None:
-                continue  # skip if embedding not available
+                continue
             results.append(
                 {
                     "bbox": f.bbox.astype(int),
@@ -1043,256 +1065,160 @@ class ArcFaceWrapper:
             )
         return results
 
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Get embedding of a cropped face (no detection).
+        """
+        faces = self.detector.get(bgr)
+        if len(faces) > 0 and getattr(faces[0], "embedding", None) is not None:
+            return faces[0].embedding.astype(np.float32)
+        return None
+
     def get_embedding(self, img_path: str) -> np.ndarray:
-        """
-        Load image, detect main face, and return ArcFace embedding.
-        Falls back to center crop + no alignment if detector fails.
-        """
         frame = cv2.imread(img_path)
         if frame is None:
             raise ValueError(f"[ArcFace] Could not read image: {img_path}")
 
         faces = self.detect_and_embed(frame)
-        if len(faces) > 0:
+        if faces:
             return faces[0]["embedding"]
 
-        # fallback: center crop
+        # fallback: center crop then embed
         h, w = frame.shape[:2]
         min_dim = min(h, w)
-        start_x = (w - min_dim) // 2
-        start_y = (h - min_dim) // 2
-        crop = frame[start_y:start_y + min_dim, start_x:start_x + min_dim]
-        return self.detector.models["recognition"].get(crop).astype(np.float32)
+        crop = frame[(h - min_dim)//2:(h + min_dim)//2,
+                     (w - min_dim)//2:(w + min_dim)//2]
+        return self.embed(crop)
 
 
 
 # ==== .\models\wrap_facenet.py ====
 
-import os, sys
 import cv2
 import numpy as np
 import torch
-from insightface.app import FaceAnalysis
+from facenet_pytorch import InceptionResnetV1, MTCNN
 
 
 class FaceNetWrapper:
     """
-    FaceNet wrapper (InceptionResnetV1).
-    Loads model from local facenet repo in pretrained_models/facenet.
-    Reference: Schroff et al., FaceNet (CVPR 2015).
+    FaceNet wrapper using facenet-pytorch package.
     """
 
     name = "facenet"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models/facenet",
-        input_size=(160, 160),
-    ):
+    def __init__(self, device: str = "cpu", input_size=(160, 160)):
         self.device = torch.device(device)
         self.input_size = input_size
 
-        if not model_path or not os.path.isdir(model_path):
-            raise RuntimeError(f"[FaceNet] Local repo not found at: {model_path}")
-
-        # Add parent of facenet to sys.path → so we can `import facenet.models...`
-        facenet_parent = os.path.dirname(model_path)  # .../pretrained_models
-        if facenet_parent not in sys.path:
-            sys.path.insert(0, facenet_parent)
-
-        try:
-            from facenet.models.inception_resnet_v1 import InceptionResnetV1
-        except ImportError as e:
-            raise RuntimeError(f"[FaceNet] Could not import inception_resnet_v1: {e}")
-
-        # Load pretrained weights (downloads if not cached)
+        # Load pretrained InceptionResnetV1
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
-
-        # RetinaFace detector from insightface (for alignment if needed)
-        ctx_id = 0 if self.device.type == "cuda" else -1
-        self.detector = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
-        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
+        self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
 
     def embed(self, bgr: np.ndarray) -> np.ndarray:
-        """Return FaceNet embedding for a cropped face (BGR)."""
         rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
         t = (t - 0.5) / 0.5
         with torch.inference_mode():
-            emb = (
-                self.model(t.unsqueeze(0).to(self.device))[0]
-                .detach()
-                .cpu()
-                .numpy()
-                .astype(np.float32)
-            )
-        return emb
+            emb = self.model(t.unsqueeze(0).to(self.device))
+        return emb[0].cpu().numpy().astype(np.float32)
 
     def detect_and_embed(self, frame: np.ndarray):
-        """Detect faces in a frame and return bbox, landmarks, and embeddings."""
-        faces = self.detector.get(frame)
+        boxes, probs = self.detector.detect(frame)
         results = []
-        for f in faces:
-            x1, y1, x2, y2 = f.bbox.astype(int)
-            crop = frame[y1:y2, x1:x2]
-            if crop.size == 0:
-                continue
-            results.append(
-                {
-                    "bbox": f.bbox.astype(int),
-                    "kps": f.kps.astype(float),
-                    "embedding": self.embed(crop),
-                }
-            )
+        if boxes is not None:
+            for box in boxes.astype(int):
+                x1, y1, x2, y2 = box
+                crop = frame[y1:y2, x1:x2]
+                if crop.size == 0:
+                    continue
+                results.append(
+                    {
+                        "bbox": box,
+                        "kps": np.zeros((5, 2)),  # MTCNN landmarks optional
+                        "embedding": self.embed(crop),
+                    }
+                )
         return results
 
     def get_embedding(self, img_path: str) -> np.ndarray:
-        """
-        Load an image path, detect the main face, and return its embedding.
-        Falls back to center-crop if no face detected.
-        """
         frame = cv2.imread(img_path)
         if frame is None:
             raise ValueError(f"[FaceNet] Could not read image: {img_path}")
-
         faces = self.detect_and_embed(frame)
-        if len(faces) > 0:
+        if faces:
             return faces[0]["embedding"]
 
-        # fallback: use center crop
+        # fallback: center crop
         h, w = frame.shape[:2]
         min_dim = min(h, w)
-        start_x = (w - min_dim) // 2
-        start_y = (h - min_dim) // 2
-        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
+        crop = frame[(h - min_dim)//2:(h + min_dim)//2,
+                     (w - min_dim)//2:(w + min_dim)//2]
         return self.embed(crop)
 
 
 
-# ==== .\models\wrap_magface.py ====
+# ==== .\models\wrap_insightface.py ====
 
-import os, sys
 import cv2
 import numpy as np
-import torch
-from insightface.app import FaceAnalysis
+import insightface
 
 
-def import_magface(model_path):
-    """Import MagFace backbone from local repo."""
-    if not model_path or not os.path.isdir(model_path):
-        raise RuntimeError(f"[MagFace] Repo not found at: {model_path}")
-
-    sys.path.insert(0, model_path)
-    sys.path.insert(0, os.path.join(model_path, "models"))
-
-    try:
-        from iresnet import iresnet100  # Backbone used in MagFace
-    except ImportError as e:
-        raise RuntimeError(
-            f"[MagFace] Could not import iresnet backbone. Check repo structure. Original error: {e}"
-        )
-
-    return iresnet100
-
-
-class MagFaceWrapper:
+class InsightFaceWrapper:
     """
-    MagFace wrapper with IResNet backbone.
-    Reference: MagFace: A Universal Representation for Face Recognition and Quality Assessment (CVPR 2021).
+    Wrapper around InsightFace (ArcFace, CosFace, etc).
+    Handles detection + embedding.
     """
 
-    name = "magface"
+    name = "insightface"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models/magface",
-        input_size=(112, 112),
-    ):
-        self.device = torch.device(device)
-        self.input_size = input_size
+    def __init__(self, device: str = "cpu", det_size=(640, 640), input_size=(112, 112)):
+        self.device = device
+        self.input_size = input_size  # ✅ added so performance.py & accuracy.py can use it
 
-        # Import backbone
-        IResNet100 = import_magface(model_path)
-
-        # Initialize and load pretrained checkpoint (if available)
-        self.model = IResNet100().to(self.device).eval()
-
-        ckpt_path = os.path.join(model_path, "magface_epoch_00025.pth")
-        if os.path.exists(ckpt_path):
-            sd = torch.load(ckpt_path, map_location="cpu")
-            if "state_dict" in sd:
-                sd = {
-                    k.replace("module.", "").replace("backbone.", ""): v
-                    for k, v in sd["state_dict"].items()
-                }
-            self.model.load_state_dict(sd, strict=False)
-        else:
-            print(
-                f"[MagFace] Warning: no checkpoint found at {ckpt_path}, using random init."
-            )
-
-        # Face detector
-        ctx_id = 0 if self.device.type == "cuda" else -1
-        self.detector = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
-        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
-
-    def embed(self, bgr: np.ndarray) -> np.ndarray:
-        """Return normalized MagFace embedding for a cropped face (BGR)."""
-        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
-        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
-        t = (t - 0.5) / 0.5
-        with torch.inference_mode():
-            feat = (
-                self.model(t.unsqueeze(0).to(self.device))[0]
-                .detach()
-                .cpu()
-                .numpy()
-                .astype(np.float32)
-            )
-        feat /= np.linalg.norm(feat) + 1e-12
-        return feat
+        # FaceAnalysis auto-downloads pretrained models to ~/.insightface
+        ctx_id = 0 if device == "cuda" else -1
+        self.model = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
+        self.model.prepare(ctx_id=ctx_id, det_size=det_size)
+        print(f"[InsightFaceWrapper] Loaded InsightFace with det_size={det_size}")
 
     def detect_and_embed(self, frame: np.ndarray):
-        """Detect faces in a frame and return bbox, landmarks, and embeddings."""
-        faces = self.detector.get(frame)
+        """
+        Detect faces in an image and return list of dicts with bbox + embedding.
+        """
+        faces = self.model.get(frame)
         results = []
         for f in faces:
-            x1, y1, x2, y2 = f.bbox.astype(int)
-            crop = frame[y1:y2, x1:x2]
-            if crop.size == 0:
-                continue
             results.append(
                 {
-                    "bbox": f.bbox.astype(int),
-                    "kps": f.kps.astype(float),
-                    "embedding": self.embed(crop),
+                    "bbox": np.array(f.bbox, dtype=np.int32),
+                    "kps": f.kps if hasattr(f, "kps") else np.zeros((5, 2)),
+                    "embedding": np.array(f.embedding, dtype=np.float32),
                 }
             )
         return results
 
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Get embedding of a cropped face (no detection).
+        """
+        faces = self.model.get(bgr)
+        if len(faces) > 0:
+            return np.array(faces[0].embedding, dtype=np.float32)
+        return None
+
     def get_embedding(self, img_path: str) -> np.ndarray:
         """
-        Load image, detect main face, and return MagFace embedding.
-        Falls back to center crop if detector fails.
+        Load image from path and return first face embedding.
         """
         frame = cv2.imread(img_path)
         if frame is None:
-            raise ValueError(f"[MagFace] Could not read image: {img_path}")
-
+            raise ValueError(f"[InsightFaceWrapper] Cannot read image: {img_path}")
         faces = self.detect_and_embed(frame)
-        if len(faces) > 0:
+        if faces:
             return faces[0]["embedding"]
-
-        # fallback: use center crop
-        h, w = frame.shape[:2]
-        min_dim = min(h, w)
-        start_x = (w - min_dim) // 2
-        start_y = (h - min_dim) // 2
-        crop = frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
-        return self.embed(crop)
+        return None
 
 
 
@@ -1430,10 +1356,9 @@ class BenchmarkPage(QWidget):
 
 # ==== .\windows\home_window.py ====
 
-# ==== windows/home_window.py ====
 from PyQt5.QtWidgets import (
     QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QWidget, QComboBox, QStackedWidget
+    QWidget, QStackedWidget
 )
 from PyQt5.QtCore import QTimer, Qt, QSize
 from PyQt5.QtGui import QImage, QPixmap
@@ -1441,7 +1366,7 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 from connector import load_model
 from components.sidebar import SideBar
-from components.settings import SettingsPage   
+from components.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from windows.benchmark_window import BenchmarkPage
 
 
@@ -1459,8 +1384,6 @@ class HomeWindow(QMainWindow):
         self.home_page = QWidget()
         home_layout = QVBoxLayout()
 
-       
-
         self.start_btn = QPushButton("Start Camera")
         self.stop_btn = QPushButton("Stop Camera")
         self.stop_btn.setEnabled(False)
@@ -1475,25 +1398,28 @@ class HomeWindow(QMainWindow):
 
         # Page 2: Settings
         self.settings_page = SettingsPage()
+        self.settings_page.theme_changed.connect(self.apply_theme)  # 🔔 listen for theme change
+
         # Page 3: Benchmark
-        self.benchmark_page = BenchmarkPage()
-        self.stacked.addWidget(self.benchmark_page)  # index 2
+        self.benchmark_page = BenchmarkPage(
+            get_model_name=lambda: self.settings_page.model_name
+        )
 
         # Add pages to stacked
-        self.stacked.addWidget(self.home_page)     # index 0
-        self.stacked.addWidget(self.settings_page) # index 1
-        self.stacked.addWidget(self.benchmark_page)  # index 2
+        self.stacked.addWidget(self.home_page)
+        self.stacked.addWidget(self.settings_page)
+        self.stacked.addWidget(self.benchmark_page)
 
         # Sidebar
         self.sidebar = SideBar()
         self.toggle_btn = QPushButton("☰")
-        self.toggle_btn.setFixedSize(QSize(40, 40))  # square button
+        self.toggle_btn.setFixedSize(QSize(40, 40))
         self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
         # Sidebar navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
         self.sidebar.btn_settings.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
-        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2)) 
+        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2))
 
         # Layout wrapper
         wrapper_layout = QVBoxLayout()
@@ -1521,8 +1447,10 @@ class HomeWindow(QMainWindow):
         self.start_btn.clicked.connect(self.start_camera)
         self.stop_btn.clicked.connect(self.stop_camera)
 
+        # Apply initial theme
+        self.apply_theme(self.settings_page.theme)
+
     def start_camera(self):
-        # get model from Settings page
         model_name = self.settings_page.model_name
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
@@ -1535,7 +1463,6 @@ class HomeWindow(QMainWindow):
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
-
 
     def stop_camera(self):
         self.timer.stop()
@@ -1567,10 +1494,20 @@ class HomeWindow(QMainWindow):
         self.video_label.setPixmap(QPixmap.fromImage(qimg))
 
     def toggle_sidebar(self):
-        """Toggle sidebar and update button text."""
         self.sidebar.toggle()
         if self.sidebar._collapsed:
-            self.toggle_btn.setText("☰")   # burger
+            self.toggle_btn.setText("☰")
         else:
-            self.toggle_btn.setText("←")   # back arrow
+            self.toggle_btn.setText("←")
+
+    def apply_theme(self, theme: str):
+        """Apply theme globally to the entire window."""
+        if theme == "dark":
+            self.setStyleSheet(DARK_THEME)
+        else:
+            self.setStyleSheet(LIGHT_THEME)
+
+        # also update sidebar buttons
+        self.sidebar.apply_theme(theme)
+
 

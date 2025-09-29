@@ -1,11 +1,19 @@
 import os
 import sys
 import subprocess
+import json
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QStackedWidget, QFrame, QTextEdit
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QStackedWidget,
+    QFrame,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 
 class RunnerThread(QThread):
@@ -19,7 +27,6 @@ class RunnerThread(QThread):
     def run(self):
         try:
             cmd = [sys.executable, self.file_path, "--model", self.model_name]
-            self.output_signal.emit(f"[DEBUG] Running command: {' '.join(cmd)}\n")
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -28,19 +35,15 @@ class RunnerThread(QThread):
                 bufsize=1,
             )
             for line in process.stdout:
-                self.output_signal.emit(line.rstrip())
+                self.output_signal.emit(line.strip())
             process.stdout.close()
             process.wait()
-            self.output_signal.emit(f"\n[INFO] Finished {os.path.basename(self.file_path)}\n")
         except Exception as e:
-            self.output_signal.emit(f"[ERROR] Failed to run {self.file_path}: {e}\n")
+            self.output_signal.emit(json.dumps({"error": str(e)}))
 
 
 class BenchmarkPage(QWidget):
     def __init__(self, parent=None, get_model_name=None):
-        """
-        get_model_name: callback returning the currently selected model
-        """
         super().__init__(parent)
         self.get_model_name = get_model_name
 
@@ -58,13 +61,15 @@ class BenchmarkPage(QWidget):
         self.pages = {}
 
         frame = QFrame()
-        frame.setStyleSheet("""
+        frame.setStyleSheet(
+            """
             QFrame {
                 border: 2px solid #800080;
                 border-radius: 6px;
                 background-color: #fafafa;
             }
-        """)
+        """
+        )
         frame_layout = QVBoxLayout()
         frame_layout.addWidget(self.output_stack)
         frame.setLayout(frame_layout)
@@ -90,38 +95,116 @@ class BenchmarkPage(QWidget):
             # button
             btn = QPushButton(tab_name.capitalize())
             btn.setMinimumHeight(40)
-            btn.clicked.connect(lambda _, n=tab_name, p=file_path: self.run_script(n, p))
+            btn.clicked.connect(
+                lambda _, n=tab_name, p=file_path: self.run_script(n, p)
+            )
             self.button_layout.addWidget(btn)
 
-            # output page
+            # output page with matplotlib
             page = QWidget()
             layout = QVBoxLayout()
-            text_box = QTextEdit()
-            text_box.setReadOnly(True)
-            layout.addWidget(text_box)
+            fig = Figure(figsize=(5, 4))
+            canvas = FigureCanvas(fig)
+            layout.addWidget(canvas)
+
             page.setLayout(layout)
             idx = self.output_stack.addWidget(page)
 
-            self.pages[tab_name] = (idx, text_box)
+            self.pages[tab_name] = (idx, fig, canvas, file_path)
 
     def run_script(self, name, file_path):
         if name not in self.pages:
             return
-        idx, text_box = self.pages[name]
+        idx, fig, canvas, file_path = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
-        text_box.clear()
 
         model_name = self.get_model_name() if self.get_model_name else None
         if not model_name:
-            msg = "[ERROR] No model selected in settings."
-            text_box.setPlainText(msg)
+            # show error message inside plot
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.text(
+                0.5,
+                0.5,
+                "❌ No model selected",
+                ha="center",
+                va="center",
+                color="red",
+                fontsize=12,
+            )
+            canvas.draw()
             return
-
-        text_box.append(f"[DEBUG] Selected model: {model_name}\n▶ Running {os.path.basename(file_path)}...\n")
 
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
 
         self.current_thread = RunnerThread(file_path, model_name)
-        self.current_thread.output_signal.connect(lambda msg: text_box.append(msg))
+        self.current_thread.output_signal.connect(
+            lambda msg: self.handle_output(msg, fig, canvas)
+        )
         self.current_thread.start()
+
+    def handle_output(self, msg, fig, canvas):
+        try:
+            data = json.loads(msg)
+        except Exception:
+            return
+
+        fig.clear()
+        ax = fig.add_subplot(111)
+
+        if "error" in data:
+            ax.text(
+                0.5,
+                0.5,
+                f"Error: {data['error']}",
+                ha="center",
+                va="center",
+                color="red",
+                fontsize=12,
+            )
+            canvas.draw()
+            return
+
+        # --- Performance.py data ---
+        if "times" in data:  # line plot
+            ax.plot(
+                range(1, len(data["times"]) + 1),
+                data["times"],
+                marker="o",
+                linestyle="-",
+                color="blue",
+            )
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Latency (ms)")
+            ax.set_title(f"Latency per Inference - {data['model']}")
+            ax.grid(True)
+
+        # --- Accuracy.py data ---
+        elif "positives" in data and "negatives" in data:
+            ax.hist(
+                data["positives"],
+                bins=50,
+                alpha=0.6,
+                label="Positive (user1)",
+                color="g",
+            )
+            ax.hist(
+                data["negatives"],
+                bins=50,
+                alpha=0.6,
+                label="Negative (others)",
+                color="r",
+            )
+            ax.axvline(
+                data["threshold"],
+                color="blue",
+                linestyle="--",
+                label=f"Threshold={data['threshold']}",
+            )
+            ax.set_xlabel("Cosine Similarity")
+            ax.set_ylabel("Frequency")
+            ax.legend()
+            ax.set_title(f"Face Verification - {data['model']}")
+
+        canvas.draw()

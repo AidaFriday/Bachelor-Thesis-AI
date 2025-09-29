@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import json
 
 # --- Bootstrap sys.path so project root is importable ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -120,4 +121,10 @@ plt.xlabel("Cosine Similarity")
 plt.ylabel("Frequency")
 plt.legend()
 plt.title(f"Face Verification (model={args.model})")
-plt.show()
+result = {
+    "model": args.model,
+    "positives": pos,
+    "negatives": neg,
+    "threshold": SIM_THRESHOLD
+}
+print(json.dumps(result))   # <-- emit JSON for BenchmarkPage

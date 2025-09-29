@@ -22,21 +22,31 @@ def measure_inference_time(wrapper, model_name: str, iters: int = 50):
     for _ in range(5):
         _ = wrapper.embed(x)
 
-    start = time.perf_counter()
+    times = []
     for _ in range(iters):
+        start = time.perf_counter()
         _ = wrapper.embed(x)
-    end = time.perf_counter()
+        end = time.perf_counter()
+        times.append((end - start) * 1000.0)  # ms
 
-    avg_ms = (end - start) * 1000.0 / iters
+    avg_ms = np.mean(times)
     fps = 1000.0 / avg_ms if avg_ms > 0 else float("inf")
 
-    print(f"[RESULT] Model: {model_name}")
-    print(f"         Avg inference: {avg_ms:.2f} ms | {fps:.1f} FPS")
+    result = {
+        "model": model_name,
+        "avg_ms": avg_ms,
+        "fps": fps,
+        "times": times,  # send per-iteration times
+    }
+    print(json.dumps(result))  # <-- JSON output for BenchmarkPage
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, help="Model name (arcface|facenet|deepface)")
+    parser.add_argument(
+        "--model", type=str, help="Model name (arcface|facenet|deepface)"
+    )
     parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
     args = parser.parse_args()
 
