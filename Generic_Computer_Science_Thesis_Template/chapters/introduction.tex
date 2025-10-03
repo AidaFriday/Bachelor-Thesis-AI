@@ -25,22 +25,6 @@ The \texttt{csthesis} template has a number of definable variables which can be 
 
 In addition, \texttt{\textbackslash thesisSubmissionText\{text\}} overrides the submission statement text, so you can type whatever you'd like onto the front page. This is optional, though. For example, if you wish to erase it entirely, you can use \texttt{\textbackslash thesisSubmissionText\{\}}. Example usage can be found in \texttt{preamble/thesis-details.tex}.
 
-\section{Research Goals}
-To make the title, you just need to write \texttt{\textbackslash maketitle} at the beginning of your document, like any other \LaTeX~document. You can alternatively pass the optional argument \texttt{[logo-first]} to render the title page with the logo on top, like some thesis styles. 
-
-To do this, just write \texttt{\textbackslash maketitle[logo-first]} in place of \texttt{\textbackslash maketitle}.
-
-\section{Structure of the Thesis}
-Here are two equations:
-
-\begin{align}
-a &= b + 1 \\
-\frac{\hbar^2}{2m}\nabla^2\Psi + V(\mathbf{r})\Psi
-&= -i\hbar \frac{\partial\Psi}{\partial t}    
-\end{align}
-
-
-And here is some text with some nice inline math, $(x, y)$ wow $\gamma$ so cool $\rho$.
 
 
 
@@ -64,15 +48,3 @@ To cite games, you can \texttt{\textbackslash cite} it like any other reference.
 
 Here is an example of a cited game with a normal reference style: ~\cite{spaceinvaders}. Ugh, pretty ugly. Instead, here the two are  cited in the next sentence as games with \texttt{\textbackslash citeGame}. Both \citeGame{spaceinvaders} and \citeGame{breakout} were games made by Atari. Much better!
 
-\section{Manual table of contents entries}
-As of version 1.0.5, there are commands to manually add chapters and sections to the table of contents (TOC). This is useful for a bunch of reasons, for example, in very large theses you can section your chapters into particular subtopics. 
-
-Another reason is to list chapter-like or section-like portions of the document to the TOC. For example, the abstract, acknowledgements, and other sections before the thesis body are not listed in the TOC by default. To enable this functionality, and start adding manual entries to your TOC, you can use the \texttt{\textbackslash enableManualTOCEntries} command in the  \texttt{preamble/thesis-details.tex} file.
-
-You can then add chapter headings with \texttt{\textbackslash addChapterToTOC\{Title goes here\}} throughout your document. You can also add sections with \texttt{\textbackslash addSectionToTOC\{Section title goes here\}} too. Furthermore, an additional command can be used to disable implicitly defined manual TOC entries in the thesis template itself (the list of figures, list of tables and TOC): \texttt{\textbackslash disableTableTOCEntries}.
-
-\section{A note about \texttt{arabtex}}
-Currently, this template doesn't seem to work properly with the \texttt{arabtex} package. Support for this package and its usage will eventually be added, but isn't one of my main priorities right now. A big thanks over to Hala and the folks over at Effat University for bringing this to my attention!
-
-\section{Omitting tables in preamble}
-Sometimes, you may want to omit either the List/Table of Figures, List/Table of Tables, or the Table of Contents. To do this, you can use the \texttt{\textbackslash turnOffTOF} command to omit the List of Figures, \texttt{\textbackslash turnOffTOT} to omit the List of Tables, and \texttt{\textbackslash turnOffTOC} to omit the Table of Contents. A better example can be found in \texttt{preamble/thesis-details.tex}.

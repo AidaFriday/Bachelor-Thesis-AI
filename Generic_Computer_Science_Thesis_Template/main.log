@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  2 OCT 2025 15:57
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  2 OCT 2025 17:03
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1061,7 +1061,7 @@ Package biblatex Info: Reference segment=0 on input line 28.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-<logo.png, id=60, 501.875pt x 282.05376pt>
+<logo.png, id=56, 501.875pt x 282.05376pt>
 File: logo.png Graphic file (type png)
 <use logo.png>
 Package pdftex.def Info: logo.png  used on input line 37.
@@ -1148,7 +1148,7 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 
 
 {c:/texlive/2023/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}]
-<figures/signature.png, id=81, 383.4325pt x 109.40875pt>
+<figures/signature.png, id=77, 383.4325pt x 109.40875pt>
 File: figures/signature.png Graphic file (type png)
 <use figures/signature.png>
 Package pdftex.def Info: figures/signature.png  used on input line 39.
@@ -1229,63 +1229,55 @@ Overfull \hbox (39.17961pt too wide) in paragraph at lines 26--27
 
 
 LaTeX Warning: Citation 'aad2012observation' on page 3 undefined on input line 
-48.
+32.
 
 
 LaTeX Warning: Citation 'chatrchyan2012observation' on page 3 undefined on inpu
-t line 48.
+t line 32.
 
 
-Overfull \hbox (5.7008pt too wide) in paragraph at lines 48--49
+Overfull \hbox (5.7008pt too wide) in paragraph at lines 32--33
 \T1/lmr/m/n/12 able to cite things in-line with par-en-theses. You can do this 
 by us-ing \T1/lmtt/m/n/12 \citep{citekey}\T1/lmr/m/n/12 .
  []
 
-[3{c:/texlive/2023/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{c:/texlive/2023
-/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{c:/texlive/2023/texmf-dist/fonts/enc/
-dvips/lm/lm-mathsy.enc}] [4]
+[3]
 
-LaTeX Warning: Citation 'spaceinvaders' on page 5 undefined on input line 65.
+LaTeX Warning: Citation 'spaceinvaders' on page 4 undefined on input line 49.
 
 
-LaTeX Warning: Citation 'spaceinvaders' on page 5 undefined on input line 65.
+LaTeX Warning: Citation 'spaceinvaders' on page 4 undefined on input line 49.
 
 
-LaTeX Warning: Citation 'breakout' on page 5 undefined on input line 65.
+LaTeX Warning: Citation 'breakout' on page 4 undefined on input line 49.
 
-
-Overfull \hbox (2.70241pt too wide) in paragraph at lines 70--71
-\T1/lmr/m/n/12 start adding manual entries to your TOC, you can use the \T1/lmt
-t/m/n/12 \enableManualTOCEntries
- []
-
-
-Overfull \hbox (17.63461pt too wide) in paragraph at lines 72--73
-\T1/lmr/m/n/12 through-out your doc-u-ment. You can also add sec-tions with \T1
-/lmtt/m/n/12 \addSectionToTOC{Section
- []
-
-LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <17.28> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 74.
-) [5] [6]
+) [4]
 Chapter 2.
-(./chapters/related-work.tex) [7
+(./chapters/related-work.tex) [5
 
 ]
 Chapter 3.
 (./chapters/method.tex
-<figures/duck.jpg, id=175, 1541.76pt x 1027.84pt>
+Overfull \hbox (11.35167pt too wide) in paragraph at lines 2--2
+|[]\T1/lmr/bx/n/17.28 Evaluation Setup (CPU vs GPU, data-sets, web-
+ []
+
+
+Overfull \hbox (7.617pt too wide) in paragraph at lines 3--3
+|[]\T1/lmr/bx/n/17.28 Application Work-flow (PyQt GUI, in-teg-ra-tion)| 
+ []
+
+<figures/duck.jpg, id=153, 1541.76pt x 1027.84pt>
 File: figures/duck.jpg Graphic file (type jpg)
 <use figures/duck.jpg>
-Package pdftex.def Info: figures/duck.jpg  used on input line 5.
+Package pdftex.def Info: figures/duck.jpg  used on input line 15.
 (pdftex.def)             Requested size: 429.3521pt x 286.22488pt.
-
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-) [8
+) [6
 
- <./figures/duck.jpg>] [9]
+] [7 <./figures/duck.jpg>]
 Chapter 4.
 (./chapters/conclusions.tex)
 
@@ -1297,7 +1289,7 @@ Package biblatex Warning: Keyword 'game' not found on input line 83.
 
 LaTeX Warning: Empty bibliography on input line 83.
 
-[10
+[8
 
 ] (./main.aux)
  ***********
@@ -1308,14 +1300,8 @@ L3 programming layer <2023-11-09>
 
 LaTeX Warning: There were undefined references.
 
-
-Package rerunfilecheck Warning: File `main.out' has changed.
-(rerunfilecheck)                Rerun to get outlines right
-(rerunfilecheck)                or use package `bookmark'.
-
-Package rerunfilecheck Info: Checksums for `main.out':
-(rerunfilecheck)             Before: B94B9426FEC3179148EDAD449A838101;2078
-(rerunfilecheck)             After:  F2A3818E3ABF3A7354CE50648938D1C2;2121.
+Package rerunfilecheck Info: File `main.out' has not changed.
+(rerunfilecheck)             Checksum: 5445095834C579464D6766FE4E24E750;2193.
 
 Package biblatex Warning: Please (re)run Biber on the file:
 (biblatex)                main
@@ -1326,28 +1312,25 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 25638 strings out of 474267
- 464686 string characters out of 5751464
+ 25618 strings out of 474267
+ 464420 string characters out of 5751464
  1933558 words of memory out of 5000000
- 47392 multiletter control sequences out of 15000+600000
- 642903 words of font info for 80 fonts, out of 8000000 for 9000
+ 47384 multiletter control sequences out of 15000+600000
+ 633757 words of font info for 76 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  98i,12n,145p,1193b,2484s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmbx12.pfb><c:/texlive/2023
 /texmf-dist/fonts/type1/public/lm/lmbxi10.pfb><c:/texlive/2023/texmf-dist/fonts
-/type1/public/lm/lmmi12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/l
-mr10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmr12.pfb><c:/texliv
-e/2023/texmf-dist/fonts/type1/public/lm/lmr7.pfb><c:/texlive/2023/texmf-dist/fo
-nts/type1/public/lm/lmr8.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/
-lmri10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmri12.pfb><c:/tex
-live/2023/texmf-dist/fonts/type1/public/lm/lmsy10.pfb><c:/texlive/2023/texmf-di
-st/fonts/type1/public/lm/lmtk10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/pub
-lic/lm/lmtt12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmtti10.pfb
->
-Output written on main.pdf (18 pages, 1446379 bytes).
+/type1/public/lm/lmr10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lm
+r12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmr7.pfb><c:/texlive/
+2023/texmf-dist/fonts/type1/public/lm/lmr8.pfb><c:/texlive/2023/texmf-dist/font
+s/type1/public/lm/lmri10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/
+lmri12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmtt12.pfb><c:/tex
+live/2023/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
+Output written on main.pdf (16 pages, 1400135 bytes).
 PDF statistics:
- 272 PDF objects out of 1000 (max. 8388607)
- 214 compressed objects within 3 object streams
- 43 named destinations out of 1000 (max. 500000)
- 128 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 228 PDF objects out of 1000 (max. 8388607)
+ 182 compressed objects within 2 object streams
+ 38 named destinations out of 1000 (max. 500000)
+ 120 words of extra memory for PDF output out of 10000 (max. 10000000)
 
