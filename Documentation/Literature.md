@@ -13,3 +13,4 @@
 - https://vcl.fer.hr/papers_pdf/SCface%20-%20Surveillance%20Cameras%20Face%20Database.pdf
 - https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10036007
 - https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8014984
+- https://www.sciencedirect.com/science/article/pii/S0925231220316945?casa_token=ZgA0IAc2tBkAAAAA:GEdEFew8GwAjaHRPkM7BH22GVFgOQvdv3hPDvLcBRL3hw2sFrHwPrbpG-UB0Z--Qhnu40fIlbE8
