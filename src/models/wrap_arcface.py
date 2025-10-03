@@ -1,69 +1,29 @@
-import os
-import cv2
 import numpy as np
+import cv2
 from insightface.app import FaceAnalysis
 
 
 class ArcFaceWrapper:
     """
-    ArcFace wrapper using insightface buffalo_l pack.
-    Reference: Deng et al., ArcFace: Additive Angular Margin Loss, CVPR 2019.
+    ArcFace wrapper using insightface buffalo_l package models.
     """
 
     name = "arcface"
 
-    def __init__(
-        self,
-        device: str = "cpu",
-        model_path: str = "src/models/pretrained_models",
-        input_size=(112, 112),
-    ):
+    def __init__(self, device: str = "cpu", input_size=(112, 112)):
         self.device = device
         self.input_size = input_size
 
-        # If user points directly to buffalo_l, strip to get the parent
-        if model_path.endswith("buffalo_l"):
-            root_path = os.path.dirname(model_path)
-            buffalo_dir = model_path
-        else:
-            root_path = model_path
-            buffalo_dir = os.path.join(model_path, "buffalo_l")
-
-        # --- Fix: handle InsightFace auto-download under "models/buffalo_l"
-        alt_dir = os.path.join(root_path, "models", "buffalo_l")
-        if not os.path.isdir(buffalo_dir) and os.path.isdir(alt_dir):
-            print(f"[ArcFace] Found buffalo_l under unexpected path, using: {alt_dir}")
-            buffalo_dir = alt_dir
-            root_path = os.path.dirname(buffalo_dir)
-
-        # Ensure buffalo_l exists (insightface will auto-download if missing)
-        os.makedirs(buffalo_dir, exist_ok=True)
-
         ctx_id = 0 if device == "cuda" else -1
-
-        print(f"[ArcFace] Using buffalo_l at: {buffalo_dir}")
-
-        # InsightFace FaceAnalysis provides detection + embedding
-        self.detector = FaceAnalysis(root=root_path, name="buffalo_l")
+        self.detector = FaceAnalysis(name="buffalo_l")
         self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
-        # Verify recognition model is loaded
-        if (
-            "recognition" not in self.detector.models
-            or self.detector.models["recognition"] is None
-        ):
-            raise RuntimeError(
-                "[ArcFace] Recognition model not loaded. "
-                f"Check {buffalo_dir}/w600k_r50.onnx"
-            )
-
     def detect_and_embed(self, frame: np.ndarray):
-        """Detect faces and return bbox, landmarks, and ArcFace embeddings."""
         faces = self.detector.get(frame)
         results = []
         for f in faces:
             if getattr(f, "embedding", None) is None:
-                continue  # skip if embedding not available
+                continue
             results.append(
                 {
                     "bbox": f.bbox.astype(int),
@@ -73,23 +33,27 @@ class ArcFaceWrapper:
             )
         return results
 
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Get embedding of a cropped face (no detection).
+        """
+        faces = self.detector.get(bgr)
+        if len(faces) > 0 and getattr(faces[0], "embedding", None) is not None:
+            return faces[0].embedding.astype(np.float32)
+        return None
+
     def get_embedding(self, img_path: str) -> np.ndarray:
-        """
-        Load image, detect main face, and return ArcFace embedding.
-        Falls back to center crop + no alignment if detector fails.
-        """
         frame = cv2.imread(img_path)
         if frame is None:
             raise ValueError(f"[ArcFace] Could not read image: {img_path}")
 
         faces = self.detect_and_embed(frame)
-        if len(faces) > 0:
+        if faces:
             return faces[0]["embedding"]
 
-        # fallback: center crop
+        # fallback: center crop then embed
         h, w = frame.shape[:2]
         min_dim = min(h, w)
-        start_x = (w - min_dim) // 2
-        start_y = (h - min_dim) // 2
-        crop = frame[start_y:start_y + min_dim, start_x:start_x + min_dim]
-        return self.detector.models["recognition"].get(crop).astype(np.float32)
+        crop = frame[(h - min_dim)//2:(h + min_dim)//2,
+                     (w - min_dim)//2:(w + min_dim)//2]
+        return self.embed(crop)

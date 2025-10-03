@@ -1,0 +1,1513 @@
+# ==== Collected Python Files ====
+.\connector.py
+.\extractor.py
+.\main.py
+.\benchmark_parameters\accuracy.py
+.\benchmark_parameters\performance.py
+.\components\camera.py
+.\components\face_detection.py
+.\components\settings.py
+.\components\sidebar.py
+.\example1\train_lfw_arcface_cpu.py
+.\models\wrap_arcface.py
+.\models\wrap_facenet.py
+.\models\wrap_insightface.py
+.\windows\benchmark_window.py
+.\windows\home_window.py
+
+
+# ==== File Contents Below ====
+
+
+# ==== .\connector.py ====
+
+import importlib
+import torch
+
+
+def load_model(model_name: str, config_path=None):
+    """Load model wrapper from package (pip-available only)."""
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    wrappers = {
+        "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
+        "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
+        "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
+    }
+    if model_name not in wrappers:
+        raise ValueError(f"Unknown model: {model_name}")
+
+    module_name, class_name = wrappers[model_name]
+    module = importlib.import_module(module_name)
+    wrapper_class = getattr(module, class_name)
+
+    return wrapper_class(device)
+
+
+
+# ==== .\extractor.py ====
+
+import os
+
+
+def collect_python_code(
+    root_dir=".", output_file="all_code.txt", exclude_folder="pretrained_models"
+):
+    python_files = []
+
+    # First, collect all file paths
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Skip excluded folder
+        if exclude_folder in dirpath.split(os.sep):
+            continue
+
+        for filename in filenames:
+            if filename.endswith(".py"):
+                file_path = os.path.join(dirpath, filename)
+                python_files.append(file_path)
+
+    with open(output_file, "w", encoding="utf-8") as out:
+        # Write file list header
+        out.write("# ==== Collected Python Files ====\n")
+        for path in python_files:
+            out.write(path + "\n")
+        out.write("\n\n# ==== File Contents Below ====\n")
+
+        # Write each file’s content
+        for file_path in python_files:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    code = f.read()
+                out.write(f"\n\n# ==== {file_path} ====\n\n")
+                out.write(code)
+                out.write("\n")
+            except Exception as e:
+                print(f"Skipping {file_path}: {e}")
+
+
+if __name__ == "__main__":
+    collect_python_code()
+    print(
+        "✅ All Python code has been collected into all_code.txt (excluding pretrained_models)"
+    )
+
+
+
+# ==== .\main.py ====
+
+# ==== main.py ====
+
+import sys
+from PyQt5.QtWidgets import QApplication
+from windows.home_window import HomeWindow
+
+
+def main():
+    app = QApplication(sys.argv)
+    window = HomeWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\accuracy.py ====
+
+import os
+import sys
+import argparse
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+
+# --- Bootstrap sys.path so project root is importable ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from connector import load_model
+
+# -------------------------------
+# Args
+# -------------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", type=str, required=True, help="Model name (arcface|facenet|deepface)")
+args = parser.parse_args()
+print(f"[DEBUG] accuracy.py running with model={args.model}")
+
+# -------------------------------
+# Config
+# -------------------------------
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+USER1_EMBED_DIR = os.path.join(BASE_DIR, "models", "embeddings", "user1")
+USER1_EMBED_FILE = os.path.join(USER1_EMBED_DIR, "embeddings.npy")
+
+SIM_THRESHOLD = 0.5
+OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "found_matches.txt")
+
+# -------------------------------
+# Load user1 embeddings
+# -------------------------------
+if not os.path.exists(USER1_EMBED_FILE):
+    raise FileNotFoundError(f"[ERROR] Missing {USER1_EMBED_FILE}. Run embeddings.py first.")
+
+user1_data = np.load(USER1_EMBED_FILE, allow_pickle=True)
+user1_embs = np.stack([entry["embedding"] for entry in user1_data])
+print(f"[INFO] Loaded {len(user1_embs)} user1 embeddings.")
+
+# -------------------------------
+# Init selected model wrapper
+# -------------------------------
+wrapper = load_model(args.model)
+
+
+def extract_embedding(image_path):
+    """Get embedding for an image using the wrapper."""
+    img = cv2.imread(image_path)
+    if img is None:
+        print(f"[WARN] Could not read: {image_path}")
+        return None
+
+    faces = wrapper.detect_and_embed(img)
+    if faces:
+        return faces[0]["embedding"]
+
+    # fallback: center crop + embed
+    h, w = img.shape[:2]
+    min_dim = min(h, w)
+    crop = img[(h - min_dim)//2:(h + min_dim)//2,
+               (w - min_dim)//2:(w + min_dim)//2]
+    return wrapper.embed(crop)
+
+
+def cosine_sim(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+# -------------------------------
+# Compare dataset images
+# -------------------------------
+y_true, scores, matches = [], [], []
+
+for root, _, files in os.walk(DATASET_DIR):
+    for fname in files:
+        if not fname.lower().endswith((".jpg", ".png", ".jpeg")):
+            continue
+        path = os.path.join(root, fname)
+        emb = extract_embedding(path)
+        if emb is None:
+            continue
+
+        sims = [cosine_sim(emb, u) for u in user1_embs]
+        best_sim = max(sims)
+
+        label = 1 if "user1" in root.lower() else 0
+        y_true.append(label)
+        scores.append(best_sim)
+
+        if best_sim >= SIM_THRESHOLD:
+            print(f"[MATCH] {path} (similarity={best_sim:.3f})")
+            matches.append(f"{path} (similarity={best_sim:.3f})")
+        else:
+            print(f"[NO MATCH] {path} (similarity={best_sim:.3f})")
+
+# -------------------------------
+# Save matches
+# -------------------------------
+if matches:
+    with open(OUTPUT_FILE, "w") as f:
+        for m in matches:
+            f.write(m + "\n")
+    print(f"[INFO] Saved {len(matches)} matches to {OUTPUT_FILE}")
+else:
+    print("[INFO] No matches found, nothing saved.")
+
+# -------------------------------
+# Plot results
+# -------------------------------
+pos = [s for s, y in zip(scores, y_true) if y == 1]
+neg = [s for s, y in zip(scores, y_true) if y == 0]
+
+plt.hist(pos, bins=50, alpha=0.6, label="Positive (user1)", color="g")
+plt.hist(neg, bins=50, alpha=0.6, label="Negative (others)", color="r")
+plt.axvline(SIM_THRESHOLD, color="blue", linestyle="--", label=f"Threshold={SIM_THRESHOLD}")
+plt.xlabel("Cosine Similarity")
+plt.ylabel("Frequency")
+plt.legend()
+plt.title(f"Face Verification (model={args.model})")
+plt.show()
+
+
+
+# ==== .\benchmark_parameters\performance.py ====
+
+import argparse
+import time
+import numpy as np
+import os, json, sys
+
+# --- Bootstrap sys.path ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from connector import load_model
+
+SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+
+
+def measure_inference_time(wrapper, model_name: str, iters: int = 50):
+    print(f"[DEBUG] Starting performance test for model '{model_name}'")
+    h, w = wrapper.input_size
+    x = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+
+    # Warm-up
+    for _ in range(5):
+        _ = wrapper.embed(x)
+
+    start = time.perf_counter()
+    for _ in range(iters):
+        _ = wrapper.embed(x)
+    end = time.perf_counter()
+
+    avg_ms = (end - start) * 1000.0 / iters
+    fps = 1000.0 / avg_ms if avg_ms > 0 else float("inf")
+
+    print(f"[RESULT] Model: {model_name}")
+    print(f"         Avg inference: {avg_ms:.2f} ms | {fps:.1f} FPS")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, help="Model name (arcface|facenet|deepface)")
+    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
+    args = parser.parse_args()
+
+    # If not given via CLI → load from settings.json
+    if not args.model:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, "r") as f:
+                data = json.load(f)
+            args.model = data.get("model")
+    if not args.model:
+        print("[ERROR] No model selected in settings.")
+        sys.exit(1)
+
+    print(f"[DEBUG] performance.py running with model={args.model}")
+    wrapper = load_model(args.model)
+    measure_inference_time(wrapper, args.model, iters=args.iters)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\components\camera.py ====
+
+import cv2
+import time
+import numpy as np
+from collections import deque
+from .face_detection import align_by_5pts
+
+
+def run_camera_loop(wrapper):
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("[ERROR] Cannot open camera")
+        return
+
+    print("Press ESC to exit.")
+    times_ms = deque(maxlen=200)
+    fps_hist = deque(maxlen=60)
+    last = time.perf_counter()
+
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+
+        faces = wrapper.detect_and_embed(frame)
+        disp = frame.copy()
+
+        for f in faces:
+            x1, y1, x2, y2 = f["bbox"]
+            emb = f["embedding"]
+            cv2.rectangle(disp, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            for (px, py) in f["kps"].astype(int):
+                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
+
+        now = time.perf_counter()
+        fps = 1.0 / (now - last)
+        last = now
+        fps_hist.append(fps)
+
+        cv2.putText(disp, f"{wrapper.name} | FPS: {np.mean(fps_hist):.1f} | faces: {len(faces)}",
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+        cv2.imshow("Live FR Wrapper", disp)
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+
+# ==== .\components\face_detection.py ====
+
+import cv2
+import numpy as np
+from insightface.app import FaceAnalysis
+
+# Reference landmarks for alignment
+REF_5PTS_112 = np.float32([
+    [38.2946, 51.6963],
+    [73.5318, 51.5014],
+    [56.0252, 71.7366],
+    [41.5493, 92.3655],
+    [70.7299, 92.2041]
+])
+scale_160 = 160.0 / 112.0
+REF_5PTS_160 = REF_5PTS_112 * scale_160
+
+def align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(112, 112)) -> np.ndarray:
+    ref = REF_5PTS_112 if out_size == (112, 112) else REF_5PTS_160
+    M = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)[0]
+    if M is None:
+        return None
+    return cv2.warpAffine(bgr, M, out_size, flags=cv2.INTER_LINEAR)
+
+
+class RetinaFaceDetector:
+    """Wrapper for RetinaFace-based face detection (from insightface)."""
+    def __init__(self, device: str = "cpu", det_size=(640, 640)):
+        ctx_id = 0 if device.lower().startswith("cuda") else -1
+        # initialize RetinaFace via insightface
+        self.app = FaceAnalysis(name="retinaface_r50", allowed_modules=["detection"])
+        self.app.prepare(ctx_id=ctx_id, det_size=det_size)
+    
+    def get(self, frame: np.ndarray):
+        """
+        Detect faces in frame.
+
+        Returns list of face objects with:
+            - bbox (x1, y1, x2, y2)
+            - kps: landmarks (5 points)
+            - (if available) confidence
+        """
+        faces = self.app.get(frame)
+        return faces
+
+
+
+# ==== .\components\settings.py ====
+
+from PyQt5.QtWidgets import (
+    QWidget, QLabel, QVBoxLayout, QPushButton, QComboBox,
+    QFileDialog, QMessageBox
+)
+from PyQt5.QtCore import pyqtSignal
+import os
+import json
+
+SETTINGS_FILE = "settings.json"
+
+LIGHT_THEME = """
+    QWidget {
+        background-color: #ffffff;
+        color: #000000;
+    }
+    QPushButton {
+        background-color: #f0f0f0;
+        border: 1px solid #888;
+        padding: 6px;
+    }
+    QPushButton:hover {
+        background-color: #e0e0e0;
+    }
+    QLabel {
+        color: #000000;
+    }
+"""
+
+DARK_THEME = """
+    QWidget {
+        background-color: #2d2d2d;
+        color: #dddddd;
+    }
+    QPushButton {
+        background-color: #444;
+        border: 1px solid #888;
+        padding: 6px;
+        color: #ffffff;
+    }
+    QPushButton:hover {
+        background-color: #555;
+    }
+    QLabel {
+        color: #dddddd;
+    }
+"""
+
+
+class SettingsPage(QWidget):
+    theme_changed = pyqtSignal(str)  # 🔔 signal to notify theme changes
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.dataset_path = None
+        self.model_name = "arcface"
+        self.theme = "light"
+
+        # Try to load saved settings
+        self.load_settings()
+
+        layout = QVBoxLayout()
+
+        # --- Dataset selection ---
+        self.dataset_label = QLabel("Choose dataset folder:")
+        if self.dataset_path:
+            self.dataset_label.setText(f"Dataset: {self.dataset_path}")
+        self.dataset_btn = QPushButton("Browse Dataset")
+        self.dataset_btn.clicked.connect(self.browse_dataset)
+
+        # --- Model selection ---
+        self.model_label = QLabel("Select model:")
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(["arcface", "facenet", "insightface"])
+        idx = self.model_combo.findText(self.model_name)
+        if idx >= 0:
+            self.model_combo.setCurrentIndex(idx)
+        self.model_combo.currentTextChanged.connect(self.update_model)
+
+        # --- Theme selection ---
+        self.theme_label = QLabel("Select theme:")
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["light", "dark"])
+        idx = self.theme_combo.findText(self.theme)
+        if idx >= 0:
+            self.theme_combo.setCurrentIndex(idx)
+        self.theme_combo.currentTextChanged.connect(self.update_theme)
+
+        # --- Save button ---
+        self.save_btn = QPushButton("Save Settings")
+        self.save_btn.clicked.connect(self.save_settings)
+
+        # Layout
+        layout.addWidget(self.dataset_label)
+        layout.addWidget(self.dataset_btn)
+        layout.addSpacing(15)
+        layout.addWidget(self.model_label)
+        layout.addWidget(self.model_combo)
+        layout.addSpacing(15)
+        layout.addWidget(self.theme_label)
+        layout.addWidget(self.theme_combo)
+        layout.addStretch()
+        layout.addWidget(self.save_btn)
+
+        self.setLayout(layout)
+
+    def browse_dataset(self):
+        path = QFileDialog.getExistingDirectory(
+            self, "Select Dataset Folder", os.getcwd()
+        )
+        if path:
+            self.dataset_path = path
+            self.dataset_label.setText(f"Dataset: {path}")
+
+    def update_model(self, text):
+        self.model_name = text
+
+    def update_theme(self, text):
+        self.theme = text
+        self.theme_changed.emit(text)  # 🔔 tell parent window
+
+    def save_settings(self):
+        data = {
+            "model": self.model_name,
+            "dataset": self.dataset_path,
+            "theme": self.theme,
+        }
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+
+        msg = (
+            f"✅ Settings saved:\n\n"
+            f"Model: {self.model_name}\n"
+            f"Dataset: {self.dataset_path or 'Not selected'}\n"
+            f"Theme: {self.theme}"
+        )
+        QMessageBox.information(self, "Settings", msg)
+
+    def load_settings(self):
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                self.model_name = data.get("model", "arcface")
+                self.dataset_path = data.get("dataset", None)
+                self.theme = data.get("theme", "light")
+                print(f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}, theme={self.theme}")
+            except Exception as e:
+                print(f"[WARN] Could not load settings.json: {e}")
+
+
+
+# ==== .\components\sidebar.py ====
+
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton
+from PyQt5.QtCore import Qt, QPropertyAnimation
+
+class SideBar(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop)
+        layout.setSpacing(12)  # more breathing space
+
+        # Buttons
+        self.btn_home = QPushButton("Home")
+        self.btn_dataset = QPushButton("Dataset")
+        self.btn_models = QPushButton("Models")
+        self.btn_benchmark = QPushButton("Benchmark")
+        self.btn_settings = QPushButton("Settings")
+
+        self.buttons = [
+            self.btn_home,
+            self.btn_dataset,
+            self.btn_models,
+            self.btn_benchmark,
+            self.btn_settings,
+        ]
+
+        for btn in self.buttons:
+            btn.setMinimumHeight(45)
+            btn.setCursor(Qt.PointingHandCursor)   # hand cursor
+            btn.setFlat(True)  # remove old 3D look
+            layout.addWidget(btn)
+
+        self.setLayout(layout)
+        self.setFixedWidth(0)
+        self._collapsed = True
+
+        self.anim = QPropertyAnimation(self, b"maximumWidth")
+        self.anim.setDuration(300)
+
+    def toggle(self):
+        if self._collapsed:
+            self.anim.setStartValue(0)
+            self.anim.setEndValue(220)  # a little wider for nicer look
+        else:
+            self.anim.setStartValue(220)
+            self.anim.setEndValue(0)
+        self.anim.start()
+        self._collapsed = not self._collapsed
+
+    def apply_theme(self, theme: str):
+        """Update button styles when theme changes."""
+        if theme == "dark":
+            style = """
+                QPushButton {
+                    background-color: #3a3a3a;
+                    color: #f0f0f0;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #505050;
+                }
+                QPushButton:pressed {
+                    background-color: #2d2d2d;
+                }
+            """
+        else:
+            style = """
+                QPushButton {
+                    background-color: #f5f5f5;
+                    color: #222;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    font-size: 14px;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #e0e0e0;
+                }
+                QPushButton:pressed {
+                    background-color: #d0d0d0;
+                }
+            """
+        for btn in self.buttons:
+            btn.setStyleSheet(style)
+
+
+
+# ==== .\example1\train_lfw_arcface_cpu.py ====
+
+# train_lfw_arcface_cpu.py
+import math, argparse, time
+from pathlib import Path
+from collections import defaultdict
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms, models
+from torchvision.datasets import ImageFolder
+
+import numpy as np
+from sklearn.metrics import roc_auc_score, accuracy_score
+from tqdm import tqdm
+
+# ----------------------------
+# ArcFace head (classification)
+# ----------------------------
+class ArcMarginProduct(nn.Module):
+    def __init__(self, in_feat, out_feat, s=64.0, m=0.50, easy_margin=False):
+        super().__init__()
+        self.weight = nn.Parameter(torch.FloatTensor(out_feat, in_feat))
+        nn.init.xavier_uniform_(self.weight)
+        self.s = s
+        self.m = m
+        self.easy_margin = easy_margin
+        self.cos_m = math.cos(m)
+        self.sin_m = math.sin(m)
+        self.th = math.cos(math.pi - m)
+        self.mm = math.sin(math.pi - m) * m
+
+    def forward(self, emb, label):
+        emb = F.normalize(emb, p=2, dim=1)
+        W = F.normalize(self.weight, p=2, dim=1)
+        cosine = F.linear(emb, W).clamp(-1, 1)
+        sine = torch.sqrt((1.0 - cosine ** 2).clamp(0, 1))
+        phi = cosine * self.cos_m - sine * self.sin_m
+        if self.easy_margin:
+            phi = torch.where(cosine > 0, phi, cosine)
+        else:
+            phi = torch.where(cosine > self.th, phi, cosine - self.mm)
+
+        onehot = torch.zeros_like(cosine)
+        onehot.scatter_(1, label.view(-1, 1), 1.0)
+        logits = onehot * phi + (1.0 - onehot) * cosine
+        logits *= self.s
+        return logits
+
+# ----------------------------
+# Backbone: ResNet-18 → embedding
+# ----------------------------
+class FaceNet(nn.Module):
+    def __init__(self, embedding_dim=128, pretrained=False):
+        super().__init__()
+        self.backbone = models.resnet18(
+            weights=models.ResNet18_Weights.DEFAULT if pretrained else None
+        )
+        in_features = self.backbone.fc.in_features
+        self.backbone.fc = nn.Identity()
+        self.embed = nn.Linear(in_features, embedding_dim, bias=False)
+        self.bn = nn.BatchNorm1d(embedding_dim)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.embed(x)
+        x = self.bn(x)
+        return x
+
+# ----------------------------
+# Utilities
+# ----------------------------
+def set_seed(seed=42):
+    import random
+    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+
+def build_transforms(img_size):
+    return transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5,0.5,0.5],[0.5,0.5,0.5])
+    ])
+
+def _maybe_fix_nested_root(root):
+    inner = Path(root) / "lfw-deepfunneled"
+    if inner.exists() and inner.is_dir():
+        subdirs = [p for p in inner.iterdir() if p.is_dir()]
+        if len(subdirs) > 0:
+            return str(inner)
+    return root
+
+def split_by_identity(dataset: ImageFolder, train_id_frac=0.8, min_images_per_id=2, seed=42):
+    by_class = defaultdict(list)
+    for idx, (_, cls) in enumerate(dataset.samples):
+        by_class[cls].append(idx)
+
+    valid_classes = [c for c, idxs in by_class.items() if len(idxs) >= min_images_per_id]
+    if len(valid_classes) == 0:
+        return [], [], [], []
+
+    rng = np.random.default_rng(seed)
+    rng.shuffle(valid_classes)
+    split_point = max(1, int(len(valid_classes) * train_id_frac))
+    train_classes = set(valid_classes[:split_point])
+    val_classes   = set(valid_classes[split_point:]) or set(valid_classes[-1:])
+
+    train_idx, val_idx = [], []
+    for c, idxs in by_class.items():
+        if c in train_classes: train_idx.extend(idxs)
+        elif c in val_classes: val_idx.extend(idxs)
+    return train_idx, val_idx, sorted(list(train_classes)), sorted(list(val_classes))
+
+class RemapSubset(Dataset):
+    """
+    Pickle-safe dataset wrapper that:
+      - selects a subset of ImageFolder by indices
+      - remaps class ids via a provided dict (for train set)
+    """
+    def __init__(self, base: ImageFolder, indices, class_remap=None):
+        self.base = base
+        self.indices = list(indices)
+        self.class_remap = class_remap  # dict old->new or None
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, i):
+        x, y = self.base[self.indices[i]]
+        if self.class_remap is not None:
+            y = self.class_remap[y]
+        return x, y
+
+def make_loaders(img_size=112, batch_size=64, root="./archive/lfw-deepfunneled",
+                 train_id_frac=0.8, min_images_per_id=2, max_train_ids=None,
+                 num_workers=0, seed=42):
+    tfm = build_transforms(img_size)
+    root = _maybe_fix_nested_root(root)
+    full_dataset = ImageFolder(root=root, transform=tfm)
+    if len(full_dataset) == 0:
+        raise RuntimeError(f"No images under {root}")
+
+    train_idx, val_idx, train_classes, val_classes = split_by_identity(
+        full_dataset, train_id_frac=train_id_frac, min_images_per_id=min_images_per_id, seed=seed
+    )
+
+    # Optionally cap train identities
+    if train_classes and max_train_ids is not None and len(train_classes) > max_train_ids:
+        rng = np.random.default_rng(seed)
+        keep = set(rng.choice(train_classes, size=max_train_ids, replace=False))
+        train_idx = [i for i in train_idx if full_dataset.samples[i][1] in keep]
+        train_classes = sorted(list(keep))
+
+    if len(train_idx) == 0:
+        # Fallback to random image split (so you can still run)
+        print("[WARN] Identity split empty; falling back to random image split.")
+        n_total = len(full_dataset)
+        n_train = max(1, int(0.8 * n_total))
+        n_val = n_total - n_train
+        gen = torch.Generator().manual_seed(seed)
+        train_subset, val_subset = torch.utils.data.random_split(full_dataset, [n_train, n_val], generator=gen)
+        # Approximate num classes (not exact under random split)
+        num_train_classes = len(full_dataset.classes)
+        train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=False)
+        val_loader   = DataLoader(val_subset,   batch_size=batch_size, shuffle=False,num_workers=num_workers, pin_memory=False)
+        print(f"[INFO] Random split: train images={len(train_subset)}, val images={len(val_subset)}")
+        return full_dataset, train_loader, val_loader, num_train_classes, list(range(len(val_subset)))
+
+    # Build class remap table (old id -> [0..num_train_classes-1])
+    class_remap = {old: new for new, old in enumerate(train_classes)}
+    train_set = RemapSubset(full_dataset, train_idx, class_remap=class_remap)
+    val_set   = RemapSubset(full_dataset, val_idx, class_remap=None)
+
+    print(f"[INFO] Train identities: {len(train_classes)} | Train images: {len(train_idx)}")
+    print(f"[INFO] Val   identities: {len(val_classes)} | Val   images: {len(val_idx)}")
+
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,  num_workers=num_workers, pin_memory=False)
+    val_loader   = DataLoader(val_set,   batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=False)
+    num_train_classes = len(train_classes)
+    return full_dataset, train_loader, val_loader, num_train_classes, val_idx
+
+# ---------- Build verification pairs from VAL identities ----------
+def build_verification_pairs(dataset: ImageFolder, val_indices, n_pos=2000, n_neg=2000, seed=42):
+    rng = np.random.default_rng(seed)
+    by_class = defaultdict(list)
+    for idx in val_indices:
+        _, c = dataset.samples[idx]
+        by_class[c].append(idx)
+
+    classes = [c for c, idxs in by_class.items() if len(idxs) >= 2]
+    if len(classes) == 0:
+        raise RuntimeError("No validation identities with >=2 images to make positive pairs.")
+
+    pos_pairs = []
+    for _ in range(n_pos):
+        c = rng.choice(classes)
+        i1, i2 = rng.choice(by_class[c], size=2, replace=False)
+        pos_pairs.append((i1, i2, 1))
+
+    neg_pairs = []
+    val_classes = list(by_class.keys())
+    for _ in range(n_neg):
+        c1, c2 = rng.choice(val_classes, size=2, replace=False)
+        i1 = rng.choice(by_class[c1])
+        i2 = rng.choice(by_class[c2])
+        neg_pairs.append((i1, i2, 0))
+
+    return pos_pairs + neg_pairs
+
+@torch.no_grad()
+def evaluate_verification(model, dataset: ImageFolder, pairs, batch_size=128, device="cpu"):
+    model.eval()
+    uniq = sorted({i for (i,_,_) in pairs} | {j for (_,j,_) in pairs})
+    imgs = torch.stack([dataset[inx][0] for inx in uniq], dim=0).to(device)
+
+    embs = []
+    for s in range(0, len(imgs), batch_size):
+        embs.append(model(imgs[s:s+batch_size]))
+    embs = F.normalize(torch.cat(embs, dim=0), p=2, dim=1)
+
+    idx_to_row = {idx: r for r, idx in enumerate(uniq)}
+    sims, labels = [], []
+    for i, j, lab in pairs:
+        e1 = embs[idx_to_row[i]]
+        e2 = embs[idx_to_row[j]]
+        sims.append(float(torch.sum(e1 * e2)))
+        labels.append(lab)
+
+    sims = np.array(sims); labels = np.array(labels)
+    auc = roc_auc_score(labels, sims)
+    thresholds = np.linspace(-1, 1, 4001)
+    accs = []
+    for th in thresholds:
+        preds = (sims >= th).astype(int)
+        accs.append(accuracy_score(labels, preds))
+    k = int(np.argmax(accs))
+    return auc, accs[k], thresholds[k]
+
+# ---------- Train / Eval ----------
+def train_epoch(model, head, loader, optimizer, device):
+    model.train(); head.train()
+    loss_meter, correct, total = 0.0, 0, 0
+    for imgs, targets in tqdm(loader, desc="Train", leave=False):
+        imgs = imgs.to(device); targets = targets.to(device)
+        optimizer.zero_grad()
+        emb = model(imgs)
+        logits = head(emb, targets)
+        loss = F.cross_entropy(logits, targets)
+        loss.backward(); optimizer.step()
+
+        loss_meter += loss.item() * imgs.size(0)
+        correct += (logits.argmax(1) == targets).sum().item()
+        total += imgs.size(0)
+    return loss_meter/total, correct/total
+
+@torch.no_grad()
+def eval_cls(model, head, loader, device):
+    model.eval(); head.eval()
+    loss_meter, correct, total = 0.0, 0, 0
+    for imgs, targets in tqdm(loader, desc="Eval", leave=False):
+        imgs = imgs.to(device)
+        targets = targets.to(device)
+
+        emb = model(imgs)
+        # Instead of ArcFace head, do cosine sim against head.weight
+        emb = F.normalize(emb, p=2, dim=1)
+        W = F.normalize(head.weight, p=2, dim=1)
+        logits = F.linear(emb, W) * head.s  # no margin
+
+        # Clamp labels to head size to avoid OOB
+        valid = targets < logits.shape[1]
+        if valid.sum() == 0:
+            continue
+        logits = logits[valid]
+        targets = targets[valid]
+
+        loss = F.cross_entropy(logits, targets)
+        loss_meter += loss.item() * imgs.size(0)
+        preds = logits.argmax(1)
+        correct += (preds == targets).sum().item()
+        total += imgs.size(0)
+    return (loss_meter / max(1,total)), (correct / max(1,total))
+
+
+# ---------- Main ----------
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-root", type=str, default="./archive/lfw-deepfunneled")
+    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--img-size", type=int, default=96)
+    parser.add_argument("--embedding-dim", type=int, default=128)
+    parser.add_argument("--arc-s", type=float, default=64.0)
+    parser.add_argument("--arc-m", type=float, default=0.50)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--pretrained-backbone", action="store_true")
+    parser.add_argument("--max-train-ids", type=int, default=400)
+    parser.add_argument("--pairs-per-type", type=int, default=2000)
+    parser.add_argument("--min-images-per-id", type=int, default=2)
+    parser.add_argument("--num-workers", type=int, default=0, help="Use 0 on Windows to avoid pickling issues")
+    args = parser.parse_args()
+
+    set_seed(args.seed)
+    device = torch.device("cpu")
+
+    dataset, train_loader, val_loader, num_train_classes, val_indices = make_loaders(
+        img_size=args.img_size,
+        batch_size=args.batch_size,
+        root=args.data_root,
+        train_id_frac=0.8,
+        min_images_per_id=args.min_images_per_id,
+        max_train_ids=args.max_train_ids,
+        num_workers=args.num_workers,
+        seed=args.seed
+    )
+
+    model = FaceNet(embedding_dim=args.embedding_dim, pretrained=args.pretrained_backbone).to(device)
+    head  = ArcMarginProduct(in_feat=args.embedding_dim, out_feat=num_train_classes,
+                             s=args.arc_s, m=args.arc_m).to(device)
+
+    optimizer = torch.optim.AdamW(
+        list(model.parameters()) + list(head.parameters()),
+        lr=args.lr, weight_decay=args.weight_decay
+    )
+
+    # verification pairs from VAL identities
+    try:
+        pairs = build_verification_pairs(dataset, val_indices,
+                                         n_pos=args.pairs_per_type, n_neg=args.pairs_per_type,
+                                         seed=args.seed)
+        have_pairs = True
+    except RuntimeError as e:
+        print(f"[WARN] No verification pairs: {e}")
+        have_pairs = False
+
+    best_auc = 0.0
+    ckpt_dir = Path("checkpoints"); ckpt_dir.mkdir(parents=True, exist_ok=True)
+    for epoch in range(1, args.epochs + 1):
+        t0 = time.time()
+        tr_loss, tr_acc = train_epoch(model, head, train_loader, optimizer, device)
+        va_loss, va_acc = eval_cls(model, head, val_loader, device)
+        if have_pairs:
+            auc, best_acc, best_th = evaluate_verification(model, dataset, pairs,
+                                                           batch_size=max(64, args.batch_size),
+                                                           device=device)
+        else:
+            auc, best_acc, best_th = float("nan"), float("nan"), float("nan")
+        dt = time.time() - t0
+
+        print(f"[Epoch {epoch:02d}] "
+              f"train_loss={tr_loss:.4f} train_acc={tr_acc:.3f} "
+              f"val_loss={va_loss:.4f} val_acc={va_acc:.3f} "
+              f"VERIF: AUC={auc:.4f} bestACC={best_acc:.3f} @thr={best_th:.3f} "
+              f"({dt:.1f}s)")
+
+        if have_pairs and auc > best_auc:
+            best_auc = auc
+            torch.save({
+                "model": model.state_dict(),
+                "head": head.state_dict(),
+                "args": vars(args),
+                "num_train_classes": num_train_classes,
+                "best_auc": best_auc
+            }, ckpt_dir / "model_best.pt")
+            print(f"  ↳ Saved new best checkpoint (AUC {best_auc:.4f})")
+
+    print("Done.")
+    return history
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\models\wrap_arcface.py ====
+
+import numpy as np
+import cv2
+from insightface.app import FaceAnalysis
+
+
+class ArcFaceWrapper:
+    """
+    ArcFace wrapper using insightface buffalo_l package models.
+    """
+
+    name = "arcface"
+
+    def __init__(self, device: str = "cpu", input_size=(112, 112)):
+        self.device = device
+        self.input_size = input_size
+
+        ctx_id = 0 if device == "cuda" else -1
+        self.detector = FaceAnalysis(name="buffalo_l")
+        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
+
+    def detect_and_embed(self, frame: np.ndarray):
+        faces = self.detector.get(frame)
+        results = []
+        for f in faces:
+            if getattr(f, "embedding", None) is None:
+                continue
+            results.append(
+                {
+                    "bbox": f.bbox.astype(int),
+                    "kps": f.kps.astype(float),
+                    "embedding": f.embedding.astype(np.float32),
+                }
+            )
+        return results
+
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Get embedding of a cropped face (no detection).
+        """
+        faces = self.detector.get(bgr)
+        if len(faces) > 0 and getattr(faces[0], "embedding", None) is not None:
+            return faces[0].embedding.astype(np.float32)
+        return None
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[ArcFace] Could not read image: {img_path}")
+
+        faces = self.detect_and_embed(frame)
+        if faces:
+            return faces[0]["embedding"]
+
+        # fallback: center crop then embed
+        h, w = frame.shape[:2]
+        min_dim = min(h, w)
+        crop = frame[(h - min_dim)//2:(h + min_dim)//2,
+                     (w - min_dim)//2:(w + min_dim)//2]
+        return self.embed(crop)
+
+
+
+# ==== .\models\wrap_facenet.py ====
+
+import cv2
+import numpy as np
+import torch
+from facenet_pytorch import InceptionResnetV1, MTCNN
+
+
+class FaceNetWrapper:
+    """
+    FaceNet wrapper using facenet-pytorch package.
+    """
+
+    name = "facenet"
+
+    def __init__(self, device: str = "cpu", input_size=(160, 160)):
+        self.device = torch.device(device)
+        self.input_size = input_size
+
+        # Load pretrained InceptionResnetV1
+        self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
+        self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
+
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
+        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
+        t = (t - 0.5) / 0.5
+        with torch.inference_mode():
+            emb = self.model(t.unsqueeze(0).to(self.device))
+        return emb[0].cpu().numpy().astype(np.float32)
+
+    def detect_and_embed(self, frame: np.ndarray):
+        boxes, probs = self.detector.detect(frame)
+        results = []
+        if boxes is not None:
+            for box in boxes.astype(int):
+                x1, y1, x2, y2 = box
+                crop = frame[y1:y2, x1:x2]
+                if crop.size == 0:
+                    continue
+                results.append(
+                    {
+                        "bbox": box,
+                        "kps": np.zeros((5, 2)),  # MTCNN landmarks optional
+                        "embedding": self.embed(crop),
+                    }
+                )
+        return results
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[FaceNet] Could not read image: {img_path}")
+        faces = self.detect_and_embed(frame)
+        if faces:
+            return faces[0]["embedding"]
+
+        # fallback: center crop
+        h, w = frame.shape[:2]
+        min_dim = min(h, w)
+        crop = frame[(h - min_dim)//2:(h + min_dim)//2,
+                     (w - min_dim)//2:(w + min_dim)//2]
+        return self.embed(crop)
+
+
+
+# ==== .\models\wrap_insightface.py ====
+
+import cv2
+import numpy as np
+import insightface
+
+
+class InsightFaceWrapper:
+    """
+    Wrapper around InsightFace (ArcFace, CosFace, etc).
+    Handles detection + embedding.
+    """
+
+    name = "insightface"
+
+    def __init__(self, device: str = "cpu", det_size=(640, 640), input_size=(112, 112)):
+        self.device = device
+        self.input_size = input_size  # ✅ added so performance.py & accuracy.py can use it
+
+        # FaceAnalysis auto-downloads pretrained models to ~/.insightface
+        ctx_id = 0 if device == "cuda" else -1
+        self.model = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
+        self.model.prepare(ctx_id=ctx_id, det_size=det_size)
+        print(f"[InsightFaceWrapper] Loaded InsightFace with det_size={det_size}")
+
+    def detect_and_embed(self, frame: np.ndarray):
+        """
+        Detect faces in an image and return list of dicts with bbox + embedding.
+        """
+        faces = self.model.get(frame)
+        results = []
+        for f in faces:
+            results.append(
+                {
+                    "bbox": np.array(f.bbox, dtype=np.int32),
+                    "kps": f.kps if hasattr(f, "kps") else np.zeros((5, 2)),
+                    "embedding": np.array(f.embedding, dtype=np.float32),
+                }
+            )
+        return results
+
+    def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Get embedding of a cropped face (no detection).
+        """
+        faces = self.model.get(bgr)
+        if len(faces) > 0:
+            return np.array(faces[0].embedding, dtype=np.float32)
+        return None
+
+    def get_embedding(self, img_path: str) -> np.ndarray:
+        """
+        Load image from path and return first face embedding.
+        """
+        frame = cv2.imread(img_path)
+        if frame is None:
+            raise ValueError(f"[InsightFaceWrapper] Cannot read image: {img_path}")
+        faces = self.detect_and_embed(frame)
+        if faces:
+            return faces[0]["embedding"]
+        return None
+
+
+
+# ==== .\windows\benchmark_window.py ====
+
+import os
+import sys
+import subprocess
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QStackedWidget, QFrame, QTextEdit
+)
+from PyQt5.QtCore import QThread, pyqtSignal
+
+
+class RunnerThread(QThread):
+    output_signal = pyqtSignal(str)
+
+    def __init__(self, file_path, model_name):
+        super().__init__()
+        self.file_path = file_path
+        self.model_name = model_name
+
+    def run(self):
+        try:
+            cmd = [sys.executable, self.file_path, "--model", self.model_name]
+            self.output_signal.emit(f"[DEBUG] Running command: {' '.join(cmd)}\n")
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            for line in process.stdout:
+                self.output_signal.emit(line.rstrip())
+            process.stdout.close()
+            process.wait()
+            self.output_signal.emit(f"\n[INFO] Finished {os.path.basename(self.file_path)}\n")
+        except Exception as e:
+            self.output_signal.emit(f"[ERROR] Failed to run {self.file_path}: {e}\n")
+
+
+class BenchmarkPage(QWidget):
+    def __init__(self, parent=None, get_model_name=None):
+        """
+        get_model_name: callback returning the currently selected model
+        """
+        super().__init__(parent)
+        self.get_model_name = get_model_name
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
+
+        main_layout = QVBoxLayout()
+
+        # --- row of buttons ---
+        self.button_layout = QHBoxLayout()
+        main_layout.addLayout(self.button_layout)
+
+        # --- output area ---
+        self.output_stack = QStackedWidget()
+        self.pages = {}
+
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                border: 2px solid #800080;
+                border-radius: 6px;
+                background-color: #fafafa;
+            }
+        """)
+        frame_layout = QVBoxLayout()
+        frame_layout.addWidget(self.output_stack)
+        frame.setLayout(frame_layout)
+
+        main_layout.addWidget(frame)
+        self.setLayout(main_layout)
+
+        self.load_benchmark_tabs()
+        self.output_stack.setCurrentIndex(-1)
+        self.current_thread = None
+
+    def load_benchmark_tabs(self):
+        if not os.path.isdir(self.benchmark_dir):
+            print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
+            return
+
+        for fname in sorted(os.listdir(self.benchmark_dir)):
+            if not fname.endswith(".py"):
+                continue
+            file_path = os.path.join(self.benchmark_dir, fname)
+            tab_name = os.path.splitext(fname)[0]
+
+            # button
+            btn = QPushButton(tab_name.capitalize())
+            btn.setMinimumHeight(40)
+            btn.clicked.connect(lambda _, n=tab_name, p=file_path: self.run_script(n, p))
+            self.button_layout.addWidget(btn)
+
+            # output page
+            page = QWidget()
+            layout = QVBoxLayout()
+            text_box = QTextEdit()
+            text_box.setReadOnly(True)
+            layout.addWidget(text_box)
+            page.setLayout(layout)
+            idx = self.output_stack.addWidget(page)
+
+            self.pages[tab_name] = (idx, text_box)
+
+    def run_script(self, name, file_path):
+        if name not in self.pages:
+            return
+        idx, text_box = self.pages[name]
+        self.output_stack.setCurrentIndex(idx)
+        text_box.clear()
+
+        model_name = self.get_model_name() if self.get_model_name else None
+        if not model_name:
+            msg = "[ERROR] No model selected in settings."
+            text_box.setPlainText(msg)
+            return
+
+        text_box.append(f"[DEBUG] Selected model: {model_name}\n▶ Running {os.path.basename(file_path)}...\n")
+
+        if self.current_thread and self.current_thread.isRunning():
+            self.current_thread.terminate()
+
+        self.current_thread = RunnerThread(file_path, model_name)
+        self.current_thread.output_signal.connect(lambda msg: text_box.append(msg))
+        self.current_thread.start()
+
+
+
+# ==== .\windows\home_window.py ====
+
+from PyQt5.QtWidgets import (
+    QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QWidget, QStackedWidget
+)
+from PyQt5.QtCore import QTimer, Qt, QSize
+from PyQt5.QtGui import QImage, QPixmap
+
+import cv2
+from connector import load_model
+from components.sidebar import SideBar
+from components.settings import SettingsPage, LIGHT_THEME, DARK_THEME
+from windows.benchmark_window import BenchmarkPage
+
+
+class HomeWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Face Recognition Benchmark App")
+        self.setGeometry(100, 100, 900, 700)
+
+        # --- Stacked pages ---
+        self.stacked = QStackedWidget()
+
+        # Page 1: Home (camera UI)
+        self.home_page = QWidget()
+        home_layout = QVBoxLayout()
+
+        self.start_btn = QPushButton("Start Camera")
+        self.stop_btn = QPushButton("Stop Camera")
+        self.stop_btn.setEnabled(False)
+
+        self.video_label = QLabel("Camera feed will appear here")
+        self.video_label.setAlignment(Qt.AlignCenter)
+
+        home_layout.addWidget(self.start_btn)
+        home_layout.addWidget(self.stop_btn)
+        home_layout.addWidget(self.video_label)
+        self.home_page.setLayout(home_layout)
+
+        # Page 2: Settings
+        self.settings_page = SettingsPage()
+        self.settings_page.theme_changed.connect(self.apply_theme)  # 🔔 listen for theme change
+
+        # Page 3: Benchmark
+        self.benchmark_page = BenchmarkPage(
+            get_model_name=lambda: self.settings_page.model_name
+        )
+
+        # Add pages to stacked
+        self.stacked.addWidget(self.home_page)
+        self.stacked.addWidget(self.settings_page)
+        self.stacked.addWidget(self.benchmark_page)
+
+        # Sidebar
+        self.sidebar = SideBar()
+        self.toggle_btn = QPushButton("☰")
+        self.toggle_btn.setFixedSize(QSize(40, 40))
+        self.toggle_btn.clicked.connect(self.toggle_sidebar)
+
+        # Sidebar navigation
+        self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
+        self.sidebar.btn_settings.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
+        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2))
+
+        # Layout wrapper
+        wrapper_layout = QVBoxLayout()
+        wrapper_layout.addWidget(self.toggle_btn, alignment=Qt.AlignLeft)
+        wrapper_layout.addWidget(self.stacked)
+
+        wrapper = QWidget()
+        wrapper.setLayout(wrapper_layout)
+
+        # Main layout
+        main_layout = QHBoxLayout()
+        main_layout.addWidget(self.sidebar)
+        main_layout.addWidget(wrapper)
+
+        container = QWidget()
+        container.setLayout(main_layout)
+        self.setCentralWidget(container)
+
+        # Camera
+        self.cap = None
+        self.wrapper = None
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+
+        self.start_btn.clicked.connect(self.start_camera)
+        self.stop_btn.clicked.connect(self.stop_camera)
+
+        # Apply initial theme
+        self.apply_theme(self.settings_page.theme)
+
+    def start_camera(self):
+        model_name = self.settings_page.model_name
+        self.wrapper = load_model(model_name)
+        print(f"[INFO] Loaded model: {self.wrapper.name}")
+
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            self.video_label.setText("[ERROR] Cannot open camera")
+            return
+
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.timer.start(30)
+
+    def stop_camera(self):
+        self.timer.stop()
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+        self.video_label.setText("Camera stopped.")
+        self.start_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+
+    def update_frame(self):
+        if self.cap is None:
+            return
+        ok, frame = self.cap.read()
+        if not ok:
+            return
+
+        faces = self.wrapper.detect_and_embed(frame)
+        disp = frame.copy()
+        for f in faces:
+            x1, y1, x2, y2 = f["bbox"]
+            cv2.rectangle(disp, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            for px, py in f["kps"].astype(int):
+                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
+
+        rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
+        self.video_label.setPixmap(QPixmap.fromImage(qimg))
+
+    def toggle_sidebar(self):
+        self.sidebar.toggle()
+        if self.sidebar._collapsed:
+            self.toggle_btn.setText("☰")
+        else:
+            self.toggle_btn.setText("←")
+
+    def apply_theme(self, theme: str):
+        """Apply theme globally to the entire window."""
+        if theme == "dark":
+            self.setStyleSheet(DARK_THEME)
+        else:
+            self.setStyleSheet(LIGHT_THEME)
+
+        # also update sidebar buttons
+        self.sidebar.apply_theme(theme)
+
+

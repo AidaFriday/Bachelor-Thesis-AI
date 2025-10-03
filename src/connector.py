@@ -1,27 +1,21 @@
-import os
-import json
 import importlib
 import torch
 
 
-def load_model(model_name: str, config_path="models/model.config"):
-    """Load model wrapper based on config file."""
+def load_model(model_name: str, config_path=None):
+    """Load model wrapper from package (pip-available only)."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    with open(config_path, "r") as f:
-        config = json.load(f)
+    wrappers = {
+        "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
+        "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
+        "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
+    }
+    if model_name not in wrappers:
+        raise ValueError(f"Unknown model: {model_name}")
 
-    if model_name not in config:
-        raise ValueError(f"Model '{model_name}' not in config")
-
-    model_cfg = config[model_name]
-    wrapper_path = model_cfg["wrapper"]
-    module_name, class_name = wrapper_path.split(".")
-    module = importlib.import_module(f"models.{module_name}")
+    module_name, class_name = wrappers[model_name]
+    module = importlib.import_module(module_name)
     wrapper_class = getattr(module, class_name)
 
-    # Path can be None (e.g. arcface auto-downloads)
-    model_path = model_cfg.get("path", None)
-    input_size = tuple(model_cfg["input_size"])
-
-    return wrapper_class(device, model_path, input_size)
+    return wrapper_class(device)

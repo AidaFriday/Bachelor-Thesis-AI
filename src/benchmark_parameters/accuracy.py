@@ -1,57 +1,69 @@
 import os
-import json
+import sys
+import argparse
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from insightface.app import FaceAnalysis
+import json
+
+# --- Bootstrap sys.path so project root is importable ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from connector import load_model
+
+# -------------------------------
+# Args
+# -------------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", type=str, required=True, help="Model name (arcface|facenet|deepface)")
+args = parser.parse_args()
+print(f"[DEBUG] accuracy.py running with model={args.model}")
 
 # -------------------------------
 # Config
 # -------------------------------
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # src root
-DATASET_DIR = os.path.join(BASE_DIR, "dataset")  # adjust if dataset path different
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 USER1_EMBED_DIR = os.path.join(BASE_DIR, "models", "embeddings", "user1")
 USER1_EMBED_FILE = os.path.join(USER1_EMBED_DIR, "embeddings.npy")
 
-# Threshold for cosine similarity (tune this after plotting)
 SIM_THRESHOLD = 0.5
-
-# Output text file (next to this script)
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "found_matches.txt")
 
 # -------------------------------
-# Load embeddings from user1
+# Load user1 embeddings
 # -------------------------------
 if not os.path.exists(USER1_EMBED_FILE):
-    raise FileNotFoundError(
-        f"[ERROR] Missing {USER1_EMBED_FILE}. Run embeddings.py first."
-    )
+    raise FileNotFoundError(f"[ERROR] Missing {USER1_EMBED_FILE}. Run embeddings.py first.")
 
 user1_data = np.load(USER1_EMBED_FILE, allow_pickle=True)
 user1_embs = np.stack([entry["embedding"] for entry in user1_data])
 print(f"[INFO] Loaded {len(user1_embs)} user1 embeddings.")
 
 # -------------------------------
-# Init ArcFace
+# Init selected model wrapper
 # -------------------------------
-MODEL_ROOT = os.path.join(BASE_DIR, "models", "pretrained_models")
-app = FaceAnalysis(name="buffalo_l", root=MODEL_ROOT)
-app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.3)
+wrapper = load_model(args.model)
 
 
 def extract_embedding(image_path):
-    """Get embedding with fallback mode."""
+    """Get embedding for an image using the wrapper."""
     img = cv2.imread(image_path)
     if img is None:
         print(f"[WARN] Could not read: {image_path}")
         return None
-    faces = app.get(img)
-    if len(faces) > 0:
-        return faces[0].embedding.astype(np.float32)
-    # fallback: resize only
-    resized = cv2.resize(img, (112, 112))
-    emb = app.models["recognition"].get(resized).astype(np.float32)
-    return emb
+
+    faces = wrapper.detect_and_embed(img)
+    if faces:
+        return faces[0]["embedding"]
+
+    # fallback: center crop + embed
+    h, w = img.shape[:2]
+    min_dim = min(h, w)
+    crop = img[(h - min_dim)//2:(h + min_dim)//2,
+               (w - min_dim)//2:(w + min_dim)//2]
+    return wrapper.embed(crop)
 
 
 def cosine_sim(a, b):
@@ -61,8 +73,7 @@ def cosine_sim(a, b):
 # -------------------------------
 # Compare dataset images
 # -------------------------------
-y_true, scores = [], []  # for analysis
-matches = []  # store successful matches
+y_true, scores, matches = [], [], []
 
 for root, _, files in os.walk(DATASET_DIR):
     for fname in files:
@@ -76,7 +87,6 @@ for root, _, files in os.walk(DATASET_DIR):
         sims = [cosine_sim(emb, u) for u in user1_embs]
         best_sim = max(sims)
 
-        # Heuristic: if inside user1 folder → positive label, else negative
         label = 1 if "user1" in root.lower() else 0
         y_true.append(label)
         scores.append(best_sim)
@@ -88,7 +98,7 @@ for root, _, files in os.walk(DATASET_DIR):
             print(f"[NO MATCH] {path} (similarity={best_sim:.3f})")
 
 # -------------------------------
-# Save matches to txt file
+# Save matches
 # -------------------------------
 if matches:
     with open(OUTPUT_FILE, "w") as f:
@@ -99,18 +109,22 @@ else:
     print("[INFO] No matches found, nothing saved.")
 
 # -------------------------------
-# Plot similarity distributions
+# Plot results
 # -------------------------------
 pos = [s for s, y in zip(scores, y_true) if y == 1]
 neg = [s for s, y in zip(scores, y_true) if y == 0]
 
 plt.hist(pos, bins=50, alpha=0.6, label="Positive (user1)", color="g")
 plt.hist(neg, bins=50, alpha=0.6, label="Negative (others)", color="r")
-plt.axvline(
-    SIM_THRESHOLD, color="blue", linestyle="--", label=f"Threshold={SIM_THRESHOLD}"
-)
+plt.axvline(SIM_THRESHOLD, color="blue", linestyle="--", label=f"Threshold={SIM_THRESHOLD}")
 plt.xlabel("Cosine Similarity")
 plt.ylabel("Frequency")
 plt.legend()
-plt.title("Face Verification: Similarity Distributions")
-plt.show()
+plt.title(f"Face Verification (model={args.model})")
+result = {
+    "model": args.model,
+    "positives": pos,
+    "negatives": neg,
+    "threshold": SIM_THRESHOLD
+}
+print(json.dumps(result))   # <-- emit JSON for BenchmarkPage
