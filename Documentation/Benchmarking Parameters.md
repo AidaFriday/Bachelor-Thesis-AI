@@ -1,6 +1,6 @@
 # Parameters to Benchmark FaceNet, ArcFace, and MagFace
 
-## Accuracy & Robustness Metrics
+## Accuracy  Metrics
 - Verification Accuracy - Percentage of correctly verified pairs (same/different identity) on benchmark datasets like LFW, CFP-FP, AgeDB. It captures how well a model recognizes faces under normal     conditions
 - True Accept Rate (TAR), False Accept Rate (FAR) - biometric benchmark metric
   - TAR = proportion of genuine pairs correctly accepted
@@ -8,7 +8,6 @@
   
 - Equal Error Rate (EER) - point where false accepts = false rejects
 - Occlusion (glasses, masks, partial face) - ???
-- Low resolution / blur -> Test accuracy when input images are downsampled (e.g., 32×32, 64×64) or blurred (to simulates CCTV or motion blur scenarios)
 
 
 ## Demographic Fairness Metrics
