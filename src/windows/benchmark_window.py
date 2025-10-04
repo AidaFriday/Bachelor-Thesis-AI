@@ -81,36 +81,38 @@ class BenchmarkPage(QWidget):
         self.output_stack.setCurrentIndex(-1)
         self.current_thread = None
 
+    def _pretty_name_for(self, file_path: str) -> str:
+        # Button label is just the leaf filename (Accuracy, Fps, Latency, …)
+        base = os.path.splitext(os.path.basename(file_path))[0]
+        return base.capitalize()
+
     def load_benchmark_tabs(self):
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
 
-        for fname in sorted(os.listdir(self.benchmark_dir)):
-            if not fname.endswith(".py"):
-                continue
-            file_path = os.path.join(self.benchmark_dir, fname)
-            tab_name = os.path.splitext(fname)[0]
+        # Recurse through all subdirectories and pick up every .py file
+        for dirpath, _, filenames in os.walk(self.benchmark_dir):
+            for fname in sorted(f for f in filenames if f.endswith(".py")):
+                file_path = os.path.join(dirpath, fname)
+                tab_name = self._pretty_name_for(file_path)
 
-            # button
-            btn = QPushButton(tab_name.capitalize())
-            btn.setMinimumHeight(40)
-            btn.clicked.connect(
-                lambda _, n=tab_name, p=file_path: self.run_script(n, p)
-            )
-            self.button_layout.addWidget(btn)
+                btn = QPushButton(tab_name)
+                btn.setMinimumHeight(40)
+                btn.clicked.connect(
+                    lambda _, n=tab_name, p=file_path: self.run_script(n, p)
+                )
+                self.button_layout.addWidget(btn)
 
-            # output page with matplotlib
-            page = QWidget()
-            layout = QVBoxLayout()
-            fig = Figure(figsize=(5, 4))
-            canvas = FigureCanvas(fig)
-            layout.addWidget(canvas)
+                page = QWidget()
+                layout = QVBoxLayout()
+                fig = Figure(figsize=(5, 4))
+                canvas = FigureCanvas(fig)
+                layout.addWidget(canvas)
+                page.setLayout(layout)
+                idx = self.output_stack.addWidget(page)
 
-            page.setLayout(layout)
-            idx = self.output_stack.addWidget(page)
-
-            self.pages[tab_name] = (idx, fig, canvas, file_path)
+                self.pages[tab_name] = (idx, fig, canvas, file_path)
 
     def run_script(self, name, file_path):
         if name not in self.pages:
@@ -120,7 +122,6 @@ class BenchmarkPage(QWidget):
 
         model_name = self.get_model_name() if self.get_model_name else None
         if not model_name:
-            # show error message inside plot
             fig.clear()
             ax = fig.add_subplot(111)
             ax.text(
@@ -145,6 +146,7 @@ class BenchmarkPage(QWidget):
         self.current_thread.start()
 
     def handle_output(self, msg, fig, canvas):
+        # 1) parse a single JSON line from the worker
         try:
             data = json.loads(msg)
         except Exception:
@@ -153,6 +155,7 @@ class BenchmarkPage(QWidget):
         fig.clear()
         ax = fig.add_subplot(111)
 
+        # 2) explicit error from the worker
         if "error" in data:
             ax.text(
                 0.5,
@@ -166,22 +169,89 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # --- Performance.py data ---
-        if "times" in data:  # line plot
+        # 3) LATENCY view (payload from latency.py) ------------------------------
+        if "times" in data:
+            times = list(data.get("times", []))
             ax.plot(
-                range(1, len(data["times"]) + 1),
-                data["times"],
+                range(1, len(times) + 1), times, marker="o", linestyle="-", color="blue"
+            )
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Latency (ms)")
+            ax.set_title(
+                f"Latency per Inference (detect_and_embed) - {data.get('model','')}"
+            )
+            ax.grid(True)
+
+            if times:
+                mean_ms = sum(times) / len(times)
+                min_ms = min(times)
+                max_ms = max(times)
+
+                # mean line
+                ax.axhline(mean_ms, linestyle="--", color="tab:blue", alpha=0.7)
+
+                # stats box (top-right)
+                ax.text(
+                    0.98,
+                    0.98,
+                    f"mean: {mean_ms:.2f} ms\nmin: {min_ms:.2f} ms  max: {max_ms:.2f} ms",
+                    transform=ax.transAxes,
+                    ha="right",
+                    va="top",
+                    fontsize=10,
+                    bbox=dict(boxstyle="round", fc="white", alpha=0.7, ec="gray"),
+                )
+
+            canvas.draw()
+            return
+
+        # 4) FPS view (payload from fps.py) -------------------------------------
+        if "fps_series" in data:
+            fps_series = list(data.get("fps_series", []))
+            ax.plot(
+                range(1, len(fps_series) + 1),
+                fps_series,
                 marker="o",
                 linestyle="-",
                 color="blue",
             )
             ax.set_xlabel("Iteration")
-            ax.set_ylabel("Latency (ms)")
-            ax.set_title(f"Latency per Inference - {data['model']}")
+            ax.set_ylabel("FPS")
+            ax.set_title(f"Frames per Second - {data.get('model','')}")
             ax.grid(True)
 
-        # --- Accuracy.py data ---
-        elif "positives" in data and "negatives" in data:
+            if fps_series:
+                mean_fps = sum(fps_series) / len(fps_series)
+                min_fps = min(fps_series)
+                max_fps = max(fps_series)
+
+                # mean line
+                ax.axhline(mean_fps, linestyle="--", color="tab:blue", alpha=0.7)
+
+                # optional latency context if provided by the script
+                avg_ms = data.get("avg_ms")
+                ms_line = (
+                    f"\navg latency: {avg_ms:.2f} ms"
+                    if isinstance(avg_ms, (int, float))
+                    else ""
+                )
+
+                ax.text(
+                    0.98,
+                    0.98,
+                    f"mean FPS: {mean_fps:.2f}\nmin: {min_fps:.2f}  max: {max_fps:.2f}{ms_line}",
+                    transform=ax.transAxes,
+                    ha="right",
+                    va="top",
+                    fontsize=10,
+                    bbox=dict(boxstyle="round", fc="white", alpha=0.7, ec="gray"),
+                )
+
+            canvas.draw()
+            return
+
+        # 5) ACCURACY histogram view --------------------------------------------
+        if "positives" in data and "negatives" in data:
             ax.hist(
                 data["positives"],
                 bins=50,
@@ -197,14 +267,25 @@ class BenchmarkPage(QWidget):
                 color="r",
             )
             ax.axvline(
-                data["threshold"],
+                data.get("threshold", 0.5),
                 color="blue",
                 linestyle="--",
-                label=f"Threshold={data['threshold']}",
+                label=f"Threshold={data.get('threshold', 0.5)}",
             )
             ax.set_xlabel("Cosine Similarity")
             ax.set_ylabel("Frequency")
             ax.legend()
-            ax.set_title(f"Face Verification - {data['model']}")
+            ax.set_title(f"Face Verification - {data.get('model','')}")
+            canvas.draw()
+            return
 
+        # 6) Fallback: unknown payload ------------------------------------------
+        ax.text(
+            0.5,
+            0.5,
+            "No plottable data received.",
+            ha="center",
+            va="center",
+            fontsize=12,
+        )
         canvas.draw()
