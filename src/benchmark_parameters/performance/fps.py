@@ -1,6 +1,7 @@
 import argparse, json, os, sys
 import numpy as np
 import cv2
+import time
 
 # ---- Bootstrap sys.path so project root is importable ----
 PROJECT_ROOT = os.path.dirname(
@@ -28,6 +29,13 @@ def _resolve_settings():
     return {}
 
 
+def send_log(msg, level="info"):
+    """Send a log message to GUI as JSON (progress logs)"""
+    payload = {"log": msg, "level": level}
+    print(json.dumps(payload))
+    sys.stdout.flush()
+
+
 def run(
     model_name: str,
     iters: int,
@@ -43,9 +51,8 @@ def run(
     """
     wrapper = load_model(model_name)
 
-    # --- Human-readable info (shown in terminal / GUI log) ---
-    print(
-        f"[INFO] Running FPS benchmark | Model: {model_name} | "
+    send_log(
+        f"Running FPS benchmark | Model: {model_name} | "
         f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
     )
 
@@ -58,10 +65,11 @@ def run(
         pass
 
     times_ms = []
+    start = time.time()
 
     if target == "detect":
         if frames:
-            for img in frames:
+            for i, img in enumerate(frames, 1):
                 if img is None:
                     continue
                 h, w = frame_h, frame_w
@@ -70,21 +78,38 @@ def run(
                     wrapper, iters=1, frame_h=h, frame_w=w, override_frame=resized
                 )
                 times_ms.extend(t)
+
+                if i % 5 == 0 or i == len(frames):
+                    send_log(f"Processed {i}/{len(frames)} frames…")
         else:
-            times_ms = measure_detect_and_embed(
-                wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
-            )
+            for i in range(iters):
+                t = measure_detect_and_embed(
+                    wrapper, iters=1, frame_h=frame_h, frame_w=frame_w
+                )
+                times_ms.extend(t)
+                if (i + 1) % 5 == 0 or (i + 1) == iters:
+                    send_log(f"Processed {i+1}/{iters} synthetic frames…")
         mode = "detect_and_embed"
+
     else:  # 'embed'
         if frames:
-            for img in frames:
+            for i, img in enumerate(frames, 1):
                 if img is None:
                     continue
                 t = measure_embed_only(wrapper, iters=1, override_img=img)
                 times_ms.extend(t)
+                if i % 5 == 0 or i == len(frames):
+                    send_log(f"Processed {i}/{len(frames)} frames…")
         else:
-            times_ms = measure_embed_only(wrapper, iters=iters)
+            for i in range(iters):
+                t = measure_embed_only(wrapper, iters=1)
+                times_ms.extend(t)
+                if (i + 1) % 5 == 0 or (i + 1) == iters:
+                    send_log(f"Processed {i+1}/{iters} synthetic frames…")
         mode = "embed_only"
+
+    elapsed = time.time() - start
+    send_log(f"Completed {len(times_ms)} iterations in {elapsed:.2f}s")
 
     # Convert latency samples to FPS
     fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
@@ -100,6 +125,7 @@ def run(
 
     # --- JSON output consumed by GUI ---
     print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def main():

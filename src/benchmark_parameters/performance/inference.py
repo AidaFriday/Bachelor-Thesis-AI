@@ -9,11 +9,17 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
-
-# Reuse the timing helpers from latency.py (warmup + optional CUDA sync handled there)
 from latency import measure_detect_and_embed, measure_embed_only
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+# ---------------- Helpers ----------------
+def send_log(msg, level="info"):
+    """Send a log message to GUI as JSON"""
+    payload = {"log": msg, "level": level}
+    print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def _resolve_settings():
@@ -57,27 +63,31 @@ def run(
 ):
     """
     Perform 'iters' inferences and report per-iteration latency in ms.
-
-    target:
-      - 'detect' → end-to-end detection + (optional align) + embedding on HxW frames
-      - 'embed'  → model-only forward pass (true forward for FaceNet)
     """
     wrapper = load_model(model_name)
 
-    # --- Human-readable info (terminal + GUI log) ---
-    print(
-        f"[INFO] Running Inference benchmark | Model: {model_name} | "
+    send_log(
+        f"Running Inference benchmark | Model: {model_name} | "
         f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
     )
 
+    times_ms = []
     if target == "detect":
-        times_ms = measure_detect_and_embed(
-            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
-        )
         mode = "detect_and_embed"
-    else:  # 'embed'
-        times_ms = measure_embed_only(wrapper, iters=iters)
+        for i in range(iters):
+            t = measure_detect_and_embed(
+                wrapper, iters=1, frame_h=frame_h, frame_w=frame_w
+            )
+            times_ms.extend(t)
+            if (i + 1) % 5 == 0 or (i + 1) == iters:
+                send_log(f"Progress: {i+1}/{iters} inferences done")
+    else:
         mode = "embed_only"
+        for i in range(iters):
+            t = measure_embed_only(wrapper, iters=1)
+            times_ms.extend(t)
+            if (i + 1) % 5 == 0 or (i + 1) == iters:
+                send_log(f"Progress: {i+1}/{iters} inferences done")
 
     stats = _summarize(times_ms)
 
@@ -87,10 +97,11 @@ def run(
         "mode": mode,
         "dataset": dataset or "synthetic",
         "count": len(times_ms),
-        "times": times_ms,  # GUI plots this as a latency line chart
+        "times": times_ms,
         **stats,
     }
     print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def main():
@@ -117,7 +128,7 @@ def main():
 
     cfg = _resolve_settings()
     model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")  # comes from GUI selection
+    dataset = cfg.get("dataset")
 
     if not model:
         print(

@@ -10,7 +10,6 @@ if PROJECT_ROOT not in sys.path:
 
 from connector import load_model
 
-# Optional: only imported if available (for CUDA sync later on GPU)
 try:
     import torch
 
@@ -19,6 +18,14 @@ except Exception:
     _HAS_TORCH = False
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+# ---------------- Helpers ----------------
+def send_log(msg, level="info"):
+    """Emit a log message for GUI consumption"""
+    payload = {"log": msg, "level": level}
+    print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def _cuda_synchronize_if_needed():
@@ -46,8 +53,7 @@ def _random_frame(h=640, w=640):
 def measure_detect_and_embed(
     wrapper, iters=50, frame_h=640, frame_w=640, override_frame=None
 ):
-    # Warm-up (don’t record)
-    for _ in range(5):
+    for _ in range(5):  # warmup
         _ = wrapper.detect_and_embed(
             override_frame
             if override_frame is not None
@@ -55,7 +61,7 @@ def measure_detect_and_embed(
         )
 
     times_ms = []
-    for _ in range(iters):
+    for i in range(iters):
         frame = (
             override_frame
             if override_frame is not None
@@ -67,17 +73,15 @@ def measure_detect_and_embed(
         _cuda_synchronize_if_needed()
         t1 = time.perf_counter()
         times_ms.append((t1 - t0) * 1000.0)
+
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Detect+Embed progress: {i+1}/{iters}")
     return times_ms
 
 
 def measure_embed_only(wrapper, iters=50, override_img=None):
-    """
-    Pure model forward where possible.
-    NOTE: in your wrappers, FaceNet's embed() is a true forward pass.
-          ArcFace/InsightFace embed() still triggers detection.
-    """
     h, w = getattr(wrapper, "input_size", (160, 160))
-    for _ in range(5):
+    for _ in range(5):  # warmup
         _ = wrapper.embed(
             override_img
             if override_img is not None
@@ -85,7 +89,7 @@ def measure_embed_only(wrapper, iters=50, override_img=None):
         )
 
     times_ms = []
-    for _ in range(iters):
+    for i in range(iters):
         x = (
             override_img
             if override_img is not None
@@ -97,16 +101,17 @@ def measure_embed_only(wrapper, iters=50, override_img=None):
         _cuda_synchronize_if_needed()
         t1 = time.perf_counter()
         times_ms.append((t1 - t0) * 1000.0)
+
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Embed-only progress: {i+1}/{iters}")
     return times_ms
 
 
 def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     wrapper = load_model(model_name)
 
-    # --- Human-readable info (terminal + GUI log) ---
-    print(
-        f"[INFO] Running Latency benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    send_log(
+        f"Running Latency benchmark | Model: {model_name} | Dataset: {dataset or 'synthetic'} | Mode: {target}"
     )
 
     if target == "detect":
@@ -115,6 +120,7 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
         )
         stats = _percentiles(times)
         payload = {
+            "kind": "latency",
             "model": model_name,
             "mode": "detect_and_embed",
             "dataset": dataset or "synthetic",
@@ -123,12 +129,14 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
             **stats,
         }
         print(json.dumps(payload))
+        sys.stdout.flush()
         return
 
     if target == "embed":
         times = measure_embed_only(wrapper, iters=iters)
         stats = _percentiles(times)
         payload = {
+            "kind": "latency",
             "model": model_name,
             "mode": "embed_only",
             "dataset": dataset or "synthetic",
@@ -137,9 +145,10 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
             **stats,
         }
         print(json.dumps(payload))
+        sys.stdout.flush()
         return
 
-    # both → keep detect as the primary series, include embed stats in details
+    # both
     det_times = measure_detect_and_embed(
         wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
     )
@@ -147,10 +156,11 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     det_stats = _percentiles(det_times)
     emb_stats = _percentiles(emb_times)
     payload = {
+        "kind": "latency",
         "model": model_name,
         "mode": "both",
         "dataset": dataset or "synthetic",
-        "times": det_times,  # primary for plotting
+        "times": det_times,
         "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
         **det_stats,
         "details": {
@@ -167,6 +177,7 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
         },
     }
     print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def _resolve_settings():
@@ -193,23 +204,16 @@ def main():
         help="detect=end-to-end, embed=model-only, both=report both",
     )
     parser.add_argument(
-        "--frame-size",
-        type=str,
-        default="640x640",
-        help="HxW for detect mode synthetic frames (default: 640x640)",
+        "--frame-size", type=str, default="640x640", help="HxW synthetic frames"
     )
     args = parser.parse_args()
 
     cfg = _resolve_settings()
     model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")  # from GUI selection
+    dataset = cfg.get("dataset")
 
     if not model:
-        print(
-            json.dumps(
-                {"error": "No model selected. Pass --model or set it in settings.json"}
-            )
-        )
+        print(json.dumps({"error": "No model selected"}))
         sys.exit(1)
 
     try:

@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QStackedWidget,
     QFrame,
+    QProgressBar,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -19,14 +20,29 @@ from matplotlib.figure import Figure
 class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
-    def __init__(self, file_path, model_name):
+    def __init__(self, file_path, model_name, dataset_path=None, test_image=None):
         super().__init__()
         self.file_path = file_path
         self.model_name = model_name
+        self.dataset_path = dataset_path
+        self.test_image = test_image
 
     def run(self):
         try:
-            cmd = [sys.executable, self.file_path, "--model", self.model_name]
+            cmd = [
+                sys.executable,
+                self.file_path,
+                "--model",
+                self.model_name,
+            ]
+
+            # ✅ Only validation_accuracy script supports dataset/test-image args
+            if "validation_accuracy" in os.path.basename(self.file_path):
+                if self.dataset_path:
+                    cmd.extend(["--dataset", self.dataset_path])
+                if self.test_image:
+                    cmd.extend(["--test-image", self.test_image])
+
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -49,6 +65,23 @@ class BenchmarkPage(QWidget):
 
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
+
+        # fixed test image path
+        self.test_image = os.path.join(
+            self.benchmark_dir, "validation_accuracy", "test_image", "test_image1.jpg"
+        )
+
+        # dataset path (from config file if available)
+        config_path = os.path.join(base_dir, "models", "model.config")
+        if os.path.exists(config_path):
+            with open(config_path, "r") as f:
+                cfg = json.load(f)
+            self.dataset_path = cfg.get(
+                "dataset", r"C:\programming\Datasets\LFW\lfw-deepfunneled"
+            )
+        else:
+            # fallback
+            self.dataset_path = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
 
         main_layout = QVBoxLayout()
 
@@ -82,7 +115,6 @@ class BenchmarkPage(QWidget):
         self.current_thread = None
 
     def _pretty_name_for(self, file_path: str) -> str:
-        # Button label is just the leaf filename (Accuracy, Fps, Latency, …)
         base = os.path.splitext(os.path.basename(file_path))[0]
         return base.capitalize()
 
@@ -91,7 +123,6 @@ class BenchmarkPage(QWidget):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
 
-        # Recurse through all subdirectories and pick up every .py file
         for dirpath, _, filenames in os.walk(self.benchmark_dir):
             for fname in sorted(f for f in filenames if f.endswith(".py")):
                 file_path = os.path.join(dirpath, fname)
@@ -109,15 +140,22 @@ class BenchmarkPage(QWidget):
                 fig = Figure(figsize=(5, 4))
                 canvas = FigureCanvas(fig)
                 layout.addWidget(canvas)
+
+                # progress bar
+                progress = QProgressBar()
+                progress.setMinimum(0)
+                progress.setMaximum(100)
+                layout.addWidget(progress)
+
                 page.setLayout(layout)
                 idx = self.output_stack.addWidget(page)
 
-                self.pages[tab_name] = (idx, fig, canvas, file_path)
+                self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
 
     def run_script(self, name, file_path):
         if name not in self.pages:
             return
-        idx, fig, canvas, file_path = self.pages[name]
+        idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
         model_name = self.get_model_name() if self.get_model_name else None
@@ -139,23 +177,51 @@ class BenchmarkPage(QWidget):
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
 
-        self.current_thread = RunnerThread(file_path, model_name)
+        self.current_thread = RunnerThread(
+            file_path, model_name, self.dataset_path, self.test_image
+        )
         self.current_thread.output_signal.connect(
-            lambda msg: self.handle_output(msg, fig, canvas)
+            lambda msg: self.handle_output(msg, fig, canvas, progress)
         )
         self.current_thread.start()
 
-    def handle_output(self, msg, fig, canvas):
-        # 1) parse a single JSON line from the worker
+    def handle_output(self, msg, fig, canvas, progress):
         try:
             data = json.loads(msg)
         except Exception:
+            # plain log lines
+            print(f"[SCRIPT LOG] {msg}")
             return
 
+        # Runtime progress updates
+        if "progress" in data and "total" in data:
+            pct = int(100 * data["progress"] / data["total"])
+            progress.setValue(pct)
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.axis("off")
+            ax.text(
+                0.5,
+                0.5,
+                f"Processing {data['progress']}/{data['total']} images\n({pct}%)",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="blue",
+            )
+            canvas.draw()
+            return
+
+        # Plain log messages
+        if "log" in data:
+            print(f"[SCRIPT LOG] {data['log']}")
+            return
+
+        # --- final results plotting ---
         fig.clear()
         ax = fig.add_subplot(111)
 
-        # 2) explicit error from the worker
         if "error" in data:
             ax.text(
                 0.5,
@@ -169,7 +235,6 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # 3) LATENCY view ---------------------------------------------------
         if "times" in data:
             times = list(data.get("times", []))
             dataset = data.get("dataset", "synthetic")
@@ -181,28 +246,9 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("Latency (ms)")
             ax.set_title(f"Latency per Inference - {model} ({dataset})")
             ax.grid(True)
-
-            if times:
-                mean_ms = sum(times) / len(times)
-                min_ms = min(times)
-                max_ms = max(times)
-
-                ax.axhline(mean_ms, linestyle="--", color="tab:blue", alpha=0.7)
-                ax.text(
-                    0.98,
-                    0.98,
-                    f"mean: {mean_ms:.2f} ms\nmin: {min_ms:.2f} ms  max: {max_ms:.2f} ms",
-                    transform=ax.transAxes,
-                    ha="right",
-                    va="top",
-                    fontsize=10,
-                    bbox=dict(boxstyle="round", fc="white", alpha=0.7, ec="gray"),
-                )
-
             canvas.draw()
             return
 
-        # 4) FPS view -------------------------------------------------------
         if "fps_series" in data:
             fps_series = list(data.get("fps_series", []))
             dataset = data.get("dataset", "synthetic")
@@ -218,53 +264,14 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second - {model} ({dataset})")
             ax.grid(True)
-
-            if fps_series:
-                mean_fps = sum(fps_series) / len(fps_series)
-                min_fps = min(fps_series)
-                max_fps = max(fps_series)
-
-                ax.axhline(mean_fps, linestyle="--", color="tab:blue", alpha=0.7)
-
-                avg_ms = data.get("avg_ms")
-                ms_line = (
-                    f"\navg latency: {avg_ms:.2f} ms"
-                    if isinstance(avg_ms, (int, float))
-                    else ""
-                )
-
-                ax.text(
-                    0.98,
-                    0.98,
-                    f"mean FPS: {mean_fps:.2f}\nmin: {min_fps:.2f}  max: {max_fps:.2f}{ms_line}",
-                    transform=ax.transAxes,
-                    ha="right",
-                    va="top",
-                    fontsize=10,
-                    bbox=dict(boxstyle="round", fc="white", alpha=0.7, ec="gray"),
-                )
-
             canvas.draw()
             return
 
-        # 5) ACCURACY view --------------------------------------------------
         if "positives" in data and "negatives" in data:
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
-            ax.hist(
-                data["positives"],
-                bins=50,
-                alpha=0.6,
-                label="Positive (user1)",
-                color="g",
-            )
-            ax.hist(
-                data["negatives"],
-                bins=50,
-                alpha=0.6,
-                label="Negative (others)",
-                color="r",
-            )
+            ax.hist(data["positives"], bins=50, alpha=0.6, label="Positive", color="g")
+            ax.hist(data["negatives"], bins=50, alpha=0.6, label="Negative", color="r")
             ax.axvline(
                 data.get("threshold", 0.5),
                 color="blue",
@@ -277,14 +284,3 @@ class BenchmarkPage(QWidget):
             ax.set_title(f"Face Verification - {model} ({dataset})")
             canvas.draw()
             return
-
-        # 6) Fallback -------------------------------------------------------
-        ax.text(
-            0.5,
-            0.5,
-            "No plottable data received.",
-            ha="center",
-            va="center",
-            fontsize=12,
-        )
-        canvas.draw()
