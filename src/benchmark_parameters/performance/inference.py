@@ -1,4 +1,3 @@
-# inference.py
 import argparse, json, os, sys
 import numpy as np
 
@@ -17,15 +16,14 @@ from latency import measure_detect_and_embed, measure_embed_only
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
 
-def _resolve_model_from_settings(default=None):
+def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
-                cfg = json.load(f)
-            return cfg.get("model", default)
+                return json.load(f)
         except Exception:
-            return default
-    return default
+            return {}
+    return {}
 
 
 def _summarize(times_ms):
@@ -49,7 +47,14 @@ def _summarize(times_ms):
     )
 
 
-def run(model_name: str, iters: int, target: str, frame_h: int, frame_w: int):
+def run(
+    model_name: str,
+    iters: int,
+    target: str,
+    frame_h: int,
+    frame_w: int,
+    dataset: str = None,
+):
     """
     Perform 'iters' inferences and report per-iteration latency in ms.
 
@@ -58,6 +63,12 @@ def run(model_name: str, iters: int, target: str, frame_h: int, frame_w: int):
       - 'embed'  → model-only forward pass (true forward for FaceNet)
     """
     wrapper = load_model(model_name)
+
+    # --- Human-readable info (terminal + GUI log) ---
+    print(
+        f"[INFO] Running Inference benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    )
 
     if target == "detect":
         times_ms = measure_detect_and_embed(
@@ -74,8 +85,9 @@ def run(model_name: str, iters: int, target: str, frame_h: int, frame_w: int):
         "kind": "inference",
         "model": model_name,
         "mode": mode,
+        "dataset": dataset or "synthetic",
         "count": len(times_ms),
-        "times": times_ms,  # <-- GUI plots this as a latency line chart
+        "times": times_ms,  # GUI plots this as a latency line chart
         **stats,
     }
     print(json.dumps(payload))
@@ -103,7 +115,10 @@ def main():
     )
     args = ap.parse_args()
 
-    model = args.model or _resolve_model_from_settings()
+    cfg = _resolve_settings()
+    model = args.model or cfg.get("model")
+    dataset = cfg.get("dataset")  # comes from GUI selection
+
     if not model:
         print(
             json.dumps(
@@ -117,7 +132,7 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, args.target, h, w)
+    run(model, args.iters, args.target, h, w, dataset=dataset)
 
 
 if __name__ == "__main__":

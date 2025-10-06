@@ -1,4 +1,3 @@
-# latency.py
 import argparse, json, os, sys, time
 import numpy as np
 
@@ -44,14 +43,24 @@ def _random_frame(h=640, w=640):
     return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
 
 
-def measure_detect_and_embed(wrapper, iters=50, frame_h=640, frame_w=640):
+def measure_detect_and_embed(
+    wrapper, iters=50, frame_h=640, frame_w=640, override_frame=None
+):
     # Warm-up (don’t record)
     for _ in range(5):
-        _ = wrapper.detect_and_embed(_random_frame(frame_h, frame_w))
+        _ = wrapper.detect_and_embed(
+            override_frame
+            if override_frame is not None
+            else _random_frame(frame_h, frame_w)
+        )
 
     times_ms = []
     for _ in range(iters):
-        frame = _random_frame(frame_h, frame_w)
+        frame = (
+            override_frame
+            if override_frame is not None
+            else _random_frame(frame_h, frame_w)
+        )
         _cuda_synchronize_if_needed()
         t0 = time.perf_counter()
         _ = wrapper.detect_and_embed(frame)
@@ -61,7 +70,7 @@ def measure_detect_and_embed(wrapper, iters=50, frame_h=640, frame_w=640):
     return times_ms
 
 
-def measure_embed_only(wrapper, iters=50):
+def measure_embed_only(wrapper, iters=50, override_img=None):
     """
     Pure model forward where possible.
     NOTE: in your wrappers, FaceNet's embed() is a true forward pass.
@@ -69,11 +78,19 @@ def measure_embed_only(wrapper, iters=50):
     """
     h, w = getattr(wrapper, "input_size", (160, 160))
     for _ in range(5):
-        _ = wrapper.embed(np.random.randint(0, 255, (h, w, 3), dtype=np.uint8))
+        _ = wrapper.embed(
+            override_img
+            if override_img is not None
+            else np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+        )
 
     times_ms = []
     for _ in range(iters):
-        x = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+        x = (
+            override_img
+            if override_img is not None
+            else np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+        )
         _cuda_synchronize_if_needed()
         t0 = time.perf_counter()
         _ = wrapper.embed(x)
@@ -83,8 +100,14 @@ def measure_embed_only(wrapper, iters=50):
     return times_ms
 
 
-def run(model_name, iters, target, frame_h, frame_w):
+def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     wrapper = load_model(model_name)
+
+    # --- Human-readable info (terminal + GUI log) ---
+    print(
+        f"[INFO] Running Latency benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    )
 
     if target == "detect":
         times = measure_detect_and_embed(
@@ -94,6 +117,7 @@ def run(model_name, iters, target, frame_h, frame_w):
         payload = {
             "model": model_name,
             "mode": "detect_and_embed",
+            "dataset": dataset or "synthetic",
             "avg_ms": float(np.mean(times)) if times else float("nan"),
             "times": times,
             **stats,
@@ -107,6 +131,7 @@ def run(model_name, iters, target, frame_h, frame_w):
         payload = {
             "model": model_name,
             "mode": "embed_only",
+            "dataset": dataset or "synthetic",
             "avg_ms": float(np.mean(times)) if times else float("nan"),
             "times": times,
             **stats,
@@ -124,6 +149,7 @@ def run(model_name, iters, target, frame_h, frame_w):
     payload = {
         "model": model_name,
         "mode": "both",
+        "dataset": dataset or "synthetic",
         "times": det_times,  # primary for plotting
         "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
         **det_stats,
@@ -143,15 +169,14 @@ def run(model_name, iters, target, frame_h, frame_w):
     print(json.dumps(payload))
 
 
-def _resolve_model_from_settings(default=None):
+def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
-                cfg = json.load(f)
-            return cfg.get("model", default)
+                return json.load(f)
         except Exception:
-            return default
-    return default
+            return {}
+    return {}
 
 
 def main():
@@ -175,7 +200,10 @@ def main():
     )
     args = parser.parse_args()
 
-    model = args.model or _resolve_model_from_settings()
+    cfg = _resolve_settings()
+    model = args.model or cfg.get("model")
+    dataset = cfg.get("dataset")  # from GUI selection
+
     if not model:
         print(
             json.dumps(
@@ -189,7 +217,7 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, args.target, h, w)
+    run(model, args.iters, args.target, h, w, dataset=dataset)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
-# fps.py
 import argparse, json, os, sys
 import numpy as np
+import cv2
 
 # ---- Bootstrap sys.path so project root is importable ----
 PROJECT_ROOT = os.path.dirname(
@@ -10,51 +10,95 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
-
-# Reuse timing helpers from latency.py (warmup + optional CUDA sync handled there)
 from latency import measure_detect_and_embed, measure_embed_only
+
+# Dataset loaders
+from dataset import LFW  # add your own iphone dataset loader similarly
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
 
-def _resolve_model_from_settings(default=None):
+def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
-                cfg = json.load(f)
-            return cfg.get("model", default)
+                return json.load(f)
         except Exception:
-            return default
-    return default
+            return {}
+    return {}
 
 
-def run(model_name: str, iters: int, target: str, frame_h: int, frame_w: int):
+def run(
+    model_name: str,
+    iters: int,
+    target: str,
+    frame_h: int,
+    frame_w: int,
+    dataset: str = None,
+):
     """
-    target: 'detect' -> end-to-end detect+embed on synthetic HxW frames
-            'embed'  -> model-only (true forward only for FaceNet)
+    target: 'detect' -> detect+embed either on synthetic frames or dataset
+            'embed'  -> embedding only
+    dataset: optional dataset key (e.g., 'lfw', 'iphone16'), else synthetic
     """
     wrapper = load_model(model_name)
 
+    # --- Human-readable info (shown in terminal / GUI log) ---
+    print(
+        f"[INFO] Running FPS benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    )
+
+    frames = []
+    if dataset and dataset.lower() == "lfw":
+        pairs = LFW.load_pairs(limit=iters)
+        frames = [cv2.imread(p[0]) for p in pairs[:iters] if os.path.exists(p[0])]
+    elif dataset and dataset.lower() == "iphone16":
+        # TODO: implement dataset/iphone16.py loader
+        pass
+
+    times_ms = []
+
     if target == "detect":
-        times_ms = measure_detect_and_embed(
-            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
-        )
+        if frames:
+            for img in frames:
+                if img is None:
+                    continue
+                h, w = frame_h, frame_w
+                resized = cv2.resize(img, (w, h))
+                t = measure_detect_and_embed(
+                    wrapper, iters=1, frame_h=h, frame_w=w, override_frame=resized
+                )
+                times_ms.extend(t)
+        else:
+            times_ms = measure_detect_and_embed(
+                wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+            )
         mode = "detect_and_embed"
     else:  # 'embed'
-        times_ms = measure_embed_only(wrapper, iters=iters)
+        if frames:
+            for img in frames:
+                if img is None:
+                    continue
+                t = measure_embed_only(wrapper, iters=1, override_img=img)
+                times_ms.extend(t)
+        else:
+            times_ms = measure_embed_only(wrapper, iters=iters)
         mode = "embed_only"
 
-    # Convert each latency sample to FPS and summarize
+    # Convert latency samples to FPS
     fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
     mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
 
-    # Output FPS-only payload (no latency keys)
     payload = {
         "model": model_name,
         "mode": mode,
+        "dataset": dataset or "synthetic",
         "fps": mean_fps,
         "fps_series": fps_series,
     }
+
+    # --- JSON output consumed by GUI ---
     print(json.dumps(payload))
 
 
@@ -68,16 +112,19 @@ def main():
         "--target",
         choices=["detect", "embed"],
         default="detect",
-        help="detect=end-to-end pipeline, embed=model-only (pure for FaceNet)",
+        help="detect=end-to-end pipeline, embed=model-only",
     )
     ap.add_argument(
         "--frame-size",
         default="640x640",
-        help="HxW for detect mode synthetic frames (default: 640x640)",
+        help="HxW synthetic frame size (default: 640x640)",
     )
     args = ap.parse_args()
 
-    model = args.model or _resolve_model_from_settings()
+    cfg = _resolve_settings()
+    model = args.model or cfg.get("model")
+    dataset = cfg.get("dataset")  # comes from GUI selection
+
     if not model:
         print(
             json.dumps(
@@ -91,7 +138,7 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, args.target, h, w)
+    run(model, args.iters, args.target, h, w, dataset=dataset)
 
 
 if __name__ == "__main__":

@@ -169,17 +169,17 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # 3) LATENCY view (payload from latency.py) ------------------------------
+        # 3) LATENCY view ---------------------------------------------------
         if "times" in data:
             times = list(data.get("times", []))
+            dataset = data.get("dataset", "synthetic")
+            model = data.get("model", "")
             ax.plot(
                 range(1, len(times) + 1), times, marker="o", linestyle="-", color="blue"
             )
             ax.set_xlabel("Iteration")
             ax.set_ylabel("Latency (ms)")
-            ax.set_title(
-                f"Latency per Inference (detect_and_embed) - {data.get('model','')}"
-            )
+            ax.set_title(f"Latency per Inference - {model} ({dataset})")
             ax.grid(True)
 
             if times:
@@ -187,10 +187,7 @@ class BenchmarkPage(QWidget):
                 min_ms = min(times)
                 max_ms = max(times)
 
-                # mean line
                 ax.axhline(mean_ms, linestyle="--", color="tab:blue", alpha=0.7)
-
-                # stats box (top-right)
                 ax.text(
                     0.98,
                     0.98,
@@ -205,9 +202,11 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # 4) FPS view (payload from fps.py) -------------------------------------
+        # 4) FPS view -------------------------------------------------------
         if "fps_series" in data:
             fps_series = list(data.get("fps_series", []))
+            dataset = data.get("dataset", "synthetic")
+            model = data.get("model", "")
             ax.plot(
                 range(1, len(fps_series) + 1),
                 fps_series,
@@ -217,7 +216,7 @@ class BenchmarkPage(QWidget):
             )
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
-            ax.set_title(f"Frames per Second - {data.get('model','')}")
+            ax.set_title(f"Frames per Second - {model} ({dataset})")
             ax.grid(True)
 
             if fps_series:
@@ -225,10 +224,8 @@ class BenchmarkPage(QWidget):
                 min_fps = min(fps_series)
                 max_fps = max(fps_series)
 
-                # mean line
                 ax.axhline(mean_fps, linestyle="--", color="tab:blue", alpha=0.7)
 
-                # optional latency context if provided by the script
                 avg_ms = data.get("avg_ms")
                 ms_line = (
                     f"\navg latency: {avg_ms:.2f} ms"
@@ -250,8 +247,10 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # 5) ACCURACY histogram view --------------------------------------------
+        # 5) ACCURACY view --------------------------------------------------
         if "positives" in data and "negatives" in data:
+            dataset = data.get("dataset", "synthetic")
+            model = data.get("model", "")
             ax.hist(
                 data["positives"],
                 bins=50,
@@ -275,11 +274,11 @@ class BenchmarkPage(QWidget):
             ax.set_xlabel("Cosine Similarity")
             ax.set_ylabel("Frequency")
             ax.legend()
-            ax.set_title(f"Face Verification - {data.get('model','')}")
+            ax.set_title(f"Face Verification - {model} ({dataset})")
             canvas.draw()
             return
 
-        # 6) Fallback: unknown payload ------------------------------------------
+        # 6) Fallback -------------------------------------------------------
         ax.text(
             0.5,
             0.5,
