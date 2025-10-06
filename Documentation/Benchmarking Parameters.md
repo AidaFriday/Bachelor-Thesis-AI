@@ -7,7 +7,7 @@
   - FAR = proportion of impostor pairs incorrectly accepted
   
 - Equal Error Rate (EER) - point where false accepts = false rejects
-- Occlusion (glasses, masks, partial face) - ???
+
 
 
 ## Demographic Fairness Metrics
