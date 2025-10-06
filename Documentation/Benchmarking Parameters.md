@@ -26,5 +26,4 @@
 - Memory Usage (RAM/VRAM) - peak memory consumption during inference. Affects whether models can run on low-resource devices
 - CPU vs GPU performance - performance drop on CPU-only setups
 
-## Model Embedding Size
-- Embedding Dimension - FaceNet (128), ArcFace (512), InsightFace (512)
+
