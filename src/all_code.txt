@@ -4,10 +4,16 @@
 .\main.py
 .\benchmark_parameters\accuracy.py
 .\benchmark_parameters\performance.py
+.\benchmark_parameters\performance\fps.py
+.\benchmark_parameters\performance\inference.py
+.\benchmark_parameters\performance\latency.py
 .\components\camera.py
 .\components\face_detection.py
 .\components\settings.py
 .\components\sidebar.py
+.\dataset\LFW.py
+.\dataset\RMFD.py
+.\dataset\UTKFace.py
 .\example1\train_lfw_arcface_cpu.py
 .\models\wrap_arcface.py
 .\models\wrap_facenet.py
@@ -122,6 +128,7 @@ import argparse
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import json
 
 # --- Bootstrap sys.path so project root is importable ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -238,7 +245,13 @@ plt.xlabel("Cosine Similarity")
 plt.ylabel("Frequency")
 plt.legend()
 plt.title(f"Face Verification (model={args.model})")
-plt.show()
+result = {
+    "model": args.model,
+    "positives": pos,
+    "negatives": neg,
+    "threshold": SIM_THRESHOLD
+}
+print(json.dumps(result))   # <-- emit JSON for BenchmarkPage
 
 
 
@@ -268,21 +281,31 @@ def measure_inference_time(wrapper, model_name: str, iters: int = 50):
     for _ in range(5):
         _ = wrapper.embed(x)
 
-    start = time.perf_counter()
+    times = []
     for _ in range(iters):
+        start = time.perf_counter()
         _ = wrapper.embed(x)
-    end = time.perf_counter()
+        end = time.perf_counter()
+        times.append((end - start) * 1000.0)  # ms
 
-    avg_ms = (end - start) * 1000.0 / iters
+    avg_ms = np.mean(times)
     fps = 1000.0 / avg_ms if avg_ms > 0 else float("inf")
 
-    print(f"[RESULT] Model: {model_name}")
-    print(f"         Avg inference: {avg_ms:.2f} ms | {fps:.1f} FPS")
+    result = {
+        "model": model_name,
+        "avg_ms": avg_ms,
+        "fps": fps,
+        "times": times,  # send per-iteration times
+    }
+    print(json.dumps(result))  # <-- JSON output for BenchmarkPage
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, help="Model name (arcface|facenet|deepface)")
+    parser.add_argument(
+        "--model", type=str, help="Model name (arcface|facenet|deepface)"
+    )
     parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
     args = parser.parse_args()
 
@@ -299,6 +322,439 @@ def main():
     print(f"[DEBUG] performance.py running with model={args.model}")
     wrapper = load_model(args.model)
     measure_inference_time(wrapper, args.model, iters=args.iters)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\performance\fps.py ====
+
+# fps.py
+import argparse, json, os, sys
+import numpy as np
+
+# ---- Bootstrap sys.path so project root is importable ----
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from connector import load_model
+
+# Reuse timing helpers from latency.py (warmup + optional CUDA sync handled there)
+from latency import measure_detect_and_embed, measure_embed_only
+
+SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+def _resolve_model_from_settings(default=None):
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                cfg = json.load(f)
+            return cfg.get("model", default)
+        except Exception:
+            return default
+    return default
+
+
+def run(model_name: str, iters: int, target: str, frame_h: int, frame_w: int):
+    """
+    target: 'detect' -> end-to-end detect+embed on synthetic HxW frames
+            'embed'  -> model-only (true forward only for FaceNet)
+    """
+    wrapper = load_model(model_name)
+
+    if target == "detect":
+        times_ms = measure_detect_and_embed(
+            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+        )
+        mode = "detect_and_embed"
+    else:  # 'embed'
+        times_ms = measure_embed_only(wrapper, iters=iters)
+        mode = "embed_only"
+
+    # Convert each latency sample to FPS and summarize
+    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+
+    # Output FPS-only payload (no latency keys)
+    payload = {
+        "model": model_name,
+        "mode": mode,
+        "fps": mean_fps,
+        "fps_series": fps_series,
+    }
+    print(json.dumps(payload))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    ap.add_argument(
+        "--iters", type=int, default=50, help="Number of iterations (default: 50)"
+    )
+    ap.add_argument(
+        "--target",
+        choices=["detect", "embed"],
+        default="detect",
+        help="detect=end-to-end pipeline, embed=model-only (pure for FaceNet)",
+    )
+    ap.add_argument(
+        "--frame-size",
+        default="640x640",
+        help="HxW for detect mode synthetic frames (default: 640x640)",
+    )
+    args = ap.parse_args()
+
+    model = args.model or _resolve_model_from_settings()
+    if not model:
+        print(
+            json.dumps(
+                {"error": "No model selected. Pass --model or set it in settings.json"}
+            )
+        )
+        sys.exit(1)
+
+    try:
+        h, w = [int(p) for p in args.frame_size.lower().split("x")]
+    except Exception:
+        h, w = 640, 640
+
+    run(model, args.iters, args.target, h, w)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\performance\inference.py ====
+
+# inference.py
+import argparse, json, os, sys
+import numpy as np
+
+# ---- Bootstrap sys.path so project root is importable ----
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from connector import load_model
+
+# Reuse the timing helpers from latency.py (warmup + optional CUDA sync handled there)
+from latency import measure_detect_and_embed, measure_embed_only
+
+SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+def _resolve_model_from_settings(default=None):
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                cfg = json.load(f)
+            return cfg.get("model", default)
+        except Exception:
+            return default
+    return default
+
+
+def _summarize(times_ms):
+    if not times_ms:
+        return dict(
+            avg_ms=float("nan"),
+            min_ms=float("nan"),
+            max_ms=float("nan"),
+            p50_ms=float("nan"),
+            p90_ms=float("nan"),
+            p95_ms=float("nan"),
+        )
+    arr = np.array(times_ms, dtype=np.float64)
+    return dict(
+        avg_ms=float(np.mean(arr)),
+        min_ms=float(np.min(arr)),
+        max_ms=float(np.max(arr)),
+        p50_ms=float(np.percentile(arr, 50)),
+        p90_ms=float(np.percentile(arr, 90)),
+        p95_ms=float(np.percentile(arr, 95)),
+    )
+
+
+def run(model_name: str, iters: int, target: str, frame_h: int, frame_w: int):
+    """
+    Perform 'iters' inferences and report per-iteration latency in ms.
+
+    target:
+      - 'detect' → end-to-end detection + (optional align) + embedding on HxW frames
+      - 'embed'  → model-only forward pass (true forward for FaceNet)
+    """
+    wrapper = load_model(model_name)
+
+    if target == "detect":
+        times_ms = measure_detect_and_embed(
+            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+        )
+        mode = "detect_and_embed"
+    else:  # 'embed'
+        times_ms = measure_embed_only(wrapper, iters=iters)
+        mode = "embed_only"
+
+    stats = _summarize(times_ms)
+
+    payload = {
+        "kind": "inference",
+        "model": model_name,
+        "mode": mode,
+        "count": len(times_ms),
+        "times": times_ms,  # <-- GUI plots this as a latency line chart
+        **stats,
+    }
+    print(json.dumps(payload))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    ap.add_argument(
+        "--iters",
+        type=int,
+        default=50,
+        help="Number of inferences to run (default: 50)",
+    )
+    ap.add_argument(
+        "--target",
+        choices=["detect", "embed"],
+        default="detect",
+        help="detect=end-to-end, embed=model-only",
+    )
+    ap.add_argument(
+        "--frame-size",
+        default="640x640",
+        help="HxW for detect mode synthetic frames (default: 640x640)",
+    )
+    args = ap.parse_args()
+
+    model = args.model or _resolve_model_from_settings()
+    if not model:
+        print(
+            json.dumps(
+                {"error": "No model selected. Pass --model or set it in settings.json"}
+            )
+        )
+        sys.exit(1)
+
+    try:
+        h, w = [int(p) for p in args.frame_size.lower().split("x")]
+    except Exception:
+        h, w = 640, 640
+
+    run(model, args.iters, args.target, h, w)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\performance\latency.py ====
+
+# latency.py
+import argparse, json, os, sys, time
+import numpy as np
+
+# ---- Bootstrap sys.path so project root is importable ----
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from connector import load_model
+
+# Optional: only imported if available (for CUDA sync later on GPU)
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+def _cuda_synchronize_if_needed():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def _percentiles(ms_list):
+    arr = np.array(ms_list, dtype=np.float64)
+    return {
+        "p50_ms": float(np.percentile(arr, 50)) if arr.size else float("nan"),
+        "p90_ms": float(np.percentile(arr, 90)) if arr.size else float("nan"),
+        "p95_ms": float(np.percentile(arr, 95)) if arr.size else float("nan"),
+        "p99_ms": float(np.percentile(arr, 99)) if arr.size else float("nan"),
+        "min_ms": float(np.min(arr)) if arr.size else float("nan"),
+        "max_ms": float(np.max(arr)) if arr.size else float("nan"),
+        "std_ms": float(np.std(arr)) if arr.size else float("nan"),
+    }
+
+
+def _random_frame(h=640, w=640):
+    return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+
+
+def measure_detect_and_embed(wrapper, iters=50, frame_h=640, frame_w=640):
+    # Warm-up (don’t record)
+    for _ in range(5):
+        _ = wrapper.detect_and_embed(_random_frame(frame_h, frame_w))
+
+    times_ms = []
+    for _ in range(iters):
+        frame = _random_frame(frame_h, frame_w)
+        _cuda_synchronize_if_needed()
+        t0 = time.perf_counter()
+        _ = wrapper.detect_and_embed(frame)
+        _cuda_synchronize_if_needed()
+        t1 = time.perf_counter()
+        times_ms.append((t1 - t0) * 1000.0)
+    return times_ms
+
+
+def measure_embed_only(wrapper, iters=50):
+    """
+    Pure model forward where possible.
+    NOTE: in your wrappers, FaceNet's embed() is a true forward pass.
+          ArcFace/InsightFace embed() still triggers detection.
+    """
+    h, w = getattr(wrapper, "input_size", (160, 160))
+    for _ in range(5):
+        _ = wrapper.embed(np.random.randint(0, 255, (h, w, 3), dtype=np.uint8))
+
+    times_ms = []
+    for _ in range(iters):
+        x = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+        _cuda_synchronize_if_needed()
+        t0 = time.perf_counter()
+        _ = wrapper.embed(x)
+        _cuda_synchronize_if_needed()
+        t1 = time.perf_counter()
+        times_ms.append((t1 - t0) * 1000.0)
+    return times_ms
+
+
+def run(model_name, iters, target, frame_h, frame_w):
+    wrapper = load_model(model_name)
+
+    if target == "detect":
+        times = measure_detect_and_embed(
+            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+        )
+        stats = _percentiles(times)
+        payload = {
+            "model": model_name,
+            "mode": "detect_and_embed",
+            "avg_ms": float(np.mean(times)) if times else float("nan"),
+            "times": times,
+            **stats,
+        }
+        print(json.dumps(payload))
+        return
+
+    if target == "embed":
+        times = measure_embed_only(wrapper, iters=iters)
+        stats = _percentiles(times)
+        payload = {
+            "model": model_name,
+            "mode": "embed_only",
+            "avg_ms": float(np.mean(times)) if times else float("nan"),
+            "times": times,
+            **stats,
+        }
+        print(json.dumps(payload))
+        return
+
+    # both → keep detect as the primary series, include embed stats in details
+    det_times = measure_detect_and_embed(
+        wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+    )
+    emb_times = measure_embed_only(wrapper, iters=iters)
+    det_stats = _percentiles(det_times)
+    emb_stats = _percentiles(emb_times)
+    payload = {
+        "model": model_name,
+        "mode": "both",
+        "times": det_times,  # primary for plotting
+        "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
+        **det_stats,
+        "details": {
+            "detect_and_embed": {
+                "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
+                "times": det_times,
+                **det_stats,
+            },
+            "embed_only": {
+                "avg_ms": float(np.mean(emb_times)) if emb_times else float("nan"),
+                "times": emb_times,
+                **emb_stats,
+            },
+        },
+    }
+    print(json.dumps(payload))
+
+
+def _resolve_model_from_settings(default=None):
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                cfg = json.load(f)
+            return cfg.get("model", default)
+        except Exception:
+            return default
+    return default
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    parser.add_argument(
+        "--iters", type=int, default=50, help="Number of iterations (default: 50)"
+    )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default="detect",
+        choices=["detect", "embed", "both"],
+        help="detect=end-to-end, embed=model-only, both=report both",
+    )
+    parser.add_argument(
+        "--frame-size",
+        type=str,
+        default="640x640",
+        help="HxW for detect mode synthetic frames (default: 640x640)",
+    )
+    args = parser.parse_args()
+
+    model = args.model or _resolve_model_from_settings()
+    if not model:
+        print(
+            json.dumps(
+                {"error": "No model selected. Pass --model or set it in settings.json"}
+            )
+        )
+        sys.exit(1)
+
+    try:
+        h, w = [int(p) for p in args.frame_size.lower().split("x")]
+    except Exception:
+        h, w = 640, 640
+
+    run(model, args.iters, args.target, h, w)
 
 
 if __name__ == "__main__":
@@ -647,6 +1103,21 @@ class SideBar(QWidget):
             """
         for btn in self.buttons:
             btn.setStyleSheet(style)
+
+
+
+# ==== .\dataset\LFW.py ====
+
+
+
+
+# ==== .\dataset\RMFD.py ====
+
+
+
+
+# ==== .\dataset\UTKFace.py ====
+
 
 
 
@@ -1227,11 +1698,19 @@ class InsightFaceWrapper:
 import os
 import sys
 import subprocess
+import json
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QStackedWidget, QFrame, QTextEdit
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QStackedWidget,
+    QFrame,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 
 class RunnerThread(QThread):
@@ -1245,7 +1724,6 @@ class RunnerThread(QThread):
     def run(self):
         try:
             cmd = [sys.executable, self.file_path, "--model", self.model_name]
-            self.output_signal.emit(f"[DEBUG] Running command: {' '.join(cmd)}\n")
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -1254,19 +1732,15 @@ class RunnerThread(QThread):
                 bufsize=1,
             )
             for line in process.stdout:
-                self.output_signal.emit(line.rstrip())
+                self.output_signal.emit(line.strip())
             process.stdout.close()
             process.wait()
-            self.output_signal.emit(f"\n[INFO] Finished {os.path.basename(self.file_path)}\n")
         except Exception as e:
-            self.output_signal.emit(f"[ERROR] Failed to run {self.file_path}: {e}\n")
+            self.output_signal.emit(json.dumps({"error": str(e)}))
 
 
 class BenchmarkPage(QWidget):
     def __init__(self, parent=None, get_model_name=None):
-        """
-        get_model_name: callback returning the currently selected model
-        """
         super().__init__(parent)
         self.get_model_name = get_model_name
 
@@ -1284,13 +1758,15 @@ class BenchmarkPage(QWidget):
         self.pages = {}
 
         frame = QFrame()
-        frame.setStyleSheet("""
+        frame.setStyleSheet(
+            """
             QFrame {
                 border: 2px solid #800080;
                 border-radius: 6px;
                 background-color: #fafafa;
             }
-        """)
+        """
+        )
         frame_layout = QVBoxLayout()
         frame_layout.addWidget(self.output_stack)
         frame.setLayout(frame_layout)
@@ -1302,55 +1778,214 @@ class BenchmarkPage(QWidget):
         self.output_stack.setCurrentIndex(-1)
         self.current_thread = None
 
+    def _pretty_name_for(self, file_path: str) -> str:
+        # Button label is just the leaf filename (Accuracy, Fps, Latency, …)
+        base = os.path.splitext(os.path.basename(file_path))[0]
+        return base.capitalize()
+
     def load_benchmark_tabs(self):
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
 
-        for fname in sorted(os.listdir(self.benchmark_dir)):
-            if not fname.endswith(".py"):
-                continue
-            file_path = os.path.join(self.benchmark_dir, fname)
-            tab_name = os.path.splitext(fname)[0]
+        # Recurse through all subdirectories and pick up every .py file
+        for dirpath, _, filenames in os.walk(self.benchmark_dir):
+            for fname in sorted(f for f in filenames if f.endswith(".py")):
+                file_path = os.path.join(dirpath, fname)
+                tab_name = self._pretty_name_for(file_path)
 
-            # button
-            btn = QPushButton(tab_name.capitalize())
-            btn.setMinimumHeight(40)
-            btn.clicked.connect(lambda _, n=tab_name, p=file_path: self.run_script(n, p))
-            self.button_layout.addWidget(btn)
+                btn = QPushButton(tab_name)
+                btn.setMinimumHeight(40)
+                btn.clicked.connect(
+                    lambda _, n=tab_name, p=file_path: self.run_script(n, p)
+                )
+                self.button_layout.addWidget(btn)
 
-            # output page
-            page = QWidget()
-            layout = QVBoxLayout()
-            text_box = QTextEdit()
-            text_box.setReadOnly(True)
-            layout.addWidget(text_box)
-            page.setLayout(layout)
-            idx = self.output_stack.addWidget(page)
+                page = QWidget()
+                layout = QVBoxLayout()
+                fig = Figure(figsize=(5, 4))
+                canvas = FigureCanvas(fig)
+                layout.addWidget(canvas)
+                page.setLayout(layout)
+                idx = self.output_stack.addWidget(page)
 
-            self.pages[tab_name] = (idx, text_box)
+                self.pages[tab_name] = (idx, fig, canvas, file_path)
 
     def run_script(self, name, file_path):
         if name not in self.pages:
             return
-        idx, text_box = self.pages[name]
+        idx, fig, canvas, file_path = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
-        text_box.clear()
 
         model_name = self.get_model_name() if self.get_model_name else None
         if not model_name:
-            msg = "[ERROR] No model selected in settings."
-            text_box.setPlainText(msg)
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.text(
+                0.5,
+                0.5,
+                "❌ No model selected",
+                ha="center",
+                va="center",
+                color="red",
+                fontsize=12,
+            )
+            canvas.draw()
             return
-
-        text_box.append(f"[DEBUG] Selected model: {model_name}\n▶ Running {os.path.basename(file_path)}...\n")
 
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
 
         self.current_thread = RunnerThread(file_path, model_name)
-        self.current_thread.output_signal.connect(lambda msg: text_box.append(msg))
+        self.current_thread.output_signal.connect(
+            lambda msg: self.handle_output(msg, fig, canvas)
+        )
         self.current_thread.start()
+
+    def handle_output(self, msg, fig, canvas):
+        # 1) parse a single JSON line from the worker
+        try:
+            data = json.loads(msg)
+        except Exception:
+            return
+
+        fig.clear()
+        ax = fig.add_subplot(111)
+
+        # 2) explicit error from the worker
+        if "error" in data:
+            ax.text(
+                0.5,
+                0.5,
+                f"Error: {data['error']}",
+                ha="center",
+                va="center",
+                color="red",
+                fontsize=12,
+            )
+            canvas.draw()
+            return
+
+        # 3) LATENCY view (payload from latency.py) ------------------------------
+        if "times" in data:
+            times = list(data.get("times", []))
+            ax.plot(
+                range(1, len(times) + 1), times, marker="o", linestyle="-", color="blue"
+            )
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Latency (ms)")
+            ax.set_title(
+                f"Latency per Inference (detect_and_embed) - {data.get('model','')}"
+            )
+            ax.grid(True)
+
+            if times:
+                mean_ms = sum(times) / len(times)
+                min_ms = min(times)
+                max_ms = max(times)
+
+                # mean line
+                ax.axhline(mean_ms, linestyle="--", color="tab:blue", alpha=0.7)
+
+                # stats box (top-right)
+                ax.text(
+                    0.98,
+                    0.98,
+                    f"mean: {mean_ms:.2f} ms\nmin: {min_ms:.2f} ms  max: {max_ms:.2f} ms",
+                    transform=ax.transAxes,
+                    ha="right",
+                    va="top",
+                    fontsize=10,
+                    bbox=dict(boxstyle="round", fc="white", alpha=0.7, ec="gray"),
+                )
+
+            canvas.draw()
+            return
+
+        # 4) FPS view (payload from fps.py) -------------------------------------
+        if "fps_series" in data:
+            fps_series = list(data.get("fps_series", []))
+            ax.plot(
+                range(1, len(fps_series) + 1),
+                fps_series,
+                marker="o",
+                linestyle="-",
+                color="blue",
+            )
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("FPS")
+            ax.set_title(f"Frames per Second - {data.get('model','')}")
+            ax.grid(True)
+
+            if fps_series:
+                mean_fps = sum(fps_series) / len(fps_series)
+                min_fps = min(fps_series)
+                max_fps = max(fps_series)
+
+                # mean line
+                ax.axhline(mean_fps, linestyle="--", color="tab:blue", alpha=0.7)
+
+                # optional latency context if provided by the script
+                avg_ms = data.get("avg_ms")
+                ms_line = (
+                    f"\navg latency: {avg_ms:.2f} ms"
+                    if isinstance(avg_ms, (int, float))
+                    else ""
+                )
+
+                ax.text(
+                    0.98,
+                    0.98,
+                    f"mean FPS: {mean_fps:.2f}\nmin: {min_fps:.2f}  max: {max_fps:.2f}{ms_line}",
+                    transform=ax.transAxes,
+                    ha="right",
+                    va="top",
+                    fontsize=10,
+                    bbox=dict(boxstyle="round", fc="white", alpha=0.7, ec="gray"),
+                )
+
+            canvas.draw()
+            return
+
+        # 5) ACCURACY histogram view --------------------------------------------
+        if "positives" in data and "negatives" in data:
+            ax.hist(
+                data["positives"],
+                bins=50,
+                alpha=0.6,
+                label="Positive (user1)",
+                color="g",
+            )
+            ax.hist(
+                data["negatives"],
+                bins=50,
+                alpha=0.6,
+                label="Negative (others)",
+                color="r",
+            )
+            ax.axvline(
+                data.get("threshold", 0.5),
+                color="blue",
+                linestyle="--",
+                label=f"Threshold={data.get('threshold', 0.5)}",
+            )
+            ax.set_xlabel("Cosine Similarity")
+            ax.set_ylabel("Frequency")
+            ax.legend()
+            ax.set_title(f"Face Verification - {data.get('model','')}")
+            canvas.draw()
+            return
+
+        # 6) Fallback: unknown payload ------------------------------------------
+        ax.text(
+            0.5,
+            0.5,
+            "No plottable data received.",
+            ha="center",
+            va="center",
+            fontsize=12,
+        )
+        canvas.draw()
 
 
 
