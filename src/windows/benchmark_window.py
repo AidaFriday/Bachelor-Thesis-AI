@@ -265,14 +265,29 @@ class BenchmarkPage(QWidget):
 
             # annotate each point with its index
             for i, fps in enumerate(fps_series, 1):
+                # Decide placement: if this point is a local minimum, put below, else above
+                if (
+                    i > 1
+                    and i < len(fps_series)
+                    and fps < fps_series[i - 2]
+                    and fps < fps_series[i]
+                ):
+                    # local minimum → label below
+                    va = "top"
+                    offset = -0.1
+                else:
+                    # otherwise label above
+                    va = "bottom"
+                    offset = 0.1
+
                 ax.text(
                     i,
-                    fps + 0.1,
+                    fps + offset,
                     str(i),
-                    fontsize=10,
+                    fontsize=9,
                     fontweight="bold",
                     ha="center",
-                    va="bottom",
+                    va=va,
                     color="red",
                 )
 
