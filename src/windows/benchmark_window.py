@@ -253,13 +253,29 @@ class BenchmarkPage(QWidget):
             fps_series = list(data.get("fps_series", []))
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
+
+            # plot as line
+
             ax.plot(
                 range(1, len(fps_series) + 1),
                 fps_series,
-                marker="o",
                 linestyle="-",
                 color="blue",
             )
+
+            # annotate each point with its index
+            for i, fps in enumerate(fps_series, 1):
+                ax.text(
+                    i,
+                    fps + 0.1,
+                    str(i),
+                    fontsize=10,
+                    fontweight="bold",
+                    ha="center",
+                    va="bottom",
+                    color="red",
+                )
+
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second - {model} ({dataset})")

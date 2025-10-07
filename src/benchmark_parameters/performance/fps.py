@@ -59,17 +59,22 @@ def run(
     frames = []
 
     if dataset and dataset.lower().endswith("lfw") or "lfw" in dataset.lower():
+
         # Use the dataset path selected in GUI
         images = LFW.list_all_images(
             root_dir=dataset, limit=iters, shuffle=True, verbose=False
         )
         frames = []
+        image_map = {}  # <--- new dictionary
+
         for idx, p in enumerate(images, 1):
             if os.path.exists(p):
                 img = cv2.imread(p)
                 if img is not None:
                     frames.append(img)
                     send_log(f"[{idx:03d}] Loaded dataset image: {p}")
+                    # save mapping index → filename (basename only)
+                    image_map[idx] = os.path.basename(p)
 
     elif dataset and dataset.lower() == "iphone16":
         # TODO: implement dataset/iphone16.py loader
@@ -139,6 +144,12 @@ def run(
         "fps": mean_fps,
         "fps_series": fps_series,
     }
+
+    if dataset and frames:
+        mapping_file = os.path.join(PROJECT_ROOT, "image_index_map.json")
+        with open(mapping_file, "w") as f:
+            json.dump(image_map, f, indent=4)
+        send_log(f"Saved image index mapping to {mapping_file}")
 
     # --- JSON output consumed by GUI ---
     print(json.dumps(payload))
