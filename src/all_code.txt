@@ -178,9 +178,25 @@ def run(
     )
 
     frames = []
-    if dataset and dataset.lower() == "lfw":
-        pairs = LFW.load_pairs(limit=iters)
-        frames = [cv2.imread(p[0]) for p in pairs[:iters] if os.path.exists(p[0])]
+
+    if dataset and dataset.lower().endswith("lfw") or "lfw" in dataset.lower():
+
+        # Use the dataset path selected in GUI
+        images = LFW.list_all_images(
+            root_dir=dataset, limit=iters, shuffle=True, verbose=False
+        )
+        frames = []
+        image_map = {}  # <--- new dictionary
+
+        for idx, p in enumerate(images, 1):
+            if os.path.exists(p):
+                img = cv2.imread(p)
+                if img is not None:
+                    frames.append(img)
+                    send_log(f"[{idx:03d}] Loaded dataset image: {p}")
+                    # save mapping index → filename (basename only)
+                    image_map[idx] = os.path.basename(p)
+
     elif dataset and dataset.lower() == "iphone16":
         # TODO: implement dataset/iphone16.py loader
         pass
@@ -236,6 +252,12 @@ def run(
     fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
     mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
 
+    # 👇 New clear summary log
+    send_log(
+        f"Average FPS on {dataset or 'synthetic'} ({len(times_ms)} frames): {mean_fps:.2f} FPS",
+        level="result",
+    )
+
     payload = {
         "model": model_name,
         "mode": mode,
@@ -243,6 +265,12 @@ def run(
         "fps": mean_fps,
         "fps_series": fps_series,
     }
+
+    if dataset and frames:
+        mapping_file = os.path.join(PROJECT_ROOT, "image_index_map.json")
+        with open(mapping_file, "w") as f:
+            json.dump(image_map, f, indent=4)
+        send_log(f"Saved image index mapping to {mapping_file}")
 
     # --- JSON output consumed by GUI ---
     print(json.dumps(payload))
@@ -1287,18 +1315,24 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATASET_DIR = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
 
 
-def list_all_images(limit=None, shuffle=True, verbose=True):
+def list_all_images(root_dir, limit=None, shuffle=True, verbose=True):
     """
-    Collect images directly from LFW dataset folder (no pairs.csv needed).
+    Collect images from LFW dataset folder.
     Args:
+        root_dir: path to LFW dataset (can be parent or 'lfw-deepfunneled')
         limit: max number of images to load
-        shuffle: whether to shuffle the image list
-        verbose: whether to print logs in terminal
+        shuffle: shuffle before limiting
+        verbose: print logs
     Returns:
         List of absolute image paths
     """
+    # If user gave parent folder, look inside lfw-deepfunneled
+    deep = os.path.join(root_dir, "lfw-deepfunneled")
+    if os.path.exists(deep):
+        root_dir = deep
+
     all_images = []
-    for root, _, files in os.walk(DATASET_DIR):
+    for root, _, files in os.walk(root_dir):
         for f in files:
             if f.lower().endswith((".jpg", ".jpeg", ".png")):
                 all_images.append(os.path.join(root, f))
@@ -1310,7 +1344,7 @@ def list_all_images(limit=None, shuffle=True, verbose=True):
         all_images = all_images[:limit]
 
     if verbose:
-        print(f"[INFO] Found {len(all_images)} images (showing logs below):")
+        print(f"[INFO] Found {len(all_images)} images")
         for idx, path in enumerate(all_images, 1):
             print(f" {idx:03d}: {path}")
 
@@ -2166,13 +2200,44 @@ class BenchmarkPage(QWidget):
             fps_series = list(data.get("fps_series", []))
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
+
+            # plot as line
+
             ax.plot(
                 range(1, len(fps_series) + 1),
                 fps_series,
-                marker="o",
                 linestyle="-",
                 color="blue",
             )
+
+            # annotate each point with its index
+            for i, fps in enumerate(fps_series, 1):
+                # Decide placement: if this point is a local minimum, put below, else above
+                if (
+                    i > 1
+                    and i < len(fps_series)
+                    and fps < fps_series[i - 2]
+                    and fps < fps_series[i]
+                ):
+                    # local minimum → label below
+                    va = "top"
+                    offset = -0.1
+                else:
+                    # otherwise label above
+                    va = "bottom"
+                    offset = 0.1
+
+                ax.text(
+                    i,
+                    fps + offset,
+                    str(i),
+                    fontsize=9,
+                    fontweight="bold",
+                    ha="center",
+                    va=va,
+                    color="red",
+                )
+
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second - {model} ({dataset})")
