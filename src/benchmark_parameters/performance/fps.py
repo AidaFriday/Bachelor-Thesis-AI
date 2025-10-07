@@ -57,9 +57,20 @@ def run(
     )
 
     frames = []
-    if dataset and dataset.lower() == "lfw":
-        pairs = LFW.load_pairs(limit=iters)
-        frames = [cv2.imread(p[0]) for p in pairs[:iters] if os.path.exists(p[0])]
+
+    if dataset and dataset.lower().endswith("lfw") or "lfw" in dataset.lower():
+        # Use the dataset path selected in GUI
+        images = LFW.list_all_images(
+            root_dir=dataset, limit=iters, shuffle=True, verbose=False
+        )
+        frames = []
+        for idx, p in enumerate(images, 1):
+            if os.path.exists(p):
+                img = cv2.imread(p)
+                if img is not None:
+                    frames.append(img)
+                    send_log(f"[{idx:03d}] Loaded dataset image: {p}")
+
     elif dataset and dataset.lower() == "iphone16":
         # TODO: implement dataset/iphone16.py loader
         pass
@@ -114,6 +125,12 @@ def run(
     # Convert latency samples to FPS
     fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
     mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+
+    # 👇 New clear summary log
+    send_log(
+        f"Average FPS on {dataset or 'synthetic'} ({len(times_ms)} frames): {mean_fps:.2f} FPS",
+        level="result",
+    )
 
     payload = {
         "model": model_name,

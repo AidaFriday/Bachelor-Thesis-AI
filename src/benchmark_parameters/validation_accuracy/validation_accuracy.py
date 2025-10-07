@@ -77,7 +77,7 @@ def main():
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
     parser.add_argument("--dataset", type=str, help="Path to LFW dataset folder")
     parser.add_argument("--test-image", type=str, help="Single test image")
-    parser.add_argument("--threshold", type=float, default=0.7)
+    parser.add_argument("--threshold", type=float, default=0.5)
     args = parser.parse_args()
 
     # settings.json fallback
