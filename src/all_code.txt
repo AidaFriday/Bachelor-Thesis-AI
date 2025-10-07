@@ -1957,6 +1957,7 @@ from PyQt5.QtWidgets import (
     QStackedWidget,
     QFrame,
     QProgressBar,
+    QInputDialog,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -1967,12 +1968,15 @@ from matplotlib.figure import Figure
 class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
-    def __init__(self, file_path, model_name, dataset_path=None, test_image=None):
+    def __init__(
+        self, file_path, model_name, dataset_path=None, test_image=None, iters=50
+    ):
         super().__init__()
         self.file_path = file_path
         self.model_name = model_name
         self.dataset_path = dataset_path
         self.test_image = test_image
+        self.iters = iters
 
     def run(self):
         try:
@@ -1981,6 +1985,8 @@ class RunnerThread(QThread):
                 self.file_path,
                 "--model",
                 self.model_name,
+                "--iters",
+                str(self.iters),
             ]
 
             # ✅ Only validation_accuracy script supports dataset/test-image args
@@ -2119,6 +2125,18 @@ class BenchmarkPage(QWidget):
                 fontsize=12,
             )
             canvas.draw()
+            return
+
+        iters, ok = QInputDialog.getInt(
+            self,
+            "Iterations",
+            "How many images do you want to process?",
+            50,
+            1,
+            10000,
+            1,
+        )
+        if not ok:
             return
 
         if self.current_thread and self.current_thread.isRunning():

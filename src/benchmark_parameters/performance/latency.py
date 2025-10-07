@@ -1,5 +1,6 @@
 import argparse, json, os, sys, time
 import numpy as np
+import cv2
 
 # ---- Bootstrap sys.path so project root is importable ----
 PROJECT_ROOT = os.path.dirname(
@@ -9,6 +10,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
+from dataset import LFW  # ✅ use LFW loader
 
 try:
     import torch
@@ -22,7 +24,6 @@ SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
 # ---------------- Helpers ----------------
 def send_log(msg, level="info"):
-    """Emit a log message for GUI consumption"""
     payload = {"log": msg, "level": level}
     print(json.dumps(payload))
     sys.stdout.flush()
@@ -50,132 +51,80 @@ def _random_frame(h=640, w=640):
     return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
 
 
-def measure_detect_and_embed(
-    wrapper, iters=50, frame_h=640, frame_w=640, override_frame=None
-):
-    for _ in range(5):  # warmup
-        _ = wrapper.detect_and_embed(
-            override_frame
-            if override_frame is not None
-            else _random_frame(frame_h, frame_w)
-        )
-
-    times_ms = []
-    for i in range(iters):
-        frame = (
-            override_frame
-            if override_frame is not None
-            else _random_frame(frame_h, frame_w)
-        )
-        _cuda_synchronize_if_needed()
-        t0 = time.perf_counter()
-        _ = wrapper.detect_and_embed(frame)
-        _cuda_synchronize_if_needed()
-        t1 = time.perf_counter()
-        times_ms.append((t1 - t0) * 1000.0)
-
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Detect+Embed progress: {i+1}/{iters}")
-    return times_ms
+def measure_once(wrapper, frame=None):
+    """Single latency measurement (embedding only)."""
+    _cuda_synchronize_if_needed()
+    t0 = time.perf_counter()
+    _ = wrapper.embed(frame)  # ✅ embeddings only
+    _cuda_synchronize_if_needed()
+    t1 = time.perf_counter()
+    return (t1 - t0) * 1000.0  # ms
 
 
-def measure_embed_only(wrapper, iters=50, override_img=None):
-    h, w = getattr(wrapper, "input_size", (160, 160))
-    for _ in range(5):  # warmup
-        _ = wrapper.embed(
-            override_img
-            if override_img is not None
-            else np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-        )
-
-    times_ms = []
-    for i in range(iters):
-        x = (
-            override_img
-            if override_img is not None
-            else np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-        )
-        _cuda_synchronize_if_needed()
-        t0 = time.perf_counter()
-        _ = wrapper.embed(x)
-        _cuda_synchronize_if_needed()
-        t1 = time.perf_counter()
-        times_ms.append((t1 - t0) * 1000.0)
-
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Embed-only progress: {i+1}/{iters}")
-    return times_ms
-
-
-def run(model_name, iters, target, frame_h, frame_w, dataset=None):
+def run(model_name, iters, frame_h, frame_w, dataset=None):
     wrapper = load_model(model_name)
 
     send_log(
-        f"Running Latency benchmark | Model: {model_name} | Dataset: {dataset or 'synthetic'} | Mode: {target}"
+        f"Running Latency benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: embed_only"
     )
 
-    if target == "detect":
-        times = measure_detect_and_embed(
-            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+    frames = []
+    image_map = {}
+
+    # ✅ Load dataset images if available
+    if dataset and dataset.lower().endswith("lfw") or "lfw" in (dataset or "").lower():
+        images = LFW.list_all_images(
+            root_dir=dataset, limit=iters, shuffle=True, verbose=False
         )
-        stats = _percentiles(times)
-        payload = {
-            "kind": "latency",
-            "model": model_name,
-            "mode": "detect_and_embed",
-            "dataset": dataset or "synthetic",
-            "avg_ms": float(np.mean(times)) if times else float("nan"),
-            "times": times,
-            **stats,
-        }
-        print(json.dumps(payload))
-        sys.stdout.flush()
-        return
+        for idx, path in enumerate(images, 1):
+            img = cv2.imread(path)
+            if img is not None:
+                frames.append(img)
+                image_map[idx] = os.path.basename(path)
+                send_log(f"[{idx:03d}] Loaded dataset image: {path}")
 
-    if target == "embed":
-        times = measure_embed_only(wrapper, iters=iters)
-        stats = _percentiles(times)
-        payload = {
-            "kind": "latency",
-            "model": model_name,
-            "mode": "embed_only",
-            "dataset": dataset or "synthetic",
-            "avg_ms": float(np.mean(times)) if times else float("nan"),
-            "times": times,
-            **stats,
-        }
-        print(json.dumps(payload))
-        sys.stdout.flush()
-        return
+    times = []
+    for i in range(iters):
+        if frames:  # dataset images
+            frame = frames[i % len(frames)]
+        else:  # synthetic
+            frame = _random_frame(frame_h, frame_w)
 
-    # both
-    det_times = measure_detect_and_embed(
-        wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+        t = measure_once(wrapper, frame=frame)
+        times.append(t)
+
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Processed {i+1}/{iters} images")
+
+    stats = _percentiles(times)
+    avg_ms = float(np.mean(times)) if times else float("nan")
+
+    send_log(
+        f"Latency summary (ms): "
+        f"avg={avg_ms:.2f}, p50={stats['p50_ms']:.2f}, "
+        f"p90={stats['p90_ms']:.2f}, p95={stats['p95_ms']:.2f}, "
+        f"p99={stats['p99_ms']:.2f}, min={stats['min_ms']:.2f}, "
+        f"max={stats['max_ms']:.2f}, std={stats['std_ms']:.2f}",
+        level="result",
     )
-    emb_times = measure_embed_only(wrapper, iters=iters)
-    det_stats = _percentiles(det_times)
-    emb_stats = _percentiles(emb_times)
+
     payload = {
         "kind": "latency",
         "model": model_name,
-        "mode": "both",
+        "mode": "embed_only",  # ✅ fixed
         "dataset": dataset or "synthetic",
-        "times": det_times,
-        "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
-        **det_stats,
-        "details": {
-            "detect_and_embed": {
-                "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
-                "times": det_times,
-                **det_stats,
-            },
-            "embed_only": {
-                "avg_ms": float(np.mean(emb_times)) if emb_times else float("nan"),
-                "times": emb_times,
-                **emb_stats,
-            },
-        },
+        "avg_ms": avg_ms,
+        "times": times,
+        **stats,
     }
+
+    if dataset and frames:
+        mapping_file = os.path.join(PROJECT_ROOT, "latency_index_map.json")
+        with open(mapping_file, "w") as f:
+            json.dump(image_map, f, indent=4)
+        send_log(f"Saved image index mapping to {mapping_file}")
+
     print(json.dumps(payload))
     sys.stdout.flush()
 
@@ -197,13 +146,6 @@ def main():
         "--iters", type=int, default=50, help="Number of iterations (default: 50)"
     )
     parser.add_argument(
-        "--target",
-        type=str,
-        default="detect",
-        choices=["detect", "embed", "both"],
-        help="detect=end-to-end, embed=model-only, both=report both",
-    )
-    parser.add_argument(
         "--frame-size", type=str, default="640x640", help="HxW synthetic frames"
     )
     args = parser.parse_args()
@@ -221,7 +163,7 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, args.target, h, w, dataset=dataset)
+    run(model, args.iters, h, w, dataset=dataset)
 
 
 if __name__ == "__main__":

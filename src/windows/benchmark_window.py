@@ -196,7 +196,7 @@ class BenchmarkPage(QWidget):
             self.current_thread.terminate()
 
         self.current_thread = RunnerThread(
-            file_path, model_name, self.dataset_path, self.test_image
+            file_path, model_name, self.dataset_path, self.test_image, iters=iters
         )
         self.current_thread.output_signal.connect(
             lambda msg: self.handle_output(msg, fig, canvas, progress)

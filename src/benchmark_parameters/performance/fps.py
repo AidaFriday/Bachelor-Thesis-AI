@@ -1,4 +1,4 @@
-import argparse, json, os, sys
+import argparse, json, os, sys, time
 import numpy as np
 import cv2
 import time
@@ -11,12 +11,118 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
-from latency import measure_detect_and_embed, measure_embed_only
+from dataset import LFW
 
-# Dataset loaders
-from dataset import LFW  # add your own iphone dataset loader similarly
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+# ---------------- Helpers ----------------
+def send_log(msg, level="info"):
+    payload = {"log": msg, "level": level}
+    print(json.dumps(payload))
+    sys.stdout.flush()
+
+
+def _cuda_synchronize_if_needed():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def _random_frame(h=640, w=640):
+    return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+
+
+def measure_once(wrapper, mode="detect", frame=None):
+    """Measure latency for one run (detect+embed or embed only)."""
+    _cuda_synchronize_if_needed()
+    t0 = time.perf_counter()
+    if mode == "detect":
+        _ = wrapper.detect_and_embed(frame)
+    else:
+        _ = wrapper.embed(frame)
+    _cuda_synchronize_if_needed()
+    t1 = time.perf_counter()
+    return (t1 - t0) * 1000.0  # ms
+
+
+def run(model_name, iters, target, frame_h, frame_w, dataset=None):
+    wrapper = load_model(model_name)
+
+    send_log(
+        f"Running FPS benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    )
+
+    frames = []
+    image_map = {}
+
+    # ✅ Load dataset if provided
+    if dataset and dataset.lower().endswith("lfw") or "lfw" in (dataset or "").lower():
+        images = LFW.list_all_images(
+            root_dir=dataset, limit=iters, shuffle=True, verbose=False
+        )
+        for idx, path in enumerate(images, 1):
+            img = cv2.imread(path)
+            if img is not None:
+                frames.append(img)
+                image_map[idx] = os.path.basename(path)
+                send_log(f"[{idx:03d}] Loaded dataset image: {path}")
+
+    times_ms = []
+    # START total runtime timer
+    start = time.time()
+
+    for i in range(iters):
+        # pick frame from dataset or synthetic
+        if frames:
+            frame = frames[i % len(frames)]
+        else:
+            frame = _random_frame(frame_h, frame_w)
+
+        t = measure_once(wrapper, mode=target, frame=frame)
+        times_ms.append(t)
+
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Processed {i+1}/{iters} frames…")
+
+    # END total runtime timer
+    elapsed = time.time() - start
+    send_log(f"Completed {iters} iterations in {elapsed:.2f}s", level="result")
+
+    # Convert latency → FPS
+    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+
+    # log
+    send_log(
+        f"Average FPS on {dataset or 'synthetic'} ({len(fps_series)} frames): {mean_fps:.2f} FPS",
+        level="result",
+    )
+
+    payload = {
+        "kind": "fps",
+        "model": model_name,
+        "mode": "detect_and_embed" if target == "detect" else "embed_only",
+        "dataset": dataset or "synthetic",
+        "fps": mean_fps,
+        "fps_series": fps_series,
+    }
+
+    if dataset and frames:
+        mapping_file = os.path.join(PROJECT_ROOT, "fps_index_map.json")
+        with open(mapping_file, "w") as f:
+            json.dump(image_map, f, indent=4)
+        send_log(f"Saved image index mapping to {mapping_file}")
+
+    print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 def _resolve_settings():
@@ -29,162 +135,20 @@ def _resolve_settings():
     return {}
 
 
-def send_log(msg, level="info"):
-    """Send a log message to GUI as JSON (progress logs)"""
-    payload = {"log": msg, "level": level}
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
-def run(
-    model_name: str,
-    iters: int,
-    target: str,
-    frame_h: int,
-    frame_w: int,
-    dataset: str = None,
-):
-    """
-    target: 'detect' -> detect+embed either on synthetic frames or dataset
-            'embed'  -> embedding only
-    dataset: optional dataset key (e.g., 'lfw', 'iphone16'), else synthetic
-    """
-    wrapper = load_model(model_name)
-
-    send_log(
-        f"Running FPS benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
-    )
-
-    frames = []
-
-    if dataset and dataset.lower().endswith("lfw") or "lfw" in dataset.lower():
-
-        # Use the dataset path selected in GUI
-        images = LFW.list_all_images(
-            root_dir=dataset, limit=iters, shuffle=True, verbose=False
-        )
-        frames = []
-        image_map = {}  # <--- new dictionary
-
-        for idx, p in enumerate(images, 1):
-            if os.path.exists(p):
-                img = cv2.imread(p)
-                if img is not None:
-                    frames.append(img)
-                    send_log(f"[{idx:03d}] Loaded dataset image: {p}")
-                    # save mapping index → filename (basename only)
-                    image_map[idx] = os.path.basename(p)
-
-    elif dataset and dataset.lower() == "iphone16":
-        # TODO: implement dataset/iphone16.py loader
-        pass
-
-    times_ms = []
-    start = time.time()
-
-    if target == "detect":
-        if frames:
-            for i, img in enumerate(frames, 1):
-                if img is None:
-                    continue
-                h, w = frame_h, frame_w
-                resized = cv2.resize(img, (w, h))
-                t = measure_detect_and_embed(
-                    wrapper, iters=1, frame_h=h, frame_w=w, override_frame=resized
-                )
-                times_ms.extend(t)
-
-                if i % 5 == 0 or i == len(frames):
-                    send_log(f"Processed {i}/{len(frames)} frames…")
-        else:
-            for i in range(iters):
-                t = measure_detect_and_embed(
-                    wrapper, iters=1, frame_h=frame_h, frame_w=frame_w
-                )
-                times_ms.extend(t)
-                if (i + 1) % 5 == 0 or (i + 1) == iters:
-                    send_log(f"Processed {i+1}/{iters} synthetic frames…")
-        mode = "detect_and_embed"
-
-    else:  # 'embed'
-        if frames:
-            for i, img in enumerate(frames, 1):
-                if img is None:
-                    continue
-                t = measure_embed_only(wrapper, iters=1, override_img=img)
-                times_ms.extend(t)
-                if i % 5 == 0 or i == len(frames):
-                    send_log(f"Processed {i}/{len(frames)} frames…")
-        else:
-            for i in range(iters):
-                t = measure_embed_only(wrapper, iters=1)
-                times_ms.extend(t)
-                if (i + 1) % 5 == 0 or (i + 1) == iters:
-                    send_log(f"Processed {i+1}/{iters} synthetic frames…")
-        mode = "embed_only"
-
-    elapsed = time.time() - start
-    send_log(f"Completed {len(times_ms)} iterations in {elapsed:.2f}s")
-
-    # Convert latency samples to FPS
-    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
-    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
-
-    # 👇 New clear summary log
-    send_log(
-        f"Average FPS on {dataset or 'synthetic'} ({len(times_ms)} frames): {mean_fps:.2f} FPS",
-        level="result",
-    )
-
-    payload = {
-        "model": model_name,
-        "mode": mode,
-        "dataset": dataset or "synthetic",
-        "fps": mean_fps,
-        "fps_series": fps_series,
-    }
-
-    if dataset and frames:
-        mapping_file = os.path.join(PROJECT_ROOT, "image_index_map.json")
-        with open(mapping_file, "w") as f:
-            json.dump(image_map, f, indent=4)
-        send_log(f"Saved image index mapping to {mapping_file}")
-
-    # --- JSON output consumed by GUI ---
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    ap.add_argument(
-        "--iters", type=int, default=50, help="Number of iterations (default: 50)"
-    )
-    ap.add_argument(
-        "--target",
-        choices=["detect", "embed"],
-        default="detect",
-        help="detect=end-to-end pipeline, embed=model-only",
-    )
-    ap.add_argument(
-        "--frame-size",
-        default="640x640",
-        help="HxW synthetic frame size (default: 640x640)",
-    )
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
+    parser.add_argument("--target", choices=["detect", "embed"], default="detect")
+    parser.add_argument("--frame-size", type=str, default="640x640", help="HxW size")
+    args = parser.parse_args()
 
     cfg = _resolve_settings()
     model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")  # comes from GUI selection
+    dataset = cfg.get("dataset")
 
     if not model:
-        print(
-            json.dumps(
-                {"error": "No model selected. Pass --model or set it in settings.json"}
-            )
-        )
+        print(json.dumps({"error": "No model selected"}))
         sys.exit(1)
 
     try:
