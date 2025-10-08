@@ -264,6 +264,30 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("Latency (ms)")
             ax.set_title(f"Latency per Inference - {model} ({dataset})")
             ax.grid(True)
+
+            stats_text = (
+                f"Avg: {data.get('avg_ms', float('nan')):.2f} ms\n"
+                f"Min: {data.get('min_ms', float('nan')):.2f} ms\n"
+                f"Max: {data.get('max_ms', float('nan')):.2f} ms\n"
+                f"P50: {data.get('p50_ms', float('nan')):.2f} ms\n"
+                f"P90: {data.get('p90_ms', float('nan')):.2f} ms\n"
+                f"P95: {data.get('p95_ms', float('nan')):.2f} ms\n"
+                f"P99: {data.get('p99_ms', float('nan')):.2f} ms\n"
+                f"Std: {data.get('std_ms', float('nan')):.2f} ms"
+            )
+
+            ax.text(
+                1.02,
+                0.95,
+                stats_text,
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=9,
+                family="monospace",
+                bbox=dict(facecolor="white", alpha=0.6, edgecolor="gray"),
+            )
+
             canvas.draw()
             return
 

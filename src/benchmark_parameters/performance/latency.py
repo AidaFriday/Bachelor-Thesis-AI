@@ -43,7 +43,7 @@ def _percentiles(ms_list):
         "p99_ms": float(np.percentile(arr, 99)) if arr.size else float("nan"),
         "min_ms": float(np.min(arr)) if arr.size else float("nan"),
         "max_ms": float(np.max(arr)) if arr.size else float("nan"),
-        "std_ms": float(np.std(arr)) if arr.size else float("nan"),
+        "std_ms": float(np.std(arr, ddof=0)) if arr.size else float("nan"),
     }
 
 
@@ -112,7 +112,7 @@ def run(model_name, iters, frame_h, frame_w, dataset=None):
     payload = {
         "kind": "latency",
         "model": model_name,
-        "mode": "embed_only",  # ✅ fixed
+        "mode": "embed_only",
         "dataset": dataset or "synthetic",
         "avg_ms": avg_ms,
         "times": times,

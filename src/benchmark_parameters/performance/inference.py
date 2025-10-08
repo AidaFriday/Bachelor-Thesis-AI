@@ -9,7 +9,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
-from latency import measure_detect_and_embed, measure_embed_only
+from latency import measure_embed_only
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
@@ -41,6 +41,8 @@ def _summarize(times_ms):
             p50_ms=float("nan"),
             p90_ms=float("nan"),
             p95_ms=float("nan"),
+            p99_ms=float("nan"),
+            std_ms=float("nan"),
         )
     arr = np.array(times_ms, dtype=np.float64)
     return dict(
@@ -50,15 +52,14 @@ def _summarize(times_ms):
         p50_ms=float(np.percentile(arr, 50)),
         p90_ms=float(np.percentile(arr, 90)),
         p95_ms=float(np.percentile(arr, 95)),
+        p99_ms=float(np.percentile(arr, 99)),
+        std_ms=float(np.std(arr, ddof=0)),
     )
 
 
 def run(
     model_name: str,
     iters: int,
-    target: str,
-    frame_h: int,
-    frame_w: int,
     dataset: str = None,
 ):
     """
@@ -68,33 +69,22 @@ def run(
 
     send_log(
         f"Running Inference benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+        f"Dataset: {dataset or 'synthetic'} | Mode: embed_only"
     )
 
     times_ms = []
-    if target == "detect":
-        mode = "detect_and_embed"
-        for i in range(iters):
-            t = measure_detect_and_embed(
-                wrapper, iters=1, frame_h=frame_h, frame_w=frame_w
-            )
-            times_ms.extend(t)
-            if (i + 1) % 5 == 0 or (i + 1) == iters:
-                send_log(f"Progress: {i+1}/{iters} inferences done")
-    else:
-        mode = "embed_only"
-        for i in range(iters):
-            t = measure_embed_only(wrapper, iters=1)
-            times_ms.extend(t)
-            if (i + 1) % 5 == 0 or (i + 1) == iters:
-                send_log(f"Progress: {i+1}/{iters} inferences done")
+    for i in range(iters):
+        t = measure_embed_only(wrapper, iters=1)
+        times_ms.extend(t)
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Progress: {i+1}/{iters} inferences done")
 
     stats = _summarize(times_ms)
 
     payload = {
         "kind": "inference",
         "model": model_name,
-        "mode": mode,
+        "mode": "embed_only",
         "dataset": dataset or "synthetic",
         "count": len(times_ms),
         "times": times_ms,
@@ -113,17 +103,7 @@ def main():
         default=50,
         help="Number of inferences to run (default: 50)",
     )
-    ap.add_argument(
-        "--target",
-        choices=["detect", "embed"],
-        default="detect",
-        help="detect=end-to-end, embed=model-only",
-    )
-    ap.add_argument(
-        "--frame-size",
-        default="640x640",
-        help="HxW for detect mode synthetic frames (default: 640x640)",
-    )
+
     args = ap.parse_args()
 
     cfg = _resolve_settings()
@@ -138,12 +118,7 @@ def main():
         )
         sys.exit(1)
 
-    try:
-        h, w = [int(p) for p in args.frame_size.lower().split("x")]
-    except Exception:
-        h, w = 640, 640
-
-    run(model, args.iters, args.target, h, w, dataset=dataset)
+    run(model, args.iters, dataset=dataset)
 
 
 if __name__ == "__main__":
