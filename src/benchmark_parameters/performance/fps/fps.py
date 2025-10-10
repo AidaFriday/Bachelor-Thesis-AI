@@ -1,17 +1,20 @@
 import argparse, json, os, sys, time
 import numpy as np
 import cv2
-import time
 
-# ---- Bootstrap sys.path so project root is importable ----
-PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+# ---- Bootstrap sys.path so connector and dataset are importable ----
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONNECTOR_PARENT = os.path.dirname(
+    os.path.dirname(CURRENT_DIR)
+)  # one level up (benchmark_parameters)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # src
+
+for p in [CONNECTOR_PARENT, PROJECT_ROOT]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from connector import load_model
-from dataset import LFW
+from dataset import LFW, YTF
 
 try:
     import torch
@@ -52,6 +55,22 @@ def measure_once(wrapper, mode="detect", frame=None):
     return (t1 - t0) * 1000.0  # ms
 
 
+def _ytf_loaded_subset_summary(root_dir: str, image_paths):
+    """
+    Summarize the loaded YTF subset (subjects/videos/frames).
+    Assumes layout: subject / video / aligned_detect_*_{frame}.jpg
+    """
+    subjects = set()
+    videos = set()
+    for p in image_paths:
+        rel = os.path.relpath(p, root_dir)
+        parts = rel.split(os.sep)
+        if len(parts) >= 3:
+            subjects.add(parts[0])
+            videos.add(os.path.join(parts[0], parts[1]))
+    return len(subjects), len(videos), len(image_paths)
+
+
 def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     wrapper = load_model(model_name)
 
@@ -63,36 +82,48 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     frames = []
     image_map = {}
 
-    # ✅ Load dataset if provided
-    if dataset and dataset.lower().endswith("lfw") or "lfw" in (dataset or "").lower():
-        images = LFW.list_all_images(
-            root_dir=dataset, limit=iters, shuffle=True, verbose=False
-        )
-        for idx, path in enumerate(images, 1):
-            img = cv2.imread(path)
-            if img is not None:
-                frames.append(img)
-                image_map[idx] = os.path.basename(path)
-                send_log(f"[{idx:03d}] Loaded dataset image: {path}")
+    # -------- Load dataset automatically (LFW or YTF) --------
+    images = []
+    dataset_name = "synthetic"
+    if dataset:
+        dl = dataset.lower()
+        if ("ytf" in dl) or ("aligned_images_db" in dl):
+            dataset_name = "YTF (aligned)"
+            images = YTF.list_all_images(
+                root_dir=dataset, limit=iters, shuffle=True, verbose=False
+            )
+            # summary for reporting (subset you actually loaded)
+            s, v, f = _ytf_loaded_subset_summary(dataset, images)
+            send_log(
+                f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames",
+                level="result",
+            )
+        else:
+            dataset_name = "LFW"
+            images = LFW.list_all_images(
+                root_dir=dataset, limit=iters, shuffle=True, verbose=False
+            )
 
+    # Load frames into memory (works for both LFW and YTF aligned frames)
+    for idx, path in enumerate(images, 1):
+        img = cv2.imread(path)
+        if img is not None:
+            frames.append(img)
+            image_map[idx] = os.path.basename(path)
+            send_log(f"[{idx:03d}] Loaded dataset image: {path}")
+
+    # -------- Measure --------
     times_ms = []
-    # START total runtime timer
     start = time.time()
 
     for i in range(iters):
-        # pick frame from dataset or synthetic
-        if frames:
-            frame = frames[i % len(frames)]
-        else:
-            frame = _random_frame(frame_h, frame_w)
-
+        frame = frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
         t = measure_once(wrapper, mode=target, frame=frame)
         times_ms.append(t)
 
         if (i + 1) % 5 == 0 or (i + 1) == iters:
             send_log(f"Processed {i+1}/{iters} frames…")
 
-    # END total runtime timer
     elapsed = time.time() - start
     send_log(f"Completed {iters} iterations in {elapsed:.2f}s", level="result")
 
@@ -100,9 +131,9 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
     mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
 
-    # log
     send_log(
-        f"Average FPS on {dataset or 'synthetic'} ({len(fps_series)} frames): {mean_fps:.2f} FPS",
+        f"Average FPS on {dataset_name if dataset else 'synthetic'} "
+        f"({len(fps_series)} frames): {mean_fps:.2f} FPS",
         level="result",
     )
 
@@ -110,7 +141,7 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
         "kind": "fps",
         "model": model_name,
         "mode": "detect_and_embed" if target == "detect" else "embed_only",
-        "dataset": dataset or "synthetic",
+        "dataset": dataset_name if dataset else "synthetic",
         "fps": mean_fps,
         "fps_series": fps_series,
     }
@@ -141,11 +172,15 @@ def main():
     parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
     parser.add_argument("--target", choices=["detect", "embed"], default="detect")
     parser.add_argument("--frame-size", type=str, default="640x640", help="HxW size")
+    parser.add_argument(
+        "--dataset", type=str, default=None, help="Path to dataset (optional)"
+    )
     args = parser.parse_args()
 
     cfg = _resolve_settings()
     model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")
+    # ✅ Prefer CLI path if provided; else fall back to settings.json
+    dataset = args.dataset or cfg.get("dataset")
 
     if not model:
         print(json.dumps({"error": "No model selected"}))

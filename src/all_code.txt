@@ -2,15 +2,19 @@
 .\connector.py
 .\extractor.py
 .\main.py
-.\benchmark_parameters\performance\fps.py
-.\benchmark_parameters\performance\inference.py
-.\benchmark_parameters\performance\latency.py
+.\benchmark_parameters\performance\fps\fps.py
+.\benchmark_parameters\performance\inference\inference.py
+.\benchmark_parameters\performance\latency\dataset_image_logic.py
+.\benchmark_parameters\performance\latency\dataset_video_logic.py
+.\benchmark_parameters\performance\latency\latency.py
 .\benchmark_parameters\validation_accuracy\validation_accuracy.py
 .\components\camera.py
 .\components\face_detection.py
 .\components\settings.py
 .\components\sidebar.py
+.\components\utilities\file_indexer.py
 .\dataset\LFW.py
+.\dataset\YTF.py
 .\example1\train_lfw_arcface_cpu.py
 .\models\wrap_arcface.py
 .\models\wrap_facenet.py
@@ -101,11 +105,24 @@ if __name__ == "__main__":
 # ==== main.py ====
 
 import sys
+import os
 from PyQt5.QtWidgets import QApplication
 from windows.home_window import HomeWindow
 
+# --- Auto-index all project files on startup ---
+try:
+    # Import the file indexer (stored under components/utilities)
+    from components.utilities.file_indexer import update_file_index
+
+    # Automatically rebuild file_index.json to reflect current structure
+    update_file_index()
+except Exception as e:
+    # Fallback warning if the utilities module isn’t accessible
+    print(f"[WARN] File indexing skipped due to error: {e}")
+
 
 def main():
+    """Launch the main PyQt5 application window."""
     app = QApplication(sys.argv)
     window = HomeWindow()
     window.show()
@@ -117,378 +134,25 @@ if __name__ == "__main__":
 
 
 
-# ==== .\benchmark_parameters\performance\fps.py ====
-
-import argparse, json, os, sys
-import numpy as np
-import cv2
-import time
-
-# ---- Bootstrap sys.path so project root is importable ----
-PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-from connector import load_model
-from latency import measure_detect_and_embed, measure_embed_only
-
-# Dataset loaders
-from dataset import LFW  # add your own iphone dataset loader similarly
-
-SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
-
-
-def _resolve_settings():
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-
-def send_log(msg, level="info"):
-    """Send a log message to GUI as JSON (progress logs)"""
-    payload = {"log": msg, "level": level}
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
-def run(
-    model_name: str,
-    iters: int,
-    target: str,
-    frame_h: int,
-    frame_w: int,
-    dataset: str = None,
-):
-    """
-    target: 'detect' -> detect+embed either on synthetic frames or dataset
-            'embed'  -> embedding only
-    dataset: optional dataset key (e.g., 'lfw', 'iphone16'), else synthetic
-    """
-    wrapper = load_model(model_name)
-
-    send_log(
-        f"Running FPS benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
-    )
-
-    frames = []
-
-    if dataset and dataset.lower().endswith("lfw") or "lfw" in dataset.lower():
-
-        # Use the dataset path selected in GUI
-        images = LFW.list_all_images(
-            root_dir=dataset, limit=iters, shuffle=True, verbose=False
-        )
-        frames = []
-        image_map = {}  # <--- new dictionary
-
-        for idx, p in enumerate(images, 1):
-            if os.path.exists(p):
-                img = cv2.imread(p)
-                if img is not None:
-                    frames.append(img)
-                    send_log(f"[{idx:03d}] Loaded dataset image: {p}")
-                    # save mapping index → filename (basename only)
-                    image_map[idx] = os.path.basename(p)
-
-    elif dataset and dataset.lower() == "iphone16":
-        # TODO: implement dataset/iphone16.py loader
-        pass
-
-    times_ms = []
-    start = time.time()
-
-    if target == "detect":
-        if frames:
-            for i, img in enumerate(frames, 1):
-                if img is None:
-                    continue
-                h, w = frame_h, frame_w
-                resized = cv2.resize(img, (w, h))
-                t = measure_detect_and_embed(
-                    wrapper, iters=1, frame_h=h, frame_w=w, override_frame=resized
-                )
-                times_ms.extend(t)
-
-                if i % 5 == 0 or i == len(frames):
-                    send_log(f"Processed {i}/{len(frames)} frames…")
-        else:
-            for i in range(iters):
-                t = measure_detect_and_embed(
-                    wrapper, iters=1, frame_h=frame_h, frame_w=frame_w
-                )
-                times_ms.extend(t)
-                if (i + 1) % 5 == 0 or (i + 1) == iters:
-                    send_log(f"Processed {i+1}/{iters} synthetic frames…")
-        mode = "detect_and_embed"
-
-    else:  # 'embed'
-        if frames:
-            for i, img in enumerate(frames, 1):
-                if img is None:
-                    continue
-                t = measure_embed_only(wrapper, iters=1, override_img=img)
-                times_ms.extend(t)
-                if i % 5 == 0 or i == len(frames):
-                    send_log(f"Processed {i}/{len(frames)} frames…")
-        else:
-            for i in range(iters):
-                t = measure_embed_only(wrapper, iters=1)
-                times_ms.extend(t)
-                if (i + 1) % 5 == 0 or (i + 1) == iters:
-                    send_log(f"Processed {i+1}/{iters} synthetic frames…")
-        mode = "embed_only"
-
-    elapsed = time.time() - start
-    send_log(f"Completed {len(times_ms)} iterations in {elapsed:.2f}s")
-
-    # Convert latency samples to FPS
-    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
-    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
-
-    # 👇 New clear summary log
-    send_log(
-        f"Average FPS on {dataset or 'synthetic'} ({len(times_ms)} frames): {mean_fps:.2f} FPS",
-        level="result",
-    )
-
-    payload = {
-        "model": model_name,
-        "mode": mode,
-        "dataset": dataset or "synthetic",
-        "fps": mean_fps,
-        "fps_series": fps_series,
-    }
-
-    if dataset and frames:
-        mapping_file = os.path.join(PROJECT_ROOT, "image_index_map.json")
-        with open(mapping_file, "w") as f:
-            json.dump(image_map, f, indent=4)
-        send_log(f"Saved image index mapping to {mapping_file}")
-
-    # --- JSON output consumed by GUI ---
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    ap.add_argument(
-        "--iters", type=int, default=50, help="Number of iterations (default: 50)"
-    )
-    ap.add_argument(
-        "--target",
-        choices=["detect", "embed"],
-        default="detect",
-        help="detect=end-to-end pipeline, embed=model-only",
-    )
-    ap.add_argument(
-        "--frame-size",
-        default="640x640",
-        help="HxW synthetic frame size (default: 640x640)",
-    )
-    args = ap.parse_args()
-
-    cfg = _resolve_settings()
-    model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")  # comes from GUI selection
-
-    if not model:
-        print(
-            json.dumps(
-                {"error": "No model selected. Pass --model or set it in settings.json"}
-            )
-        )
-        sys.exit(1)
-
-    try:
-        h, w = [int(p) for p in args.frame_size.lower().split("x")]
-    except Exception:
-        h, w = 640, 640
-
-    run(model, args.iters, args.target, h, w, dataset=dataset)
-
-
-if __name__ == "__main__":
-    main()
-
-
-
-# ==== .\benchmark_parameters\performance\inference.py ====
-
-import argparse, json, os, sys
-import numpy as np
-
-# ---- Bootstrap sys.path so project root is importable ----
-PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-from connector import load_model
-from latency import measure_detect_and_embed, measure_embed_only
-
-SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
-
-
-# ---------------- Helpers ----------------
-def send_log(msg, level="info"):
-    """Send a log message to GUI as JSON"""
-    payload = {"log": msg, "level": level}
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
-def _resolve_settings():
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-
-def _summarize(times_ms):
-    if not times_ms:
-        return dict(
-            avg_ms=float("nan"),
-            min_ms=float("nan"),
-            max_ms=float("nan"),
-            p50_ms=float("nan"),
-            p90_ms=float("nan"),
-            p95_ms=float("nan"),
-        )
-    arr = np.array(times_ms, dtype=np.float64)
-    return dict(
-        avg_ms=float(np.mean(arr)),
-        min_ms=float(np.min(arr)),
-        max_ms=float(np.max(arr)),
-        p50_ms=float(np.percentile(arr, 50)),
-        p90_ms=float(np.percentile(arr, 90)),
-        p95_ms=float(np.percentile(arr, 95)),
-    )
-
-
-def run(
-    model_name: str,
-    iters: int,
-    target: str,
-    frame_h: int,
-    frame_w: int,
-    dataset: str = None,
-):
-    """
-    Perform 'iters' inferences and report per-iteration latency in ms.
-    """
-    wrapper = load_model(model_name)
-
-    send_log(
-        f"Running Inference benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
-    )
-
-    times_ms = []
-    if target == "detect":
-        mode = "detect_and_embed"
-        for i in range(iters):
-            t = measure_detect_and_embed(
-                wrapper, iters=1, frame_h=frame_h, frame_w=frame_w
-            )
-            times_ms.extend(t)
-            if (i + 1) % 5 == 0 or (i + 1) == iters:
-                send_log(f"Progress: {i+1}/{iters} inferences done")
-    else:
-        mode = "embed_only"
-        for i in range(iters):
-            t = measure_embed_only(wrapper, iters=1)
-            times_ms.extend(t)
-            if (i + 1) % 5 == 0 or (i + 1) == iters:
-                send_log(f"Progress: {i+1}/{iters} inferences done")
-
-    stats = _summarize(times_ms)
-
-    payload = {
-        "kind": "inference",
-        "model": model_name,
-        "mode": mode,
-        "dataset": dataset or "synthetic",
-        "count": len(times_ms),
-        "times": times_ms,
-        **stats,
-    }
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    ap.add_argument(
-        "--iters",
-        type=int,
-        default=50,
-        help="Number of inferences to run (default: 50)",
-    )
-    ap.add_argument(
-        "--target",
-        choices=["detect", "embed"],
-        default="detect",
-        help="detect=end-to-end, embed=model-only",
-    )
-    ap.add_argument(
-        "--frame-size",
-        default="640x640",
-        help="HxW for detect mode synthetic frames (default: 640x640)",
-    )
-    args = ap.parse_args()
-
-    cfg = _resolve_settings()
-    model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")
-
-    if not model:
-        print(
-            json.dumps(
-                {"error": "No model selected. Pass --model or set it in settings.json"}
-            )
-        )
-        sys.exit(1)
-
-    try:
-        h, w = [int(p) for p in args.frame_size.lower().split("x")]
-    except Exception:
-        h, w = 640, 640
-
-    run(model, args.iters, args.target, h, w, dataset=dataset)
-
-
-if __name__ == "__main__":
-    main()
-
-
-
-# ==== .\benchmark_parameters\performance\latency.py ====
+# ==== .\benchmark_parameters\performance\fps\fps.py ====
 
 import argparse, json, os, sys, time
 import numpy as np
+import cv2
 
-# ---- Bootstrap sys.path so project root is importable ----
-PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+# ---- Bootstrap sys.path so connector and dataset are importable ----
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONNECTOR_PARENT = os.path.dirname(
+    os.path.dirname(CURRENT_DIR)
+)  # one level up (benchmark_parameters)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # src
+
+for p in [CONNECTOR_PARENT, PROJECT_ROOT]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from connector import load_model
+from dataset import LFW, YTF
 
 try:
     import torch
@@ -502,7 +166,400 @@ SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
 # ---------------- Helpers ----------------
 def send_log(msg, level="info"):
-    """Emit a log message for GUI consumption"""
+    payload = {"log": msg, "level": level}
+    print(json.dumps(payload))
+    sys.stdout.flush()
+
+
+def _cuda_synchronize_if_needed():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def _random_frame(h=640, w=640):
+    return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+
+
+def measure_once(wrapper, mode="detect", frame=None):
+    """Measure latency for one run (detect+embed or embed only)."""
+    _cuda_synchronize_if_needed()
+    t0 = time.perf_counter()
+    if mode == "detect":
+        _ = wrapper.detect_and_embed(frame)
+    else:
+        _ = wrapper.embed(frame)
+    _cuda_synchronize_if_needed()
+    t1 = time.perf_counter()
+    return (t1 - t0) * 1000.0  # ms
+
+
+def _ytf_loaded_subset_summary(root_dir: str, image_paths):
+    """
+    Summarize the loaded YTF subset (subjects/videos/frames).
+    Assumes layout: subject / video / aligned_detect_*_{frame}.jpg
+    """
+    subjects = set()
+    videos = set()
+    for p in image_paths:
+        rel = os.path.relpath(p, root_dir)
+        parts = rel.split(os.sep)
+        if len(parts) >= 3:
+            subjects.add(parts[0])
+            videos.add(os.path.join(parts[0], parts[1]))
+    return len(subjects), len(videos), len(image_paths)
+
+
+def run(model_name, iters, target, frame_h, frame_w, dataset=None):
+    wrapper = load_model(model_name)
+
+    send_log(
+        f"Running FPS benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    )
+
+    frames = []
+    image_map = {}
+
+    # -------- Load dataset automatically (LFW or YTF) --------
+    images = []
+    dataset_name = "synthetic"
+    if dataset:
+        dl = dataset.lower()
+        if ("ytf" in dl) or ("aligned_images_db" in dl):
+            dataset_name = "YTF (aligned)"
+            images = YTF.list_all_images(
+                root_dir=dataset, limit=iters, shuffle=True, verbose=False
+            )
+            # summary for reporting (subset you actually loaded)
+            s, v, f = _ytf_loaded_subset_summary(dataset, images)
+            send_log(
+                f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames",
+                level="result",
+            )
+        else:
+            dataset_name = "LFW"
+            images = LFW.list_all_images(
+                root_dir=dataset, limit=iters, shuffle=True, verbose=False
+            )
+
+    # Load frames into memory (works for both LFW and YTF aligned frames)
+    for idx, path in enumerate(images, 1):
+        img = cv2.imread(path)
+        if img is not None:
+            frames.append(img)
+            image_map[idx] = os.path.basename(path)
+            send_log(f"[{idx:03d}] Loaded dataset image: {path}")
+
+    # -------- Measure --------
+    times_ms = []
+    start = time.time()
+
+    for i in range(iters):
+        frame = frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
+        t = measure_once(wrapper, mode=target, frame=frame)
+        times_ms.append(t)
+
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Processed {i+1}/{iters} frames…")
+
+    elapsed = time.time() - start
+    send_log(f"Completed {iters} iterations in {elapsed:.2f}s", level="result")
+
+    # Convert latency → FPS
+    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+
+    send_log(
+        f"Average FPS on {dataset_name if dataset else 'synthetic'} "
+        f"({len(fps_series)} frames): {mean_fps:.2f} FPS",
+        level="result",
+    )
+
+    payload = {
+        "kind": "fps",
+        "model": model_name,
+        "mode": "detect_and_embed" if target == "detect" else "embed_only",
+        "dataset": dataset_name if dataset else "synthetic",
+        "fps": mean_fps,
+        "fps_series": fps_series,
+    }
+
+    if dataset and frames:
+        mapping_file = os.path.join(PROJECT_ROOT, "fps_index_map.json")
+        with open(mapping_file, "w") as f:
+            json.dump(image_map, f, indent=4)
+        send_log(f"Saved image index mapping to {mapping_file}")
+
+    print(json.dumps(payload))
+    sys.stdout.flush()
+
+
+def _resolve_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
+    parser.add_argument("--target", choices=["detect", "embed"], default="detect")
+    parser.add_argument("--frame-size", type=str, default="640x640", help="HxW size")
+    parser.add_argument(
+        "--dataset", type=str, default=None, help="Path to dataset (optional)"
+    )
+    args = parser.parse_args()
+
+    cfg = _resolve_settings()
+    model = args.model or cfg.get("model")
+    # ✅ Prefer CLI path if provided; else fall back to settings.json
+    dataset = args.dataset or cfg.get("dataset")
+
+    if not model:
+        print(json.dumps({"error": "No model selected"}))
+        sys.exit(1)
+
+    try:
+        h, w = [int(p) for p in args.frame_size.lower().split("x")]
+    except Exception:
+        h, w = 640, 640
+
+    run(model, args.iters, args.target, h, w, dataset=dataset)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\performance\inference\inference.py ====
+
+# ==== inference.py ====
+
+import argparse
+import json
+import os
+import sys
+import numpy as np
+
+# ---------------------------------------------------------------------
+# 🔹 Load centralized project file index (instead of manual sys.path setup)
+# ---------------------------------------------------------------------
+try:
+    from components.utilities.file_indexer import load_file_index
+except ModuleNotFoundError:
+    # fallback if running standalone (e.g., without full project context)
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(__file__), "../../../components/utilities")
+    )
+    from file_indexer import load_file_index
+
+# Load the generated file index
+index_data = load_file_index()
+PROJECT_ROOT = index_data["root"]
+
+# Automatically add all directories with Python files to sys.path
+for rel_path in index_data["files"]:
+    dir_path = os.path.join(PROJECT_ROOT, os.path.dirname(rel_path))
+    if dir_path not in sys.path:
+        sys.path.insert(0, dir_path)
+
+# ---------------------------------------------------------------------
+# 🔹 Import project modules
+# ---------------------------------------------------------------------
+from connector import load_model
+from benchmark_parameters.performance.latency.latency import measure_embed_only
+
+SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+# ---------------------------------------------------------------------
+# 🔹 Helper Functions
+# ---------------------------------------------------------------------
+def send_log(msg, level="info"):
+    """Send structured log messages to stdout (for GUI or logging system)."""
+    payload = {"log": msg, "level": level}
+    print(json.dumps(payload))
+    sys.stdout.flush()
+
+
+def _resolve_settings():
+    """Read settings.json if available."""
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def _summarize(times_ms):
+    """Compute and return basic latency statistics."""
+    if not times_ms:
+        return dict(
+            avg_ms=float("nan"),
+            min_ms=float("nan"),
+            max_ms=float("nan"),
+            p50_ms=float("nan"),
+            p90_ms=float("nan"),
+            p95_ms=float("nan"),
+            p99_ms=float("nan"),
+            std_ms=float("nan"),
+        )
+    arr = np.array(times_ms, dtype=np.float64)
+    return dict(
+        avg_ms=float(np.mean(arr)),
+        min_ms=float(np.min(arr)),
+        max_ms=float(np.max(arr)),
+        p50_ms=float(np.percentile(arr, 50)),
+        p90_ms=float(np.percentile(arr, 90)),
+        p95_ms=float(np.percentile(arr, 95)),
+        p99_ms=float(np.percentile(arr, 99)),
+        std_ms=float(np.std(arr, ddof=0)),
+    )
+
+
+# ---------------------------------------------------------------------
+# 🔹 Core Benchmark Logic
+# ---------------------------------------------------------------------
+def run(model_name: str, iters: int, dataset: str = None):
+    """Perform `iters` inferences and log latency results in milliseconds."""
+    wrapper = load_model(model_name)
+
+    send_log(
+        f"Running Inference benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: embed_only"
+    )
+
+    times_ms = []
+    for i in range(iters):
+        t = measure_embed_only(wrapper, iters=1)
+        times_ms.extend(t)
+
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Progress: {i + 1}/{iters} inferences completed")
+
+    stats = _summarize(times_ms)
+
+    payload = {
+        "kind": "inference",
+        "model": model_name,
+        "mode": "embed_only",
+        "dataset": dataset or "synthetic",
+        "count": len(times_ms),
+        "times": times_ms,
+        **stats,
+    }
+
+    # Emit results to stdout as JSON for GUI or CLI consumption
+    print(json.dumps(payload))
+    sys.stdout.flush()
+
+
+# ---------------------------------------------------------------------
+# 🔹 Command-Line Interface Entry Point
+# ---------------------------------------------------------------------
+def main():
+    parser = argparse.ArgumentParser(description="Run model inference latency test.")
+    parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    parser.add_argument(
+        "--iters", type=int, default=50, help="Number of inferences to execute"
+    )
+    parser.add_argument(
+        "--dataset", type=str, default=None, help="Optional dataset path"
+    )
+
+    args = parser.parse_args()
+
+    cfg = _resolve_settings()
+    model = args.model or cfg.get("model")
+    dataset = args.dataset or cfg.get("dataset")
+
+    if not model:
+        print(
+            json.dumps(
+                {
+                    "error": "No model selected. Use --model or define one in settings.json"
+                }
+            )
+        )
+        sys.exit(1)
+
+    run(model, args.iters, dataset=dataset)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\performance\latency\dataset_image_logic.py ====
+
+
+
+
+# ==== .\benchmark_parameters\performance\latency\dataset_video_logic.py ====
+
+
+
+
+# ==== .\benchmark_parameters\performance\latency\latency.py ====
+
+# ==== latency.py ====
+import argparse
+import json
+import os
+import sys
+import time
+import numpy as np
+
+# ---------------------------------------------------------------------
+# 🔹 Load project-wide index to dynamically locate all Python modules
+# ---------------------------------------------------------------------
+try:
+    from components.utilities.file_indexer import load_file_index
+except ModuleNotFoundError:
+    # fallback for standalone run
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(__file__), "../../../components/utilities")
+    )
+    from file_indexer import load_file_index
+
+index_data = load_file_index()
+PROJECT_ROOT = index_data["root"]
+
+# Dynamically add every directory containing a Python file to sys.path
+for rel_path in index_data["files"]:
+    dir_path = os.path.join(PROJECT_ROOT, os.path.dirname(rel_path))
+    if dir_path not in sys.path:
+        sys.path.insert(0, dir_path)
+
+# ---------------------------------------------------------------------
+# 🔹 Import project modules
+# ---------------------------------------------------------------------
+from connector import load_model  # ✅ now resolvable from index
+
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
+
+
+# ---------------------------------------------------------------------
+# 🔹 Helper utilities
+# ---------------------------------------------------------------------
+def send_log(msg, level="info"):
+    """Send log message to GUI via JSON line."""
     payload = {"log": msg, "level": level}
     print(json.dumps(payload))
     sys.stdout.flush()
@@ -522,7 +579,7 @@ def _percentiles(ms_list):
         "p99_ms": float(np.percentile(arr, 99)) if arr.size else float("nan"),
         "min_ms": float(np.min(arr)) if arr.size else float("nan"),
         "max_ms": float(np.max(arr)) if arr.size else float("nan"),
-        "std_ms": float(np.std(arr)) if arr.size else float("nan"),
+        "std_ms": float(np.std(arr, ddof=0)) if arr.size else float("nan"),
     }
 
 
@@ -530,136 +587,86 @@ def _random_frame(h=640, w=640):
     return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
 
 
-def measure_detect_and_embed(
-    wrapper, iters=50, frame_h=640, frame_w=640, override_frame=None
-):
-    for _ in range(5):  # warmup
-        _ = wrapper.detect_and_embed(
-            override_frame
-            if override_frame is not None
-            else _random_frame(frame_h, frame_w)
-        )
+def measure_once(wrapper, frame=None):
+    """Single latency measurement (embedding only)."""
+    _cuda_synchronize_if_needed()
+    t0 = time.perf_counter()
+    _ = wrapper.embed(frame)
+    _cuda_synchronize_if_needed()
+    t1 = time.perf_counter()
+    return (t1 - t0) * 1000.0  # ms
+
+
+def measure_embed_only(wrapper, iters=1, frame_h=640, frame_w=640):
+    """
+    Used by inference.py to benchmark model embedding latency.
+    Returns a list of per-iteration latencies in milliseconds.
+    """
+    frame = _random_frame(frame_h, frame_w)
+    _ = wrapper.embed(frame)  # warm-up
+    _cuda_synchronize_if_needed()
 
     times_ms = []
-    for i in range(iters):
-        frame = (
-            override_frame
-            if override_frame is not None
-            else _random_frame(frame_h, frame_w)
-        )
-        _cuda_synchronize_if_needed()
-        t0 = time.perf_counter()
-        _ = wrapper.detect_and_embed(frame)
-        _cuda_synchronize_if_needed()
-        t1 = time.perf_counter()
-        times_ms.append((t1 - t0) * 1000.0)
-
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Detect+Embed progress: {i+1}/{iters}")
+    for _ in range(iters):
+        times_ms.append(measure_once(wrapper, frame=frame))
     return times_ms
 
 
-def measure_embed_only(wrapper, iters=50, override_img=None):
-    h, w = getattr(wrapper, "input_size", (160, 160))
-    for _ in range(5):  # warmup
-        _ = wrapper.embed(
-            override_img
-            if override_img is not None
-            else np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-        )
-
-    times_ms = []
-    for i in range(iters):
-        x = (
-            override_img
-            if override_img is not None
-            else np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-        )
-        _cuda_synchronize_if_needed()
-        t0 = time.perf_counter()
-        _ = wrapper.embed(x)
-        _cuda_synchronize_if_needed()
-        t1 = time.perf_counter()
-        times_ms.append((t1 - t0) * 1000.0)
-
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Embed-only progress: {i+1}/{iters}")
-    return times_ms
-
-
-def run(model_name, iters, target, frame_h, frame_w, dataset=None):
+# ---------------------------------------------------------------------
+# 🔹 Main benchmark logic
+# ---------------------------------------------------------------------
+def run(model_name, iters, frame_h, frame_w, dataset=None):
     wrapper = load_model(model_name)
 
     send_log(
-        f"Running Latency benchmark | Model: {model_name} | Dataset: {dataset or 'synthetic'} | Mode: {target}"
+        f"Running Latency benchmark | Model: {model_name} | "
+        f"Dataset: {dataset or 'synthetic'} | Mode: embed_only"
     )
 
-    if target == "detect":
-        times = measure_detect_and_embed(
-            wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
-        )
-        stats = _percentiles(times)
-        payload = {
-            "kind": "latency",
-            "model": model_name,
-            "mode": "detect_and_embed",
-            "dataset": dataset or "synthetic",
-            "avg_ms": float(np.mean(times)) if times else float("nan"),
-            "times": times,
-            **stats,
-        }
-        print(json.dumps(payload))
-        sys.stdout.flush()
-        return
+    # Warm-up
+    warmup_frame = _random_frame(frame_h, frame_w)
+    send_log("Running warm-up inferences (not timed)...")
+    for _ in range(10):
+        _ = wrapper.embed(warmup_frame)
+        _cuda_synchronize_if_needed()
 
-    if target == "embed":
-        times = measure_embed_only(wrapper, iters=iters)
-        stats = _percentiles(times)
-        payload = {
-            "kind": "latency",
-            "model": model_name,
-            "mode": "embed_only",
-            "dataset": dataset or "synthetic",
-            "avg_ms": float(np.mean(times)) if times else float("nan"),
-            "times": times,
-            **stats,
-        }
-        print(json.dumps(payload))
-        sys.stdout.flush()
-        return
+    # Measurement loop
+    times = []
+    for i in range(iters):
+        t = measure_once(wrapper, frame=_random_frame(frame_h, frame_w))
+        times.append(t)
+        if (i + 1) % 5 == 0 or (i + 1) == iters:
+            send_log(f"Processed {i+1}/{iters} frames")
 
-    # both
-    det_times = measure_detect_and_embed(
-        wrapper, iters=iters, frame_h=frame_h, frame_w=frame_w
+    stats = _percentiles(times)
+    avg_ms = float(np.mean(times)) if times else float("nan")
+
+    send_log(
+        f"Latency summary (ms): avg={avg_ms:.2f}, "
+        f"p50={stats['p50_ms']:.2f}, p90={stats['p90_ms']:.2f}, "
+        f"p95={stats['p95_ms']:.2f}, p99={stats['p99_ms']:.2f}, "
+        f"min={stats['min_ms']:.2f}, max={stats['max_ms']:.2f}, "
+        f"std={stats['std_ms']:.2f}",
+        level="result",
     )
-    emb_times = measure_embed_only(wrapper, iters=iters)
-    det_stats = _percentiles(det_times)
-    emb_stats = _percentiles(emb_times)
+
     payload = {
         "kind": "latency",
         "model": model_name,
-        "mode": "both",
+        "mode": "embed_only",
         "dataset": dataset or "synthetic",
-        "times": det_times,
-        "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
-        **det_stats,
-        "details": {
-            "detect_and_embed": {
-                "avg_ms": float(np.mean(det_times)) if det_times else float("nan"),
-                "times": det_times,
-                **det_stats,
-            },
-            "embed_only": {
-                "avg_ms": float(np.mean(emb_times)) if emb_times else float("nan"),
-                "times": emb_times,
-                **emb_stats,
-            },
-        },
+        "avg_ms": avg_ms,
+        "times": times,
+        **stats,
     }
+
     print(json.dumps(payload))
     sys.stdout.flush()
 
 
+# ---------------------------------------------------------------------
+# 🔹 Settings & CLI entry point
+# ---------------------------------------------------------------------
 def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -673,24 +680,16 @@ def _resolve_settings():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
+    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
+    parser.add_argument("--frame-size", type=str, default="640x640", help="HxW size")
     parser.add_argument(
-        "--iters", type=int, default=50, help="Number of iterations (default: 50)"
-    )
-    parser.add_argument(
-        "--target",
-        type=str,
-        default="detect",
-        choices=["detect", "embed", "both"],
-        help="detect=end-to-end, embed=model-only, both=report both",
-    )
-    parser.add_argument(
-        "--frame-size", type=str, default="640x640", help="HxW synthetic frames"
+        "--dataset", type=str, default=None, help="Optional dataset path"
     )
     args = parser.parse_args()
 
     cfg = _resolve_settings()
     model = args.model or cfg.get("model")
-    dataset = cfg.get("dataset")
+    dataset = args.dataset or cfg.get("dataset")
 
     if not model:
         print(json.dumps({"error": "No model selected"}))
@@ -701,7 +700,7 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, args.target, h, w, dataset=dataset)
+    run(model, args.iters, h, w, dataset=dataset)
 
 
 if __name__ == "__main__":
@@ -711,34 +710,46 @@ if __name__ == "__main__":
 
 # ==== .\benchmark_parameters\validation_accuracy\validation_accuracy.py ====
 
-import os, sys, time, json, argparse
+# ==== validation_accuracy.py ====
+import os
+import sys
+import time
+import json
+import argparse
+import shutil
 import torch
 import numpy as np
 from PIL import Image
 
 
-# ---------------- Helpers ----------------
+# ---------------------------------------------------------------------
+# 🔹 Helper Functions
+# ---------------------------------------------------------------------
 def l2_normalize(E, axis=1, eps=1e-12):
+    """L2-normalize embeddings along given axis."""
     n = np.linalg.norm(E, axis=axis, keepdims=True)
     return E / np.maximum(n, eps)
 
 
 def send_log(msg, level="info"):
-    """Send a log message to GUI as JSON"""
+    """Send structured log message for GUI/CLI."""
     payload = {"log": msg, "level": level}
     print(json.dumps(payload))
     sys.stdout.flush()
 
 
 def send_progress(done, total):
-    """Send progress update to GUI"""
+    """Send progress updates as JSON payload."""
     payload = {"progress": done, "total": total}
     print(json.dumps(payload))
     sys.stdout.flush()
 
 
-# ---------------- Embedding extractors ----------------
+# ---------------------------------------------------------------------
+# 🔹 Embedding Extractors
+# ---------------------------------------------------------------------
 def get_test_embedding(model_name, model, mtcnn, img_path, device):
+    """Extract normalized embedding for the test image."""
     if model_name == "facenet":
         img = Image.open(img_path).convert("RGB")
         face = mtcnn(img)
@@ -758,10 +769,12 @@ def get_test_embedding(model_name, model, mtcnn, img_path, device):
             faces[0], "embedding", getattr(faces[0], "normed_embedding", None)
         )
         return np.array(emb, dtype=np.float32) if emb is not None else None
+
     return None
 
 
 def get_lfw_embedding(model_name, model, mtcnn, img_path, device):
+    """Extract embedding for an LFW dataset image."""
     if model_name == "facenet":
         img = Image.open(img_path).convert("RGB").resize((160, 160))
         arr = np.array(img)
@@ -781,28 +794,67 @@ def get_lfw_embedding(model_name, model, mtcnn, img_path, device):
             faces[0], "embedding", getattr(faces[0], "normed_embedding", None)
         )
         return np.array(emb, dtype=np.float32) if emb is not None else None
+
     return None
 
 
-# ---------------- Main ----------------
+# ---------------------------------------------------------------------
+# 🔹 Model Initialization (with auto-heal)
+# ---------------------------------------------------------------------
+def load_insightface_safe():
+    """Load and prepare InsightFace, auto-healing missing model files."""
+    from insightface.app import FaceAnalysis
+
+    send_log("Initializing InsightFace (antelopev2)...")
+
+    model = FaceAnalysis(name="antelopev2")
+
+    try:
+        model.prepare(ctx_id=0, det_size=(640, 640))
+        return model
+    except AssertionError:
+        send_log(
+            "[WARN] InsightFace detection model missing or corrupted. Re-downloading...",
+            level="warn",
+        )
+        cache_dir = os.path.expanduser("~/.insightface/models/antelopev2")
+        if os.path.exists(cache_dir):
+            shutil.rmtree(cache_dir)
+            send_log(f"Deleted corrupt model cache: {cache_dir}")
+        model = FaceAnalysis(name="antelopev2")
+        model.prepare(ctx_id=0, det_size=(640, 640))
+        send_log("✅ InsightFace reinitialized successfully.")
+        return model
+
+
+# ---------------------------------------------------------------------
+# 🔹 Main Benchmark Logic
+# ---------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Run face verification benchmark.")
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
     parser.add_argument("--dataset", type=str, help="Path to LFW dataset folder")
-    parser.add_argument("--test-image", type=str, help="Single test image")
+    parser.add_argument("--test-image", type=str, help="Single test image path")
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--iters", type=int, default=None, help="(ignored, for compatibility)"
+    )
     args = parser.parse_args()
 
-    # settings.json fallback
+    # -----------------------------------------------------------------
+    # Load settings.json (if available)
+    # -----------------------------------------------------------------
     settings_file = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json"
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "settings.json",
     )
+
     cfg = {}
     if os.path.exists(settings_file):
         try:
             with open(settings_file, "r") as f:
                 cfg = json.load(f)
-        except:
+        except Exception:
             pass
 
     model_name = (args.model or cfg.get("model", "facenet")).lower()
@@ -810,52 +862,59 @@ def main():
     TEST_IMAGE = args.test_image
     threshold = args.threshold
 
+    # -----------------------------------------------------------------
+    # Validate input paths
+    # -----------------------------------------------------------------
     if not LFW_PATH or not os.path.exists(LFW_PATH):
         print(json.dumps({"error": f"Invalid LFW dataset path: {LFW_PATH}"}))
-        return
+        sys.exit(1)
     if not TEST_IMAGE or not os.path.exists(TEST_IMAGE):
         print(json.dumps({"error": f"Invalid test image: {TEST_IMAGE}"}))
-        return
+        sys.exit(1)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # ---- load model
+    # -----------------------------------------------------------------
+    # Load selected model
+    # -----------------------------------------------------------------
     send_log(f"Loading model: {model_name}")
     mtcnn, model = None, None
+
     if model_name == "facenet":
         from facenet_pytorch import InceptionResnetV1, MTCNN
 
         mtcnn = MTCNN(image_size=160, margin=0, device=device)
         model = InceptionResnetV1(pretrained="vggface2").eval().to(device)
+
     elif model_name == "arcface":
         import insightface
 
         model = insightface.model_zoo.get_model("arcface_r100_v1")
         model.prepare(ctx_id=0)
-    elif model_name == "insightface":
-        from insightface.app import FaceAnalysis
 
-        model = FaceAnalysis(name="antelopev2")
-        model.prepare(ctx_id=0)
+    elif model_name == "insightface":
+        model = load_insightface_safe()
+
     else:
         print(json.dumps({"error": f"Unknown model: {model_name}"}))
-        return
+        sys.exit(1)
 
-    # ---- embeddings
+    # -----------------------------------------------------------------
+    # Extract embedding for the query/test image
+    # -----------------------------------------------------------------
     send_log(f"Extracting embedding for test image: {TEST_IMAGE}")
     q_emb = get_test_embedding(model_name, model, mtcnn, TEST_IMAGE, device)
     if q_emb is None:
-        print(json.dumps({"error": "No face found in test image"}))
-        return
+        print(json.dumps({"error": "No face detected in test image"}))
+        sys.exit(1)
 
-    # Determine the identity folder of test image
     test_person = os.path.basename(os.path.dirname(TEST_IMAGE))
 
     positives, negatives = [], []
     t0 = time.time()
     n_files = 0
 
-    # Pre-count images for progress bar
+    # Pre-count all valid images for progress tracking
     total_images = sum(
         1
         for root, _, files in os.walk(LFW_PATH)
@@ -863,7 +922,7 @@ def main():
         if f.lower().endswith((".jpg", ".jpeg", ".png"))
     )
 
-    send_log(f"Scanning dataset at {LFW_PATH}")
+    send_log(f"Scanning dataset at {LFW_PATH} ({total_images} images)")
     for root, _, files in os.walk(LFW_PATH):
         for f in files:
             if not f.lower().endswith((".jpg", ".jpeg", ".png")):
@@ -872,31 +931,37 @@ def main():
             emb = get_lfw_embedding(model_name, model, mtcnn, path, device)
             if emb is None:
                 continue
+
             sim = float(np.dot(q_emb, emb))
             person = os.path.basename(os.path.dirname(path))
             if person == test_person:
                 positives.append(sim)
             else:
                 negatives.append(sim)
-            n_files += 1
 
-            # Send progress every 100 images (or for each image if small dataset)
+            n_files += 1
             if n_files % 100 == 0 or n_files == total_images:
                 send_progress(n_files, total_images)
 
     dt = time.time() - t0
     send_log(
-        f"Finished scanning {n_files} images in {dt:.2f}s ({n_files/dt:.1f} img/s)"
+        f"Finished scanning {n_files} images in {dt:.2f}s "
+        f"({n_files / max(dt, 1e-5):.1f} images/sec)"
     )
 
-    # ---- final JSON payload for GUI plots
+    # -----------------------------------------------------------------
+    # Emit final payload
+    # -----------------------------------------------------------------
     payload = {
         "model": model_name,
         "dataset": LFW_PATH,
         "threshold": threshold,
         "positives": positives,
         "negatives": negatives,
+        "elapsed_sec": round(dt, 2),
+        "count": n_files,
     }
+
     print(json.dumps(payload))
     sys.stdout.flush()
 
@@ -1302,6 +1367,72 @@ class SideBar(QWidget):
 
 
 
+# ==== .\components\utilities\file_indexer.py ====
+
+"""
+file_indexer.py — scans the entire project (src/) and indexes all Python files
+(excluding __pycache__, hidden folders, and this file itself).
+"""
+
+import os
+import json
+from datetime import datetime
+
+# Auto-detect project root (2 levels above this file)
+UTILITIES_DIR = os.path.dirname(os.path.abspath(__file__))
+COMPONENTS_DIR = os.path.dirname(UTILITIES_DIR)
+PROJECT_ROOT = os.path.dirname(COMPONENTS_DIR)  # <-- src/
+INDEX_FILE = os.path.join(UTILITIES_DIR, "file_index.json")
+
+
+def scan_python_files(root_dir: str):
+    """Recursively collect all .py files excluding cache/hidden dirs."""
+    python_files = []
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        dirnames[:] = [
+            d for d in dirnames if not d.startswith(".") and d != "__pycache__"
+        ]
+        for f in filenames:
+            if f.endswith(".py") and not f.startswith("."):
+                full_path = os.path.join(dirpath, f)
+                rel_path = os.path.relpath(full_path, root_dir)
+                python_files.append(rel_path.replace("\\", "/"))
+    return sorted(python_files)
+
+
+def update_file_index():
+    """Rebuild file_index.json by scanning the entire src directory."""
+    files = scan_python_files(PROJECT_ROOT)
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "root": PROJECT_ROOT,
+        "count": len(files),
+        "files": files,
+    }
+
+    with open(INDEX_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=4)
+
+    print(f"[FileIndexer] Indexed {len(files)} Python files → {INDEX_FILE}")
+    return payload
+
+
+def load_file_index():
+    """Load existing index, or rebuild if missing."""
+    if not os.path.exists(INDEX_FILE):
+        return update_file_index()
+    try:
+        with open(INDEX_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return update_file_index()
+
+
+if __name__ == "__main__":
+    update_file_index()
+
+
+
 # ==== .\dataset\LFW.py ====
 
 # dataset/LFW.py
@@ -1368,6 +1499,40 @@ if __name__ == "__main__":
     if images:
         img = load_image(images[0])
         print(f"[INFO] First image shape: {img.shape}")
+
+
+
+# ==== .\dataset\YTF.py ====
+
+import os
+import random
+
+
+class YTF:
+    @staticmethod
+    def list_all_images(root_dir, limit=None, shuffle=True, verbose=False):
+        """
+        Recursively list aligned .jpg frames from YouTube Faces (aligned_images_DB).
+        Compatible with LFW loader signature.
+        """
+        if not os.path.exists(root_dir):
+            raise FileNotFoundError(f"YTF path not found: {root_dir}")
+
+        image_paths = []
+        for root, _, files in os.walk(root_dir):
+            for fname in files:
+                if fname.lower().endswith(".jpg"):
+                    image_paths.append(os.path.join(root, fname))
+
+        if shuffle:
+            random.shuffle(image_paths)
+        if limit:
+            image_paths = image_paths[:limit]
+
+        if verbose:
+            print(f"[YTF] Found {len(image_paths)} aligned frames in {root_dir}")
+
+        return image_paths
 
 
 
@@ -1958,6 +2123,7 @@ from PyQt5.QtWidgets import (
     QFrame,
     QProgressBar,
     QInputDialog,
+    QMessageBox,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -1989,12 +2155,16 @@ class RunnerThread(QThread):
                 str(self.iters),
             ]
 
-            # ✅ Only validation_accuracy script supports dataset/test-image args
-            if "validation_accuracy" in os.path.basename(self.file_path):
-                if self.dataset_path:
-                    cmd.extend(["--dataset", self.dataset_path])
-                if self.test_image:
-                    cmd.extend(["--test-image", self.test_image])
+            # ✅ Always include dataset if available
+            if self.dataset_path:
+                cmd.extend(["--dataset", self.dataset_path])
+
+            # ✅ validation_accuracy only uses test image
+            if (
+                "validation_accuracy" in os.path.basename(self.file_path)
+                and self.test_image
+            ):
+                cmd.extend(["--test-image", self.test_image])
 
             process = subprocess.Popen(
                 cmd,
@@ -2003,10 +2173,13 @@ class RunnerThread(QThread):
                 text=True,
                 bufsize=1,
             )
+
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
+
             process.stdout.close()
             process.wait()
+
         except Exception as e:
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
@@ -2024,16 +2197,15 @@ class BenchmarkPage(QWidget):
             self.benchmark_dir, "validation_accuracy", "test_image", "test_image1.jpg"
         )
 
-        # dataset path (from config file if available)
-        config_path = os.path.join(base_dir, "models", "model.config")
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
+        # Load dataset from settings.json
+        settings_path = os.path.join(base_dir, "settings.json")
+        if os.path.exists(settings_path):
+            with open(settings_path, "r") as f:
                 cfg = json.load(f)
             self.dataset_path = cfg.get(
                 "dataset", r"C:\programming\Datasets\LFW\lfw-deepfunneled"
             )
         else:
-            # fallback
             self.dataset_path = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
 
         main_layout = QVBoxLayout()
@@ -2094,7 +2266,6 @@ class BenchmarkPage(QWidget):
                 canvas = FigureCanvas(fig)
                 layout.addWidget(canvas)
 
-                # progress bar
                 progress = QProgressBar()
                 progress.setMinimum(0)
                 progress.setMaximum(100)
@@ -2102,7 +2273,6 @@ class BenchmarkPage(QWidget):
 
                 page.setLayout(layout)
                 idx = self.output_stack.addWidget(page)
-
                 self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
 
     def run_script(self, name, file_path):
@@ -2118,7 +2288,7 @@ class BenchmarkPage(QWidget):
             ax.text(
                 0.5,
                 0.5,
-                "❌ No model selected",
+                "No model selected",
                 ha="center",
                 va="center",
                 color="red",
@@ -2127,10 +2297,38 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
+        #  Use dataset from system-wide settings
+        if not self.dataset_path:
+            QMessageBox.warning(
+                self, "No Dataset", "Please select a dataset in Settings first."
+            )
+            return
+
+        # Reload from settings.json for consistency
+        settings_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "settings.json",
+        )
+        if os.path.exists(settings_path):
+            with open(settings_path, "r") as f:
+                cfg = json.load(f)
+            self.dataset_path = cfg.get("dataset", self.dataset_path)
+
+        # --- dataset name detection ---
+
+        dataset_lower = (self.dataset_path or "").lower()
+        if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
+            dataset_name = "YTF (aligned)"
+        elif "lfw" in dataset_lower:
+            dataset_name = "LFW"
+        else:
+            dataset_name = os.path.basename(self.dataset_path) or "synthetic"
+
+        # --- number of iterations ---
         iters, ok = QInputDialog.getInt(
             self,
             "Iterations",
-            "How many images do you want to process?",
+            f"How many frames to process ({dataset_name})?",
             50,
             1,
             10000,
@@ -2139,11 +2337,13 @@ class BenchmarkPage(QWidget):
         if not ok:
             return
 
+        # Stop any running thread
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
 
+        # Start new thread
         self.current_thread = RunnerThread(
-            file_path, model_name, self.dataset_path, self.test_image
+            file_path, model_name, self.dataset_path, self.test_image, iters=iters
         )
         self.current_thread.output_signal.connect(
             lambda msg: self.handle_output(msg, fig, canvas, progress)
@@ -2154,15 +2354,13 @@ class BenchmarkPage(QWidget):
         try:
             data = json.loads(msg)
         except Exception:
-            # plain log lines
             print(f"[SCRIPT LOG] {msg}")
             return
 
-        # Runtime progress updates
+        # Runtime progress
         if "progress" in data and "total" in data:
             pct = int(100 * data["progress"] / data["total"])
             progress.setValue(pct)
-
             fig.clear()
             ax = fig.add_subplot(111)
             ax.axis("off")
@@ -2178,12 +2376,12 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # Plain log messages
+        # Logs
         if "log" in data:
             print(f"[SCRIPT LOG] {data['log']}")
             return
 
-        # --- final results plotting ---
+        # --- Final results ---
         fig.clear()
         ax = fig.add_subplot(111)
 
@@ -2200,8 +2398,9 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
+        # Latency chart
         if "times" in data:
-            times = list(data.get("times", []))
+            times = data.get("times", [])
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
             ax.plot(
@@ -2211,40 +2410,52 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("Latency (ms)")
             ax.set_title(f"Latency per Inference - {model} ({dataset})")
             ax.grid(True)
+
+            stats_text = (
+                f"Avg: {data.get('avg_ms', float('nan')):.2f} ms\n"
+                f"Min: {data.get('min_ms', float('nan')):.2f} ms\n"
+                f"Max: {data.get('max_ms', float('nan')):.2f} ms\n"
+                f"P50: {data.get('p50_ms', float('nan')):.2f} ms\n"
+                f"P90: {data.get('p90_ms', float('nan')):.2f} ms\n"
+                f"P95: {data.get('p95_ms', float('nan')):.2f} ms\n"
+                f"P99: {data.get('p99_ms', float('nan')):.2f} ms\n"
+                f"Std: {data.get('std_ms', float('nan')):.2f} ms"
+            )
+
+            ax.text(
+                1.02,
+                0.95,
+                stats_text,
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=9,
+                family="monospace",
+                bbox=dict(facecolor="white", alpha=0.6, edgecolor="gray"),
+            )
             canvas.draw()
             return
 
+        # FPS chart
         if "fps_series" in data:
-            fps_series = list(data.get("fps_series", []))
+            fps_series = data.get("fps_series", [])
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
-
-            # plot as line
-
             ax.plot(
-                range(1, len(fps_series) + 1),
-                fps_series,
-                linestyle="-",
-                color="blue",
+                range(1, len(fps_series) + 1), fps_series, linestyle="-", color="blue"
             )
 
-            # annotate each point with its index
             for i, fps in enumerate(fps_series, 1):
-                # Decide placement: if this point is a local minimum, put below, else above
-                if (
-                    i > 1
-                    and i < len(fps_series)
-                    and fps < fps_series[i - 2]
-                    and fps < fps_series[i]
-                ):
-                    # local minimum → label below
-                    va = "top"
-                    offset = -0.1
-                else:
-                    # otherwise label above
-                    va = "bottom"
-                    offset = 0.1
-
+                va, offset = (
+                    ("top", -0.1)
+                    if (
+                        i > 1
+                        and i < len(fps_series)
+                        and fps < fps_series[i - 2]
+                        and fps < fps_series[i]
+                    )
+                    else ("bottom", 0.1)
+                )
                 ax.text(
                     i,
                     fps + offset,
@@ -2263,6 +2474,7 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
+        # Verification histograms
         if "positives" in data and "negatives" in data:
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
