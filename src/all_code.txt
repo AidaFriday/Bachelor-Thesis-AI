@@ -515,7 +515,6 @@ import numpy as np
 try:
     from components.utilities.file_indexer import load_file_index
 except ModuleNotFoundError:
-    # fallback for standalone run
     sys.path.insert(
         0, os.path.join(os.path.dirname(__file__), "../../../components/utilities")
     )
@@ -524,23 +523,15 @@ except ModuleNotFoundError:
 index_data = load_file_index()
 PROJECT_ROOT = index_data["root"]
 
-# Dynamically add every directory containing a Python file to sys.path
 for rel_path in index_data["files"]:
     dir_path = os.path.join(PROJECT_ROOT, os.path.dirname(rel_path))
     if dir_path not in sys.path:
         sys.path.insert(0, dir_path)
 
 # ---------------------------------------------------------------------
-# 🔹 Import project modules
+# 🔹 Imports
 # ---------------------------------------------------------------------
-from connector import load_model  # ✅ now resolvable from index
-
-try:
-    import torch
-
-    _HAS_TORCH = True
-except Exception:
-    _HAS_TORCH = False
+from connector import load_model
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
@@ -549,132 +540,65 @@ SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 # 🔹 Helper utilities
 # ---------------------------------------------------------------------
 def send_log(msg, level="info"):
-    """Send log message to GUI via JSON line."""
     payload = {"log": msg, "level": level}
     print(json.dumps(payload))
     sys.stdout.flush()
 
 
-def _cuda_synchronize_if_needed():
-    if _HAS_TORCH and torch.cuda.is_available():
-        torch.cuda.synchronize()
-
-
-def _percentiles(ms_list):
-    arr = np.array(ms_list, dtype=np.float64)
-    return {
-        "p50_ms": float(np.percentile(arr, 50)) if arr.size else float("nan"),
-        "p90_ms": float(np.percentile(arr, 90)) if arr.size else float("nan"),
-        "p95_ms": float(np.percentile(arr, 95)) if arr.size else float("nan"),
-        "p99_ms": float(np.percentile(arr, 99)) if arr.size else float("nan"),
-        "min_ms": float(np.min(arr)) if arr.size else float("nan"),
-        "max_ms": float(np.max(arr)) if arr.size else float("nan"),
-        "std_ms": float(np.std(arr, ddof=0)) if arr.size else float("nan"),
-    }
-
-
-def _random_frame(h=640, w=640):
-    return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-
-
-def measure_once(wrapper, frame=None):
-    """Single latency measurement (embedding only)."""
-    _cuda_synchronize_if_needed()
-    t0 = time.perf_counter()
-    _ = wrapper.embed(frame)
-    _cuda_synchronize_if_needed()
-    t1 = time.perf_counter()
-    return (t1 - t0) * 1000.0  # ms
-
-
-def measure_embed_only(wrapper, iters=1, frame_h=640, frame_w=640):
-    """
-    Used by inference.py to benchmark model embedding latency.
-    Returns a list of per-iteration latencies in milliseconds.
-    """
-    frame = _random_frame(frame_h, frame_w)
-    _ = wrapper.embed(frame)  # warm-up
-    _cuda_synchronize_if_needed()
-
-    times_ms = []
-    for _ in range(iters):
-        times_ms.append(measure_once(wrapper, frame=frame))
-    return times_ms
-
-
-# ---------------------------------------------------------------------
-# 🔹 Main benchmark logic
-# ---------------------------------------------------------------------
-def run(model_name, iters, frame_h, frame_w, dataset=None):
-    wrapper = load_model(model_name)
-
-    send_log(
-        f"Running Latency benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: embed_only"
-    )
-
-    # Warm-up
-    warmup_frame = _random_frame(frame_h, frame_w)
-    send_log("Running warm-up inferences (not timed)...")
-    for _ in range(10):
-        _ = wrapper.embed(warmup_frame)
-        _cuda_synchronize_if_needed()
-
-    # Measurement loop
-    times = []
-    for i in range(iters):
-        t = measure_once(wrapper, frame=_random_frame(frame_h, frame_w))
-        times.append(t)
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Processed {i+1}/{iters} frames")
-
-    stats = _percentiles(times)
-    avg_ms = float(np.mean(times)) if times else float("nan")
-
-    send_log(
-        f"Latency summary (ms): avg={avg_ms:.2f}, "
-        f"p50={stats['p50_ms']:.2f}, p90={stats['p90_ms']:.2f}, "
-        f"p95={stats['p95_ms']:.2f}, p99={stats['p99_ms']:.2f}, "
-        f"min={stats['min_ms']:.2f}, max={stats['max_ms']:.2f}, "
-        f"std={stats['std_ms']:.2f}",
-        level="result",
-    )
-
-    payload = {
-        "kind": "latency",
-        "model": model_name,
-        "mode": "embed_only",
-        "dataset": dataset or "synthetic",
-        "avg_ms": avg_ms,
-        "times": times,
-        **stats,
-    }
-
-    print(json.dumps(payload))
-    sys.stdout.flush()
-
-
-# ---------------------------------------------------------------------
-# 🔹 Settings & CLI entry point
-# ---------------------------------------------------------------------
 def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
                 return json.load(f)
         except Exception:
-            return {}
+            pass
     return {}
 
 
+# ---------------------------------------------------------------------
+# 🔹 Dataset Routing Logic
+# ---------------------------------------------------------------------
+def run(model_name, iters, frame_h, frame_w, dataset=None):
+    """
+    Delegates execution to logic_dataset_image or logic_dataset_video
+    depending on dataset type (LFW = image, YTF = video).
+    """
+    dataset = dataset or ""
+    dl = dataset.lower()
+
+    if "lfw" in dl:
+        from benchmark_parameters.performance.latency.logic_dataset_image import (
+            run_logic as logic_run,
+        )
+
+        send_log(f"[latency] Using IMAGE dataset logic for {dataset}")
+    elif "ytf" in dl or "aligned_images_db" in dl or "video" in dl:
+        from benchmark_parameters.performance.latency.logic_dataset_video import (
+            run_logic as logic_run,
+        )
+
+        send_log(f"[latency] Using VIDEO dataset logic for {dataset}")
+    else:
+        # default fallback to image logic
+        from benchmark_parameters.performance.latency.logic_dataset_image import (
+            run_logic as logic_run,
+        )
+
+        send_log(f"[latency] Defaulting to IMAGE dataset logic (no match)")
+
+    # Run the correct logic
+    logic_run(model_name, iters, frame_h, frame_w, dataset)
+
+
+# ---------------------------------------------------------------------
+# 🔹 CLI Entry Point
+# ---------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
-    parser.add_argument("--frame-size", type=str, default="640x640", help="HxW size")
-    parser.add_argument(
-        "--dataset", type=str, default=None, help="Optional dataset path"
-    )
+    parser.add_argument("--iters", type=int, default=50)
+    parser.add_argument("--frame-size", type=str, default="640x640")
+    parser.add_argument("--dataset", type=str, default=None)
     args = parser.parse_args()
 
     cfg = _resolve_settings()
@@ -686,11 +610,11 @@ def main():
         sys.exit(1)
 
     try:
-        h, w = [int(p) for p in args.frame_size.lower().split("x")]
+        h, w = [int(x) for x in args.frame_size.lower().split("x")]
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, h, w, dataset=dataset)
+    run(model, args.iters, h, w, dataset)
 
 
 if __name__ == "__main__":
@@ -700,11 +624,159 @@ if __name__ == "__main__":
 
 # ==== .\benchmark_parameters\performance\latency\logic_dataset_image.py ====
 
+# ==== logic_dataset_image.py ====
+import json, sys, time, numpy as np
+from connector import load_model
+
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+
+def send_log(msg, level="info"):
+    print(json.dumps({"log": msg, "level": level}))
+    sys.stdout.flush()
+
+
+def _cuda_sync():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def _random_frame(h=640, w=640):
+    import numpy as np
+
+    return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+
+
+def measure_once(wrapper, frame):
+    _cuda_sync()
+    t0 = time.perf_counter()
+    _ = wrapper.embed(frame)
+    _cuda_sync()
+    return (time.perf_counter() - t0) * 1000.0
+
+
+def run_logic(model_name, iters, frame_h, frame_w, dataset):
+    wrapper = load_model(model_name)
+    send_log(f"Running image latency test with {iters} iterations")
+
+    frame = _random_frame(frame_h, frame_w)
+    _ = wrapper.embed(frame)
+    _cuda_sync()
+
+    times = []
+    for i in range(iters):
+        frame = _random_frame(frame_h, frame_w)
+        t = measure_once(wrapper, frame)
+        times.append(t)
+        if (i + 1) % 5 == 0:
+            send_log(f"Processed {i+1}/{iters} frames")
+
+    avg_ms = float(np.mean(times))
+    stats = {
+        "p50_ms": float(np.percentile(times, 50)),
+        "p90_ms": float(np.percentile(times, 90)),
+        "p95_ms": float(np.percentile(times, 95)),
+        "p99_ms": float(np.percentile(times, 99)),
+        "min_ms": float(np.min(times)),
+        "max_ms": float(np.max(times)),
+        "std_ms": float(np.std(times)),
+    }
+
+    send_log(f"Image Latency avg={avg_ms:.2f} ms", "result")
+
+    payload = {
+        "kind": "latency_image",
+        "dataset": dataset,
+        "avg_ms": avg_ms,
+        "times": times,
+        **stats,
+    }
+    print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 
 # ==== .\benchmark_parameters\performance\latency\logic_dataset_video.py ====
 
+# ==== logic_dataset_video.py ====
+import json, sys, time, numpy as np
+from connector import load_model
+
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+
+def send_log(msg, level="info"):
+    print(json.dumps({"log": msg, "level": level}))
+    sys.stdout.flush()
+
+
+def _cuda_sync():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def _simulate_video_frame(h=640, w=640, frame_idx=0):
+    """Simulate slight motion variation per frame."""
+    frame = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
+    frame = np.roll(frame, shift=frame_idx % 5, axis=1)  # mimic small movement
+    return frame
+
+
+def measure_once(wrapper, frame):
+    _cuda_sync()
+    t0 = time.perf_counter()
+    _ = wrapper.embed(frame)
+    _cuda_sync()
+    return (time.perf_counter() - t0) * 1000.0
+
+
+def run_logic(model_name, iters, frame_h, frame_w, dataset):
+    wrapper = load_model(model_name)
+    send_log(f"Running video latency test with {iters} frames")
+
+    _ = wrapper.embed(_simulate_video_frame(frame_h, frame_w))
+    _cuda_sync()
+
+    times = []
+    for i in range(iters):
+        frame = _simulate_video_frame(frame_h, frame_w, i)
+        t = measure_once(wrapper, frame)
+        times.append(t)
+        if (i + 1) % 5 == 0:
+            send_log(f"Processed frame {i+1}/{iters}")
+
+    avg_ms = float(np.mean(times))
+    stats = {
+        "p50_ms": float(np.percentile(times, 50)),
+        "p90_ms": float(np.percentile(times, 90)),
+        "p95_ms": float(np.percentile(times, 95)),
+        "p99_ms": float(np.percentile(times, 99)),
+        "min_ms": float(np.min(times)),
+        "max_ms": float(np.max(times)),
+        "std_ms": float(np.std(times)),
+    }
+
+    send_log(f"Video Latency avg={avg_ms:.2f} ms", "result")
+
+    payload = {
+        "kind": "latency_video",
+        "dataset": dataset,
+        "avg_ms": avg_ms,
+        "times": times,
+        **stats,
+    }
+    print(json.dumps(payload))
+    sys.stdout.flush()
 
 
 
@@ -1526,35 +1598,79 @@ if __name__ == "__main__":
 
 # ==== .\dataset\YTF.py ====
 
+# ==== dataset/YTF.py ====
 import os
+import cv2
 import random
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATASET_DIR = r"C:\programming\Datasets\YTF\aligned_images_DB"
 
-class YTF:
-    @staticmethod
-    def list_all_images(root_dir, limit=None, shuffle=True, verbose=False):
-        """
-        Recursively list aligned .jpg frames from YouTube Faces (aligned_images_DB).
-        Compatible with LFW loader signature.
-        """
-        if not os.path.exists(root_dir):
-            raise FileNotFoundError(f"YTF path not found: {root_dir}")
 
-        image_paths = []
-        for root, _, files in os.walk(root_dir):
-            for fname in files:
-                if fname.lower().endswith(".jpg"):
-                    image_paths.append(os.path.join(root, fname))
+def list_all_images(root_dir, limit=None, shuffle=True, verbose=True):
+    """
+    Collect video frame images from the YouTube Faces (YTF / aligned_images_DB) dataset.
 
-        if shuffle:
-            random.shuffle(image_paths)
-        if limit:
-            image_paths = image_paths[:limit]
+    Args:
+        root_dir: path to YTF dataset (can be parent folder or aligned_images_DB)
+        limit: maximum number of frames to load
+        shuffle: randomize before truncation
+        verbose: print logs
+    Returns:
+        List of absolute frame image paths
+    """
+    # If user gave parent folder, check for aligned_images_DB subfolder
+    aligned = os.path.join(root_dir, "aligned_images_DB")
+    if os.path.exists(aligned):
+        root_dir = aligned
 
-        if verbose:
-            print(f"[YTF] Found {len(image_paths)} aligned frames in {root_dir}")
+    all_images = []
+    for root, _, files in os.walk(root_dir):
+        for f in files:
+            if f.lower().endswith(".jpg"):
+                all_images.append(os.path.join(root, f))
 
-        return image_paths
+    if shuffle:
+        random.shuffle(all_images)
+
+    if limit:
+        all_images = all_images[:limit]
+
+    if verbose:
+        print(f"[INFO] Found {len(all_images)} frames in YTF dataset")
+        for idx, path in enumerate(all_images, 1):
+            print(f" {idx:03d}: {path}")
+
+    # ✅ Final confirmation popup/log
+    if all_images:
+        print(
+            f"\n✅ [SUCCESS] YTF dataset loaded successfully ({len(all_images)} frames found)"
+        )
+    else:
+        print(f"\n⚠️ [WARNING] No frames found in {root_dir}")
+
+    return all_images
+
+
+def load_image(path: str):
+    """Read a single video frame (image) from disk using OpenCV."""
+    img = cv2.imread(path)
+    if img is None:
+        raise FileNotFoundError(f"[ERROR] Frame not found: {path}")
+    print(f"[INFO] Loaded frame: {path}")
+    return img
+
+
+if __name__ == "__main__":
+    # Example: extract 50 video frames and log them
+    images = list_all_images(DATASET_DIR, limit=50, shuffle=True, verbose=True)
+
+    # Test loading the first frame
+    if images:
+        img = load_image(images[0])
+        print(f"[INFO] First frame shape: {img.shape}")
+
+    print("\n✅ [INFO] Dataset YTF loaded and verified successfully.")
 
 
 
@@ -2281,7 +2397,7 @@ class BenchmarkPage(QWidget):
             return "#7f8c8d"  # gray fallback
 
     def load_benchmark_tabs(self):
-        """Dynamically create benchmark buttons for every Python file."""
+        """Dynamically create benchmark buttons for every Python file (excluding logic scripts)."""
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
@@ -2293,6 +2409,12 @@ class BenchmarkPage(QWidget):
                     continue
                 if fname.startswith("__") or fname.startswith("."):
                     continue
+
+                # 🚫 Skip any 'logic' scripts (hidden from GUI)
+                if "logic" in fname.lower():
+                    print(f"[INFO] Skipping hidden logic script: {fname}")
+                    continue
+
                 file_path = os.path.join(dirpath, fname)
                 all_scripts.append(file_path)
 
@@ -2346,7 +2468,9 @@ class BenchmarkPage(QWidget):
             idx = self.output_stack.addWidget(page)
             self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
 
-        print(f"[INFO] Loaded {len(all_scripts)} benchmark scripts into GUI.")
+        print(
+            f"[INFO] Loaded {len(all_scripts)} benchmark scripts into GUI (logic scripts hidden)."
+        )
 
     def run_script(self, name, file_path):
         if name not in self.pages:
