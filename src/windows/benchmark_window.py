@@ -131,37 +131,96 @@ class BenchmarkPage(QWidget):
         base = os.path.splitext(os.path.basename(file_path))[0]
         return base.capitalize()
 
+    def _button_color_for(self, fname: str) -> str:
+        """Return background color for button based on category."""
+        if "logic" in fname.lower():
+            return "#8e44ad"  # purple for logic scripts
+        elif (
+            "latency" in fname.lower()
+            or "fps" in fname.lower()
+            or "inference" in fname.lower()
+        ):
+            return "#27ae60"  # green for performance
+        elif "validation" in fname.lower() or "accuracy" in fname.lower():
+            return "#2980b9"  # blue for validation
+        else:
+            return "#7f8c8d"  # gray fallback
+
     def load_benchmark_tabs(self):
+        """Dynamically create benchmark buttons for every Python file (excluding logic scripts)."""
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
 
+        all_scripts = []
         for dirpath, _, filenames in os.walk(self.benchmark_dir):
-            for fname in sorted(f for f in filenames if f.endswith(".py")):
+            for fname in filenames:
+                if not fname.endswith(".py"):
+                    continue
+                if fname.startswith("__") or fname.startswith("."):
+                    continue
+
+                # 🚫 Skip any 'logic' scripts (hidden from GUI)
+                if "logic" in fname.lower():
+                    print(f"[INFO] Skipping hidden logic script: {fname}")
+                    continue
+
                 file_path = os.path.join(dirpath, fname)
-                tab_name = self._pretty_name_for(file_path)
+                all_scripts.append(file_path)
 
-                btn = QPushButton(tab_name)
-                btn.setMinimumHeight(40)
-                btn.clicked.connect(
-                    lambda _, n=tab_name, p=file_path: self.run_script(n, p)
-                )
-                self.button_layout.addWidget(btn)
+        all_scripts.sort(key=lambda p: os.path.basename(p).lower())
 
-                page = QWidget()
-                layout = QVBoxLayout()
-                fig = Figure(figsize=(5, 4))
-                canvas = FigureCanvas(fig)
-                layout.addWidget(canvas)
+        for file_path in all_scripts:
+            fname = os.path.basename(file_path)
+            tab_name = self._pretty_name_for(file_path)
 
-                progress = QProgressBar()
-                progress.setMinimum(0)
-                progress.setMaximum(100)
-                layout.addWidget(progress)
+            if tab_name in self.pages:
+                tab_name += f"_{len(self.pages)}"
 
-                page.setLayout(layout)
-                idx = self.output_stack.addWidget(page)
-                self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
+            btn = QPushButton(tab_name)
+            btn.setMinimumHeight(40)
+            btn.clicked.connect(
+                lambda _, n=tab_name, p=file_path: self.run_script(n, p)
+            )
+
+            # 🎨 Color-coding by category
+            color = self._button_color_for(fname)
+            btn.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {color};
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 6px 12px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #555;
+                }}
+            """
+            )
+
+            self.button_layout.addWidget(btn)
+
+            page = QWidget()
+            layout = QVBoxLayout()
+            fig = Figure(figsize=(5, 4))
+            canvas = FigureCanvas(fig)
+            layout.addWidget(canvas)
+
+            progress = QProgressBar()
+            progress.setMinimum(0)
+            progress.setMaximum(100)
+            layout.addWidget(progress)
+
+            page.setLayout(layout)
+            idx = self.output_stack.addWidget(page)
+            self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
+
+        print(
+            f"[INFO] Loaded {len(all_scripts)} benchmark scripts into GUI (logic scripts hidden)."
+        )
 
     def run_script(self, name, file_path):
         if name not in self.pages:
@@ -185,24 +244,19 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        #  Use dataset from system-wide settings
         if not self.dataset_path:
             QMessageBox.warning(
                 self, "No Dataset", "Please select a dataset in Settings first."
             )
             return
 
-        # Reload from settings.json for consistency
         settings_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "settings.json",
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json"
         )
         if os.path.exists(settings_path):
             with open(settings_path, "r") as f:
                 cfg = json.load(f)
             self.dataset_path = cfg.get("dataset", self.dataset_path)
-
-        # --- dataset name detection ---
 
         dataset_lower = (self.dataset_path or "").lower()
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
@@ -212,7 +266,6 @@ class BenchmarkPage(QWidget):
         else:
             dataset_name = os.path.basename(self.dataset_path) or "synthetic"
 
-        # --- number of iterations ---
         iters, ok = QInputDialog.getInt(
             self,
             "Iterations",
@@ -225,11 +278,9 @@ class BenchmarkPage(QWidget):
         if not ok:
             return
 
-        # Stop any running thread
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
 
-        # Start new thread
         self.current_thread = RunnerThread(
             file_path, model_name, self.dataset_path, self.test_image, iters=iters
         )
@@ -245,7 +296,6 @@ class BenchmarkPage(QWidget):
             print(f"[SCRIPT LOG] {msg}")
             return
 
-        # Runtime progress
         if "progress" in data and "total" in data:
             pct = int(100 * data["progress"] / data["total"])
             progress.setValue(pct)
@@ -264,12 +314,10 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # Logs
         if "log" in data:
             print(f"[SCRIPT LOG] {data['log']}")
             return
 
-        # --- Final results ---
         fig.clear()
         ax = fig.add_subplot(111)
 
@@ -286,7 +334,6 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # Latency chart
         if "times" in data:
             times = data.get("times", [])
             dataset = data.get("dataset", "synthetic")
@@ -324,7 +371,6 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # FPS chart
         if "fps_series" in data:
             fps_series = data.get("fps_series", [])
             dataset = data.get("dataset", "synthetic")
@@ -362,7 +408,6 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # Verification histograms
         if "positives" in data and "negatives" in data:
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
