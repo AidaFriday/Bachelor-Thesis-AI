@@ -85,24 +85,59 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
     # -------- Load dataset automatically (LFW or YTF) --------
     images = []
     dataset_name = "synthetic"
+    selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS")
+
+    # ✅ Parse selected subjects (passed from GUI)
+    if selected_subjects_env:
+        selected_subjects = set(
+            s.strip() for s in selected_subjects_env.split(",") if s.strip()
+        )
+        send_log(
+            f"Filtering dataset to selected subjects: {', '.join(selected_subjects)}",
+            level="info",
+        )
+    else:
+        selected_subjects = None
+
     if dataset:
         dl = dataset.lower()
         if ("ytf" in dl) or ("aligned_images_db" in dl):
             dataset_name = "YTF (aligned)"
-            images = YTF.list_all_images(
-                root_dir=dataset, limit=iters, shuffle=True, verbose=False
+
+            all_images = YTF.list_all_images(
+                root_dir=dataset, limit=None, shuffle=False, verbose=False
             )
-            # summary for reporting (subset you actually loaded)
+            all_images.sort()  # enforce deterministic order across OS
+
+            # ✅ Filter to selected subjects if provided
+            if selected_subjects:
+                images = [
+                    p
+                    for p in all_images
+                    if os.path.basename(os.path.dirname(os.path.dirname(p)))
+                    in selected_subjects
+                ]
+                if not images:
+                    send_log("⚠️ No images found for selected subjects", level="error")
+                    return
+            else:
+                images = all_images  # use everything
+
+            # ✅ Automatically set iteration count to number of found images
+            iters = len(images)
+
             s, v, f = _ytf_loaded_subset_summary(dataset, images)
             send_log(
                 f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames",
                 level="result",
             )
+
         else:
             dataset_name = "LFW"
             images = LFW.list_all_images(
-                root_dir=dataset, limit=iters, shuffle=True, verbose=False
+                root_dir=dataset, limit=None, shuffle=True, verbose=False
             )
+            iters = len(images)
 
     # Load frames into memory (works for both LFW and YTF aligned frames)
     for idx, path in enumerate(images, 1):
@@ -113,37 +148,56 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
             send_log(f"[{idx:03d}] Loaded dataset image: {path}")
 
     # -------- Measure --------
-    times_ms = []
-    start = time.time()
+    num_runs = int(os.getenv("YTF_RUNS", "1"))
+    send_log(f"[CONFIG] Running each dataset {num_runs} time(s)")
 
-    for i in range(iters):
-        frame = frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
-        t = measure_once(wrapper, mode=target, frame=frame)
-        times_ms.append(t)
+    all_run_fps = []
+    all_run_series = []
 
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Processed {i+1}/{iters} frames…")
+    for run_idx in range(num_runs):
+        send_log(f"--- Run {run_idx+1}/{num_runs} ---")
+        times_ms = []
+        start = time.time()
 
-    elapsed = time.time() - start
-    send_log(f"Completed {iters} iterations in {elapsed:.2f}s", level="result")
+        for i in range(iters):
+            frame = (
+                frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
+            )
+            t = measure_once(wrapper, mode=target, frame=frame)
+            times_ms.append(t)
 
-    # Convert latency → FPS
-    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
-    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+            if (i + 1) % 5 == 0 or (i + 1) == iters:
+                send_log(f"Processed {i+1}/{iters} frames (run {run_idx+1})…")
 
-    send_log(
-        f"Average FPS on {dataset_name if dataset else 'synthetic'} "
-        f"({len(fps_series)} frames): {mean_fps:.2f} FPS",
-        level="result",
-    )
+        elapsed = time.time() - start
+        fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+        mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+
+        all_run_fps.append(mean_fps)
+        all_run_series.append(fps_series)  # ✅ store each run’s FPS list
+
+        send_log(
+            f"[Run {run_idx+1}] Completed {iters} frames in {elapsed:.2f}s → {mean_fps:.2f} FPS",
+            level="result",
+        )
+
+    # ---- Final summary ----
+    if num_runs > 1:
+        avg_fps = sum(all_run_fps) / len(all_run_fps)
+        send_log(
+            f"[RESULT] Average FPS over {num_runs} runs: {avg_fps:.2f}", level="result"
+        )
+    else:
+        avg_fps = all_run_fps[0]
 
     payload = {
         "kind": "fps",
         "model": model_name,
         "mode": "detect_and_embed" if target == "detect" else "embed_only",
         "dataset": dataset_name if dataset else "synthetic",
-        "fps": mean_fps,
-        "fps_series": fps_series,
+        "fps": avg_fps,
+        "runs": all_run_fps,
+        "fps_series_all": all_run_series,  # ✅ now each run’s series is unique
     }
 
     if dataset and frames:

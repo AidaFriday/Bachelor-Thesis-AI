@@ -12,6 +12,9 @@ from PyQt5.QtWidgets import (
     QProgressBar,
     QInputDialog,
     QMessageBox,
+    QDialog,
+    QListWidget,
+    QListWidgetItem,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -19,6 +22,57 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
+# ------------------ New Dialog ------------------
+class SelectSubjectsDialog(QDialog):
+    """Popup dialog to select multiple subjects (folders) from dataset."""
+
+    def __init__(self, dataset_path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select People")
+        self.setMinimumWidth(400)
+        self.selected_subjects = []
+
+        layout = QVBoxLayout(self)
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.MultiSelection)
+
+        # Load all subfolders (people)
+        if os.path.isdir(dataset_path):
+            people = sorted(
+                [
+                    d
+                    for d in os.listdir(dataset_path)
+                    if os.path.isdir(os.path.join(dataset_path, d))
+                ]
+            )
+            for name in people:
+                item = QListWidgetItem(name)
+                item.setCheckState(0)  # Unchecked
+                self.list_widget.addItem(item)
+        else:
+            print(f"[WARN] Invalid dataset path: {dataset_path}")
+
+        layout.addWidget(self.list_widget)
+
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        cancel_btn = QPushButton("Cancel")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
+    def accept(self):
+        self.selected_subjects = [
+            self.list_widget.item(i).text()
+            for i in range(self.list_widget.count())
+            if self.list_widget.item(i).checkState()
+        ]
+        super().accept()
+
+
+# ------------------ Worker Thread ------------------
 class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
@@ -43,11 +97,11 @@ class RunnerThread(QThread):
                 str(self.iters),
             ]
 
-            # ✅ Always include dataset if available
+            # Always include dataset if available
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # ✅ validation_accuracy only uses test image
+            # validation_accuracy only uses test image
             if (
                 "validation_accuracy" in os.path.basename(self.file_path)
                 and self.test_image
@@ -72,6 +126,7 @@ class RunnerThread(QThread):
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
 
+# ------------------ Main GUI Page ------------------
 class BenchmarkPage(QWidget):
     def __init__(self, parent=None, get_model_name=None):
         super().__init__(parent)
@@ -132,22 +187,20 @@ class BenchmarkPage(QWidget):
         return base.capitalize()
 
     def _button_color_for(self, fname: str) -> str:
-        """Return background color for button based on category."""
         if "logic" in fname.lower():
-            return "#8e44ad"  # purple for logic scripts
+            return "#8e44ad"
         elif (
             "latency" in fname.lower()
             or "fps" in fname.lower()
             or "inference" in fname.lower()
         ):
-            return "#27ae60"  # green for performance
+            return "#27ae60"
         elif "validation" in fname.lower() or "accuracy" in fname.lower():
-            return "#2980b9"  # blue for validation
+            return "#2980b9"
         else:
-            return "#7f8c8d"  # gray fallback
+            return "#7f8c8d"
 
     def load_benchmark_tabs(self):
-        """Dynamically create benchmark buttons for every Python file (excluding logic scripts)."""
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
@@ -159,21 +212,15 @@ class BenchmarkPage(QWidget):
                     continue
                 if fname.startswith("__") or fname.startswith("."):
                     continue
-
-                # 🚫 Skip any 'logic' scripts (hidden from GUI)
                 if "logic" in fname.lower():
-                    print(f"[INFO] Skipping hidden logic script: {fname}")
                     continue
-
-                file_path = os.path.join(dirpath, fname)
-                all_scripts.append(file_path)
+                all_scripts.append(os.path.join(dirpath, fname))
 
         all_scripts.sort(key=lambda p: os.path.basename(p).lower())
 
         for file_path in all_scripts:
             fname = os.path.basename(file_path)
             tab_name = self._pretty_name_for(file_path)
-
             if tab_name in self.pages:
                 tab_name += f"_{len(self.pages)}"
 
@@ -183,7 +230,6 @@ class BenchmarkPage(QWidget):
                 lambda _, n=tab_name, p=file_path: self.run_script(n, p)
             )
 
-            # 🎨 Color-coding by category
             color = self._button_color_for(fname)
             btn.setStyleSheet(
                 f"""
@@ -208,23 +254,17 @@ class BenchmarkPage(QWidget):
             fig = Figure(figsize=(5, 4))
             canvas = FigureCanvas(fig)
             layout.addWidget(canvas)
-
             progress = QProgressBar()
-            progress.setMinimum(0)
-            progress.setMaximum(100)
             layout.addWidget(progress)
-
             page.setLayout(layout)
+
             idx = self.output_stack.addWidget(page)
             self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
-
-        print(
-            f"[INFO] Loaded {len(all_scripts)} benchmark scripts into GUI (logic scripts hidden)."
-        )
 
     def run_script(self, name, file_path):
         if name not in self.pages:
             return
+
         idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
@@ -233,13 +273,7 @@ class BenchmarkPage(QWidget):
             fig.clear()
             ax = fig.add_subplot(111)
             ax.text(
-                0.5,
-                0.5,
-                "No model selected",
-                ha="center",
-                va="center",
-                color="red",
-                fontsize=12,
+                0.5, 0.5, "No model selected", ha="center", va="center", color="red"
             )
             canvas.draw()
             return
@@ -250,33 +284,42 @@ class BenchmarkPage(QWidget):
             )
             return
 
-        settings_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json"
-        )
-        if os.path.exists(settings_path):
-            with open(settings_path, "r") as f:
-                cfg = json.load(f)
-            self.dataset_path = cfg.get("dataset", self.dataset_path)
-
         dataset_lower = (self.dataset_path or "").lower()
+        iters = 50  # ✅ default always defined
+
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
             dataset_name = "YTF (aligned)"
-        elif "lfw" in dataset_lower:
-            dataset_name = "LFW"
-        else:
-            dataset_name = os.path.basename(self.dataset_path) or "synthetic"
+            dlg = SelectSubjectsDialog(self.dataset_path, self)
+            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                return
 
-        iters, ok = QInputDialog.getInt(
-            self,
-            "Iterations",
-            f"How many frames to process ({dataset_name})?",
-            50,
-            1,
-            10000,
-            1,
-        )
-        if not ok:
-            return
+            selected_subjects = dlg.selected_subjects
+            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(selected_subjects)
+            print(
+                f"[INFO] Selected {len(selected_subjects)} people: {', '.join(selected_subjects[:5])}"
+            )
+
+            num_runs, ok = QInputDialog.getInt(
+                self,
+                "Number of Runs",
+                "How many runs do you want to perform?",
+                5,
+                1,
+                100,
+                1,
+            )
+            if not ok:
+                return
+            os.environ["YTF_RUNS"] = str(num_runs)
+
+            # ✅ no frame popup
+            iters = 50
+        else:
+            dataset_name = (
+                "LFW"
+                if "lfw" in dataset_lower
+                else os.path.basename(self.dataset_path) or "synthetic"
+            )
 
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
@@ -289,6 +332,7 @@ class BenchmarkPage(QWidget):
         )
         self.current_thread.start()
 
+    # ---------- Handle Output ----------
     def handle_output(self, msg, fig, canvas, progress):
         try:
             data = json.loads(msg)
@@ -329,99 +373,34 @@ class BenchmarkPage(QWidget):
                 ha="center",
                 va="center",
                 color="red",
-                fontsize=12,
             )
             canvas.draw()
             return
 
-        if "times" in data:
-            times = data.get("times", [])
+        if "fps_series_all" in data:
+            fps_series_all = data.get("fps_series_all", [])
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
-            ax.plot(
-                range(1, len(times) + 1), times, marker="o", linestyle="-", color="blue"
-            )
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Latency (ms)")
-            ax.set_title(f"Latency per Inference - {model} ({dataset})")
-            ax.grid(True)
 
-            stats_text = (
-                f"Avg: {data.get('avg_ms', float('nan')):.2f} ms\n"
-                f"Min: {data.get('min_ms', float('nan')):.2f} ms\n"
-                f"Max: {data.get('max_ms', float('nan')):.2f} ms\n"
-                f"P50: {data.get('p50_ms', float('nan')):.2f} ms\n"
-                f"P90: {data.get('p90_ms', float('nan')):.2f} ms\n"
-                f"P95: {data.get('p95_ms', float('nan')):.2f} ms\n"
-                f"P99: {data.get('p99_ms', float('nan')):.2f} ms\n"
-                f"Std: {data.get('std_ms', float('nan')):.2f} ms"
-            )
+            # Pick color palette for multiple runs
+            import matplotlib.cm as cm
+            import numpy as np
 
-            ax.text(
-                1.02,
-                0.95,
-                stats_text,
-                transform=ax.transAxes,
-                ha="left",
-                va="top",
-                fontsize=9,
-                family="monospace",
-                bbox=dict(facecolor="white", alpha=0.6, edgecolor="gray"),
-            )
-            canvas.draw()
-            return
+            colors = cm.get_cmap("tab10", len(fps_series_all))
 
-        if "fps_series" in data:
-            fps_series = data.get("fps_series", [])
-            dataset = data.get("dataset", "synthetic")
-            model = data.get("model", "")
-            ax.plot(
-                range(1, len(fps_series) + 1), fps_series, linestyle="-", color="blue"
-            )
-
-            for i, fps in enumerate(fps_series, 1):
-                va, offset = (
-                    ("top", -0.1)
-                    if (
-                        i > 1
-                        and i < len(fps_series)
-                        and fps < fps_series[i - 2]
-                        and fps < fps_series[i]
-                    )
-                    else ("bottom", 0.1)
-                )
-                ax.text(
-                    i,
-                    fps + offset,
-                    str(i),
-                    fontsize=9,
-                    fontweight="bold",
-                    ha="center",
-                    va=va,
-                    color="red",
+            for i, fps_series in enumerate(fps_series_all):
+                ax.plot(
+                    range(1, len(fps_series) + 1),
+                    fps_series,
+                    linestyle="-",
+                    color=colors(i),
+                    label=f"Run {i+1}",
                 )
 
+            ax.legend(loc="upper right")
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second - {model} ({dataset})")
             ax.grid(True)
-            canvas.draw()
-            return
-
-        if "positives" in data and "negatives" in data:
-            dataset = data.get("dataset", "synthetic")
-            model = data.get("model", "")
-            ax.hist(data["positives"], bins=50, alpha=0.6, label="Positive", color="g")
-            ax.hist(data["negatives"], bins=50, alpha=0.6, label="Negative", color="r")
-            ax.axvline(
-                data.get("threshold", 0.5),
-                color="blue",
-                linestyle="--",
-                label=f"Threshold={data.get('threshold', 0.5)}",
-            )
-            ax.set_xlabel("Cosine Similarity")
-            ax.set_ylabel("Frequency")
-            ax.legend()
-            ax.set_title(f"Face Verification - {model} ({dataset})")
             canvas.draw()
             return
