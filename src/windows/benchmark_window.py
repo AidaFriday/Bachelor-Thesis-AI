@@ -285,7 +285,7 @@ class BenchmarkPage(QWidget):
             return
 
         dataset_lower = (self.dataset_path or "").lower()
-        iters = 50  # ✅ default always defined
+        iters = 50  # default always defined
 
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
             dataset_name = "YTF (aligned)"
@@ -312,7 +312,7 @@ class BenchmarkPage(QWidget):
                 return
             os.environ["YTF_RUNS"] = str(num_runs)
 
-            # ✅ no frame popup
+            # no frame popup
             iters = 50
         else:
             dataset_name = (
@@ -388,19 +388,47 @@ class BenchmarkPage(QWidget):
 
             colors = cm.get_cmap("tab10", len(fps_series_all))
 
+        if "fps_series_all" in data:
+            fps_series_all = data.get("fps_series_all", [])
+            run_avgs = data.get("runs", [])
+            dataset = data.get("dataset", "synthetic")
+            model = data.get("model", "")
+
+            import matplotlib.cm as cm
+            import numpy as np
+
+            num_runs = len(fps_series_all)
+
+            # ✅ Choose colormap dynamically depending on number of runs
+            if num_runs <= 10:
+                cmap = cm.get_cmap("tab10", num_runs)
+            elif num_runs <= 20:
+                cmap = cm.get_cmap("tab20", num_runs)
+            else:
+                # fallback: continuous hue gradient for large N
+                cmap = cm.get_cmap("hsv", num_runs)
+
+            # Generate distinct colors evenly spaced
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
+
+            # Optional: alternate line styles for clarity if many runs
+            line_styles = ["-", "--", "-.", ":"]
+            ax.set_prop_cycle(None)  # reset color cycle
+
             for i, fps_series in enumerate(fps_series_all):
+                avg_fps = run_avgs[i] if i < len(run_avgs) else np.mean(fps_series)
                 ax.plot(
                     range(1, len(fps_series) + 1),
                     fps_series,
-                    linestyle="-",
-                    color=colors(i),
-                    label=f"Run {i+1}",
+                    linestyle=line_styles[i % len(line_styles)],
+                    color=colors[i],
+                    linewidth=1.5,
+                    label=f"Run {i+1}  ({avg_fps:.2f} FPS)",  # ✅ show averages in legend
                 )
 
-            ax.legend(loc="upper right")
+            ax.legend(loc="upper right", title="Per-Run Averages", fontsize=9)
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second - {model} ({dataset})")
             ax.grid(True)
             canvas.draw()
-            return

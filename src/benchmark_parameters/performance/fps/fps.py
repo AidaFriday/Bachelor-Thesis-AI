@@ -200,11 +200,38 @@ def run(model_name, iters, target, frame_h, frame_w, dataset=None):
         "fps_series_all": all_run_series,  # ✅ now each run’s series is unique
     }
 
+    # ---- Build and save run summary report ----
     if dataset and frames:
-        mapping_file = os.path.join(PROJECT_ROOT, "fps_index_map.json")
-        with open(mapping_file, "w") as f:
-            json.dump(image_map, f, indent=4)
-        send_log(f"Saved image index mapping to {mapping_file}")
+        report = {"runs": []}
+
+        for run_idx, fps_series in enumerate(all_run_series):
+            if not fps_series:
+                continue
+
+            min_idx = int(np.argmin(fps_series))
+            max_idx = int(np.argmax(fps_series))
+            min_fps = float(fps_series[min_idx])
+            max_fps = float(fps_series[max_idx])
+            avg_fps = float(all_run_fps[run_idx])
+
+            min_file = image_map.get(min_idx + 1, f"frame_{min_idx+1}")
+            max_file = image_map.get(max_idx + 1, f"frame_{max_idx+1}")
+
+            report["runs"].append(
+                {
+                    "run": run_idx + 1,
+                    "min_fps": round(min_fps, 2),
+                    "max_fps": round(max_fps, 2),
+                    "avg_fps": round(avg_fps, 2),
+                    "min_file": min_file,
+                    "max_file": max_file,
+                }
+            )
+
+        report_file = os.path.join(PROJECT_ROOT, "fps_report.json")
+        with open(report_file, "w") as f:
+            json.dump(report, f, indent=4)
+        send_log(f"Saved per-run summary report to {report_file}")
 
     print(json.dumps(payload))
     sys.stdout.flush()
