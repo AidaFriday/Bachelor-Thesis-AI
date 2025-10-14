@@ -140,9 +140,9 @@ class BenchmarkPage(QWidget):
         )
 
         # Load dataset from settings.json
-        settings_path = os.path.join(base_dir, "settings.json")
-        if os.path.exists(settings_path):
-            with open(settings_path, "r") as f:
+        self.settings_path = os.path.join(base_dir, "settings.json")
+        if os.path.exists(self.settings_path):
+            with open(self.settings_path, "r") as f:
                 cfg = json.load(f)
             # Unified dataset key support
             self.dataset_path = (
@@ -196,6 +196,18 @@ class BenchmarkPage(QWidget):
         else:
             return "#7f8c8d"
 
+    def _reload_settings_dataset(self):
+        """Reload dataset path from settings.json to reflect user changes."""
+        if os.path.exists(self.settings_path):
+            try:
+                with open(self.settings_path, "r") as f:
+                    cfg = json.load(f)
+                self.dataset_path = (
+                    cfg.get("dataset_path") or cfg.get("dataset") or self.dataset_path
+                )
+            except Exception as e:
+                print(f"[WARN] Could not reload settings: {e}")
+
     def load_benchmark_tabs(self):
         """Dynamically create benchmark buttons and output panels."""
         if not os.path.isdir(self.benchmark_dir):
@@ -239,7 +251,7 @@ class BenchmarkPage(QWidget):
             """
             )
 
-            # 🚫 Disable FPS button if dataset is LFW
+            # Disable FPS button if dataset currently LFW
             if "fps" in fname.lower():
                 ds_lower = (self.dataset_path or "").lower()
                 if "lfw" in ds_lower:
@@ -267,6 +279,9 @@ class BenchmarkPage(QWidget):
         if name not in self.pages:
             return
 
+        # 🔄 Refresh dataset in case user changed it in Settings
+        self._reload_settings_dataset()
+
         idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
@@ -289,8 +304,13 @@ class BenchmarkPage(QWidget):
         dataset_lower = (self.dataset_path or "").lower()
         iters = 50
 
+        # If YTF, open subject picker correctly
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
-            dlg = SelectSubjectsDialog(self.dataset_path, self)
+            ds_for_dialog = self.dataset_path
+            if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+            dlg = SelectSubjectsDialog(ds_for_dialog, self)
             if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                 return
             os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
@@ -301,7 +321,6 @@ class BenchmarkPage(QWidget):
                 return
             os.environ["YTF_RUNS"] = str(num_runs)
         else:
-            # No YTF selected → warn but continue for other benchmarks
             if "fps" in os.path.basename(file_path).lower():
                 QMessageBox.warning(
                     self,

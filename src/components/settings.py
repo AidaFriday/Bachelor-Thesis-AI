@@ -147,6 +147,14 @@ class SettingsPage(QWidget):
         self.dataset_name_label.setText(self.dataset_name.upper())
         self.dataset_path_label.setText(f"Path: {path}")
 
+        # Immediate friendly notice if LFW chosen (so you don't need to hit Save)
+        if self.dataset_name == "lfw":
+            QMessageBox.information(
+                self,
+                "Dataset Notice",
+                "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
+            )
+
     # ===============================================================
     # 🔹 Model & Theme
     # ===============================================================
@@ -171,17 +179,28 @@ class SettingsPage(QWidget):
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
-        QMessageBox.information(
-            self,
-            "Settings",
-            (
-                f"✅ Settings saved:\n\n"
-                f"Model: {self.model_name}\n"
-                f"Dataset: {self.dataset_name or 'Not selected'}\n"
-                f"Path: {self.dataset_path or 'N/A'}\n"
-                f"Theme: {self.theme}"
-            ),
+        # Normal confirmation message
+        msg = (
+            f"✅ Settings saved:\n\n"
+            f"Model: {self.model_name}\n"
+            f"Dataset: {self.dataset_name or 'Not selected'}\n"
+            f"Path: {self.dataset_path or 'N/A'}\n"
+            f"Theme: {self.theme}"
         )
+
+        # Extra warning if user saved with LFW
+        if self.dataset_name and self.dataset_name.lower() == "lfw":
+            msg += (
+                "\n\n⚠️ Note: LFW is an image dataset.\n"
+                "FPS benchmark requires a video dataset like YTF."
+            )
+            QMessageBox.warning(
+                self,
+                "Dataset Notice",
+                "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
+            )
+
+        QMessageBox.information(self, "Settings", msg)
 
     def load_settings(self):
         """Load settings.json and prefill UI state."""

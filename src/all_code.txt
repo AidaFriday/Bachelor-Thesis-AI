@@ -1290,21 +1290,9 @@ class SettingsPage(QWidget):
         # --- Layout ---
         layout = QVBoxLayout()
 
-        # --- Dataset selection ---
-        self.dataset_label = QLabel("Select dataset:")
-        self.dataset_combo = QComboBox()
-        self.dataset_combo.addItems(self.dataset_manager.list_available())
-
-        # Set current dataset if saved
-        if self.dataset_name:
-            idx = self.dataset_combo.findText(self.dataset_name, Qt.MatchFixedString)
-            if idx >= 0:
-                self.dataset_combo.setCurrentIndex(idx)
-
-        # Keep dataset_name synced
-        self.dataset_name = self.dataset_combo.currentText()
-        self.dataset_combo.currentTextChanged.connect(self.update_dataset_choice)
-
+        # --- Dataset section (auto detection, no combo box) ---
+        self.dataset_label = QLabel("Dataset:")
+        self.dataset_name_label = QLabel(self.dataset_name or "Not selected")
         self.dataset_path_label = QLabel(f"Path: {self.dataset_path or 'Not selected'}")
         self.dataset_browse_btn = QPushButton("Browse Dataset Folder")
         self.dataset_browse_btn.clicked.connect(self.browse_dataset)
@@ -1333,7 +1321,7 @@ class SettingsPage(QWidget):
 
         # --- Assemble layout ---
         layout.addWidget(self.dataset_label)
-        layout.addWidget(self.dataset_combo)
+        layout.addWidget(self.dataset_name_label)
         layout.addWidget(self.dataset_path_label)
         layout.addWidget(self.dataset_browse_btn)
         layout.addSpacing(15)
@@ -1349,25 +1337,36 @@ class SettingsPage(QWidget):
     # ===============================================================
     # 🔹 Dataset Handling
     # ===============================================================
-    def update_dataset_choice(self, name: str):
-        """Update selected dataset name and apply default path."""
-        self.dataset_name = name
-        default_info = self.dataset_manager.DATASET_REGISTRY.get(name.lower(), {})
-        default_path = default_info.get("default_path")
-        self.dataset_path = default_path
-        self.dataset_path_label.setText(f"Path: {self.dataset_path or 'N/A'}")
-
     def browse_dataset(self):
-        """Manually browse for a dataset folder and override default."""
+        """Manually browse for a dataset folder and auto-detect type."""
         path = QFileDialog.getExistingDirectory(
             self, "Select Dataset Folder", os.getcwd()
         )
         if not path:
             return
 
-        # Apply manually chosen path to the currently selected dataset
         self.dataset_path = path
+
+        # Auto-detect dataset type from folder name or path
+        lower = path.lower()
+        if "ytf" in lower or "aligned_images_db" in lower:
+            self.dataset_name = "ytf"
+        elif "lfw" in lower:
+            self.dataset_name = "lfw"
+        else:
+            self.dataset_name = "unknown"
+
+        # Update UI
+        self.dataset_name_label.setText(self.dataset_name.upper())
         self.dataset_path_label.setText(f"Path: {path}")
+
+        # Immediate friendly notice if LFW chosen (so you don't need to hit Save)
+        if self.dataset_name == "lfw":
+            QMessageBox.information(
+                self,
+                "Dataset Notice",
+                "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
+            )
 
     # ===============================================================
     # 🔹 Model & Theme
@@ -1382,21 +1381,10 @@ class SettingsPage(QWidget):
     # ===============================================================
     # 🔹 Save & Load
     # ===============================================================
-
     def save_settings(self):
-        # Always read current dataset from combo box in case signal didn't fire
-        self.dataset_name = self.dataset_combo.currentText().strip() or None
-
-        # --- Auto-correct dataset type based on chosen path ---
-        auto_dataset = self.dataset_name
-        if self.dataset_path and "ytf" in self.dataset_path.lower():
-            auto_dataset = "ytf"
-        elif self.dataset_path and "lfw" in self.dataset_path.lower():
-            auto_dataset = "lfw"
-
         data = {
             "model": self.model_name,
-            "dataset_name": auto_dataset,
+            "dataset_name": self.dataset_name,
             "dataset_path": self.dataset_path,
             "theme": self.theme,
         }
@@ -1404,17 +1392,28 @@ class SettingsPage(QWidget):
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
-        QMessageBox.information(
-            self,
-            "Settings",
-            (
-                f"✅ Settings saved:\n\n"
-                f"Model: {self.model_name}\n"
-                f"Dataset: {auto_dataset or 'Not selected'}\n"
-                f"Path: {self.dataset_path or 'N/A'}\n"
-                f"Theme: {self.theme}"
-            ),
+        # Normal confirmation message
+        msg = (
+            f"✅ Settings saved:\n\n"
+            f"Model: {self.model_name}\n"
+            f"Dataset: {self.dataset_name or 'Not selected'}\n"
+            f"Path: {self.dataset_path or 'N/A'}\n"
+            f"Theme: {self.theme}"
         )
+
+        # Extra warning if user saved with LFW
+        if self.dataset_name and self.dataset_name.lower() == "lfw":
+            msg += (
+                "\n\n⚠️ Note: LFW is an image dataset.\n"
+                "FPS benchmark requires a video dataset like YTF."
+            )
+            QMessageBox.warning(
+                self,
+                "Dataset Notice",
+                "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
+            )
+
+        QMessageBox.information(self, "Settings", msg)
 
     def load_settings(self):
         """Load settings.json and prefill UI state."""
@@ -1434,7 +1433,6 @@ class SettingsPage(QWidget):
                     f"path={self.dataset_path}, theme={self.theme}"
                 )
 
-                # Pre-set dataset in manager if valid
                 if self.dataset_name:
                     try:
                         self.dataset_manager.set_dataset(
@@ -2218,9 +2216,9 @@ class BenchmarkPage(QWidget):
         )
 
         # Load dataset from settings.json
-        settings_path = os.path.join(base_dir, "settings.json")
-        if os.path.exists(settings_path):
-            with open(settings_path, "r") as f:
+        self.settings_path = os.path.join(base_dir, "settings.json")
+        if os.path.exists(self.settings_path):
+            with open(self.settings_path, "r") as f:
                 cfg = json.load(f)
             # Unified dataset key support
             self.dataset_path = (
@@ -2274,6 +2272,18 @@ class BenchmarkPage(QWidget):
         else:
             return "#7f8c8d"
 
+    def _reload_settings_dataset(self):
+        """Reload dataset path from settings.json to reflect user changes."""
+        if os.path.exists(self.settings_path):
+            try:
+                with open(self.settings_path, "r") as f:
+                    cfg = json.load(f)
+                self.dataset_path = (
+                    cfg.get("dataset_path") or cfg.get("dataset") or self.dataset_path
+                )
+            except Exception as e:
+                print(f"[WARN] Could not reload settings: {e}")
+
     def load_benchmark_tabs(self):
         """Dynamically create benchmark buttons and output panels."""
         if not os.path.isdir(self.benchmark_dir):
@@ -2317,7 +2327,7 @@ class BenchmarkPage(QWidget):
             """
             )
 
-            # 🚫 Disable FPS button if dataset is LFW
+            # Disable FPS button if dataset currently LFW
             if "fps" in fname.lower():
                 ds_lower = (self.dataset_path or "").lower()
                 if "lfw" in ds_lower:
@@ -2345,6 +2355,9 @@ class BenchmarkPage(QWidget):
         if name not in self.pages:
             return
 
+        # 🔄 Refresh dataset in case user changed it in Settings
+        self._reload_settings_dataset()
+
         idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
@@ -2367,8 +2380,13 @@ class BenchmarkPage(QWidget):
         dataset_lower = (self.dataset_path or "").lower()
         iters = 50
 
+        # If YTF, open subject picker correctly
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
-            dlg = SelectSubjectsDialog(self.dataset_path, self)
+            ds_for_dialog = self.dataset_path
+            if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+            dlg = SelectSubjectsDialog(ds_for_dialog, self)
             if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                 return
             os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
@@ -2379,7 +2397,6 @@ class BenchmarkPage(QWidget):
                 return
             os.environ["YTF_RUNS"] = str(num_runs)
         else:
-            # No YTF selected → warn but continue for other benchmarks
             if "fps" in os.path.basename(file_path).lower():
                 QMessageBox.warning(
                     self,
