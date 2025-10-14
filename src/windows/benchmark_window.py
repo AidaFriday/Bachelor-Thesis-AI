@@ -302,8 +302,7 @@ class BenchmarkPage(QWidget):
             return
 
         dataset_lower = (self.dataset_path or "").lower()
-        iters = 50
-
+        iters = 0
         # If YTF, open subject picker correctly
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
             ds_for_dialog = self.dataset_path

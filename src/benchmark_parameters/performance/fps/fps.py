@@ -122,9 +122,10 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
     s, v, f = _ytf_loaded_subset_summary(dataset, images)
     send_log(f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames", level="info")
-    iters = len(images)
-    frames = []
-    image_map = {}
+    if iters <= 0:
+        iters = len(images)
+        frames = []
+        image_map = {}
 
     for idx, path in enumerate(images, 1):
         img = cv2.imread(path)
