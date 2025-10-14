@@ -77,21 +77,9 @@ class SettingsPage(QWidget):
         # --- Layout ---
         layout = QVBoxLayout()
 
-        # --- Dataset selection ---
-        self.dataset_label = QLabel("Select dataset:")
-        self.dataset_combo = QComboBox()
-        self.dataset_combo.addItems(self.dataset_manager.list_available())
-
-        # Set current dataset if saved
-        if self.dataset_name:
-            idx = self.dataset_combo.findText(self.dataset_name, Qt.MatchFixedString)
-            if idx >= 0:
-                self.dataset_combo.setCurrentIndex(idx)
-
-        # Keep dataset_name synced
-        self.dataset_name = self.dataset_combo.currentText()
-        self.dataset_combo.currentTextChanged.connect(self.update_dataset_choice)
-
+        # --- Dataset section (auto detection, no combo box) ---
+        self.dataset_label = QLabel("Dataset:")
+        self.dataset_name_label = QLabel(self.dataset_name or "Not selected")
         self.dataset_path_label = QLabel(f"Path: {self.dataset_path or 'Not selected'}")
         self.dataset_browse_btn = QPushButton("Browse Dataset Folder")
         self.dataset_browse_btn.clicked.connect(self.browse_dataset)
@@ -120,7 +108,7 @@ class SettingsPage(QWidget):
 
         # --- Assemble layout ---
         layout.addWidget(self.dataset_label)
-        layout.addWidget(self.dataset_combo)
+        layout.addWidget(self.dataset_name_label)
         layout.addWidget(self.dataset_path_label)
         layout.addWidget(self.dataset_browse_btn)
         layout.addSpacing(15)
@@ -136,24 +124,27 @@ class SettingsPage(QWidget):
     # ===============================================================
     # 🔹 Dataset Handling
     # ===============================================================
-    def update_dataset_choice(self, name: str):
-        """Update selected dataset name and apply default path."""
-        self.dataset_name = name
-        default_info = self.dataset_manager.DATASET_REGISTRY.get(name.lower(), {})
-        default_path = default_info.get("default_path")
-        self.dataset_path = default_path
-        self.dataset_path_label.setText(f"Path: {self.dataset_path or 'N/A'}")
-
     def browse_dataset(self):
-        """Manually browse for a dataset folder and override default."""
+        """Manually browse for a dataset folder and auto-detect type."""
         path = QFileDialog.getExistingDirectory(
             self, "Select Dataset Folder", os.getcwd()
         )
         if not path:
             return
 
-        # Apply manually chosen path to the currently selected dataset
         self.dataset_path = path
+
+        # Auto-detect dataset type from folder name or path
+        lower = path.lower()
+        if "ytf" in lower or "aligned_images_db" in lower:
+            self.dataset_name = "ytf"
+        elif "lfw" in lower:
+            self.dataset_name = "lfw"
+        else:
+            self.dataset_name = "unknown"
+
+        # Update UI
+        self.dataset_name_label.setText(self.dataset_name.upper())
         self.dataset_path_label.setText(f"Path: {path}")
 
     # ===============================================================
@@ -169,21 +160,10 @@ class SettingsPage(QWidget):
     # ===============================================================
     # 🔹 Save & Load
     # ===============================================================
-
     def save_settings(self):
-        # Always read current dataset from combo box in case signal didn't fire
-        self.dataset_name = self.dataset_combo.currentText().strip() or None
-
-        # --- Auto-correct dataset type based on chosen path ---
-        auto_dataset = self.dataset_name
-        if self.dataset_path and "ytf" in self.dataset_path.lower():
-            auto_dataset = "ytf"
-        elif self.dataset_path and "lfw" in self.dataset_path.lower():
-            auto_dataset = "lfw"
-
         data = {
             "model": self.model_name,
-            "dataset_name": auto_dataset,
+            "dataset_name": self.dataset_name,
             "dataset_path": self.dataset_path,
             "theme": self.theme,
         }
@@ -197,7 +177,7 @@ class SettingsPage(QWidget):
             (
                 f"✅ Settings saved:\n\n"
                 f"Model: {self.model_name}\n"
-                f"Dataset: {auto_dataset or 'Not selected'}\n"
+                f"Dataset: {self.dataset_name or 'Not selected'}\n"
                 f"Path: {self.dataset_path or 'N/A'}\n"
                 f"Theme: {self.theme}"
             ),
@@ -221,7 +201,6 @@ class SettingsPage(QWidget):
                     f"path={self.dataset_path}, theme={self.theme}"
                 )
 
-                # Pre-set dataset in manager if valid
                 if self.dataset_name:
                     try:
                         self.dataset_manager.set_dataset(
