@@ -3,6 +3,12 @@ import numpy as np
 import insightface
 
 
+import onnxruntime as ort
+import insightface
+import cv2
+import numpy as np
+
+
 class InsightFaceWrapper:
     """
     Wrapper around InsightFace (ArcFace, CosFace, etc).
@@ -13,13 +19,31 @@ class InsightFaceWrapper:
 
     def __init__(self, device: str = "cpu", det_size=(640, 640), input_size=(112, 112)):
         self.device = device
-        self.input_size = input_size  # ✅ added so performance.py & accuracy.py can use it
+        self.input_size = input_size  # used by performance.py & accuracy.py
 
-        # FaceAnalysis auto-downloads pretrained models to ~/.insightface
+        # Pick the best provider automatically
+        available = ort.get_available_providers()
+        if "TensorrtExecutionProvider" in available:
+            providers = [
+                "TensorrtExecutionProvider",
+                "CUDAExecutionProvider",
+                "CPUExecutionProvider",
+            ]
+            print("[InsightFaceWrapper] Using TensorRT acceleration")
+        elif "CUDAExecutionProvider" in available:
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            print("[InsightFaceWrapper] Using GPU acceleration (CUDAExecutionProvider)")
+        else:
+            providers = ["CPUExecutionProvider"]
+            print("[InsightFaceWrapper] Using CPU only (no GPU provider found)")
+
+        # Initialize FaceAnalysis
         ctx_id = 0 if device == "cuda" else -1
-        self.model = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
+        self.model = insightface.app.FaceAnalysis(name="buffalo_l", providers=providers)
         self.model.prepare(ctx_id=ctx_id, det_size=det_size)
-        print(f"[InsightFaceWrapper] Loaded InsightFace with det_size={det_size}")
+        print(
+            f"[InsightFaceWrapper] Loaded InsightFace with det_size={det_size} and providers={providers}"
+        )
 
     def detect_and_embed(self, frame: np.ndarray):
         """

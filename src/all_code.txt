@@ -260,9 +260,10 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
     s, v, f = _ytf_loaded_subset_summary(dataset, images)
     send_log(f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames", level="info")
-    iters = len(images)
-    frames = []
-    image_map = {}
+    if iters <= 0:
+        iters = len(images)
+        frames = []
+        image_map = {}
 
     for idx, path in enumerate(images, 1):
         img = cv2.imread(path)
@@ -750,6 +751,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
 
 # ==== logic_dataset_video.py ====
 import json, sys, time, numpy as np
+import os, cv2
 from connector import load_model
 
 try:
@@ -770,56 +772,111 @@ def _cuda_sync():
         torch.cuda.synchronize()
 
 
-def _simulate_video_frame(h=640, w=640, frame_idx=0):
-    """Simulate slight motion variation per frame."""
-    frame = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-    frame = np.roll(frame, shift=frame_idx % 5, axis=1)  # mimic small movement
-    return frame
-
-
 def measure_once(wrapper, frame):
+    """Measure latency (ms) for a single frame."""
     _cuda_sync()
     t0 = time.perf_counter()
     _ = wrapper.embed(frame)
     _cuda_sync()
-    return (time.perf_counter() - t0) * 1000.0
+    return (time.perf_counter() - t0) * 1000.0  # milliseconds
 
 
 def run_logic(model_name, iters, frame_h, frame_w, dataset):
     wrapper = load_model(model_name)
-    send_log(f"Running video latency test with {iters} frames")
 
-    _ = wrapper.embed(_simulate_video_frame(frame_h, frame_w))
+    # ✅ Selected subjects (from GUI dialog)
+    selected_env = os.getenv("YTF_SELECTED_SUBJECTS", "")
+    selected_subjects = [s.strip() for s in selected_env.split(",") if s.strip()]
+    if selected_subjects:
+        send_log(f"Filtering to selected subjects: {', '.join(selected_subjects)}")
+
+    # ✅ Gather all frames for these subjects
+    image_paths = []
+    for root, _, files in os.walk(dataset):
+        if selected_subjects and not any(
+            subj.lower() in root.lower() for subj in selected_subjects
+        ):
+            continue
+        for f in files:
+            if f.lower().endswith(".jpg"):
+                image_paths.append(os.path.join(root, f))
+    image_paths.sort()
+
+    if not image_paths:
+        send_log("❌ No .jpg frames found for selected subjects", "error")
+        return
+
+    # ✅ Determine iteration count
+    if iters <= 0 or iters > len(image_paths):
+        iters = len(image_paths)
+        send_log(f"⚠️ iters=0 detected → using {iters} frames from selected subjects")
+
+    # ✅ Number of test repetitions
+    num_runs = int(os.getenv("YTF_RUNS", "1"))
+    send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
+
+    # ✅ Warmup
+    warmup = cv2.imread(image_paths[0])
+    _ = wrapper.embed(warmup)
     _cuda_sync()
 
-    times = []
-    for i in range(iters):
-        frame = _simulate_video_frame(frame_h, frame_w, i)
-        t = measure_once(wrapper, frame)
-        times.append(t)
-        if (i + 1) % 5 == 0:
-            send_log(f"Processed frame {i+1}/{iters}")
+    # --- Multiple runs ---
+    latency_series_all = []  # per-frame latency per run
+    avg_latency_runs = []
 
-    avg_ms = float(np.mean(times))
-    stats = {
-        "p50_ms": float(np.percentile(times, 50)),
-        "p90_ms": float(np.percentile(times, 90)),
-        "p95_ms": float(np.percentile(times, 95)),
-        "p99_ms": float(np.percentile(times, 99)),
-        "min_ms": float(np.min(times)),
-        "max_ms": float(np.max(times)),
-        "std_ms": float(np.std(times)),
-    }
+    for r in range(num_runs):
+        send_log(f"--- Run {r+1}/{num_runs} ---")
+        latencies = []
 
-    send_log(f"Video Latency avg={avg_ms:.2f} ms", "result")
+        for i, img_path in enumerate(image_paths[:iters]):
+            frame = cv2.imread(img_path)
+            if frame is None:
+                continue
 
+            t_ms = measure_once(wrapper, frame)
+            latencies.append(t_ms)
+
+            if (i + 1) % 10 == 0:
+                send_log(f"Processed frame {i+1}/{iters} (run {r+1})")
+
+        if not latencies:
+            send_log(f"❌ No valid frames processed in run {r+1}", "error")
+            continue
+
+        avg_ms = float(np.mean(latencies))
+        avg_latency_runs.append(avg_ms)
+        latency_series_all.append(latencies)
+
+        fps = 1000.0 / avg_ms if avg_ms > 0 else 0
+        send_log(f"[Run {r+1}] {iters} frames → {fps:.2f} FPS")
+
+    # --- Final results ---
+    if not avg_latency_runs:
+        send_log("❌ All runs failed", "error")
+        return
+
+    avg_all_ms = float(np.mean(avg_latency_runs))
+    avg_all_fps = 1000.0 / avg_all_ms if avg_all_ms > 0 else 0
+
+    send_log(
+        f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms → {avg_all_fps:.2f} FPS",
+        "result",
+    )
+
+    # ✅ Prepare GUI-compatible payload (latency not FPS)
     payload = {
         "kind": "latency_video",
         "dataset": dataset,
-        "avg_ms": avg_ms,
-        "times": times,
-        **stats,
+        "subjects": selected_subjects,
+        "num_runs": num_runs,
+        "iters": iters,
+        "avg_latency_ms": avg_all_ms,
+        "avg_fps": avg_all_fps,
+        "latency_series_all": latency_series_all,  # ← per-frame latency
+        "runs": avg_latency_runs,  # per-run average latency
+        "model": model_name,
     }
+
     print(json.dumps(payload))
     sys.stdout.flush()
 
@@ -2015,6 +2072,12 @@ import numpy as np
 import insightface
 
 
+import onnxruntime as ort
+import insightface
+import cv2
+import numpy as np
+
+
 class InsightFaceWrapper:
     """
     Wrapper around InsightFace (ArcFace, CosFace, etc).
@@ -2025,13 +2088,31 @@ class InsightFaceWrapper:
 
     def __init__(self, device: str = "cpu", det_size=(640, 640), input_size=(112, 112)):
         self.device = device
-        self.input_size = input_size  # ✅ added so performance.py & accuracy.py can use it
+        self.input_size = input_size  # used by performance.py & accuracy.py
 
-        # FaceAnalysis auto-downloads pretrained models to ~/.insightface
+        # Pick the best provider automatically
+        available = ort.get_available_providers()
+        if "TensorrtExecutionProvider" in available:
+            providers = [
+                "TensorrtExecutionProvider",
+                "CUDAExecutionProvider",
+                "CPUExecutionProvider",
+            ]
+            print("[InsightFaceWrapper] Using TensorRT acceleration")
+        elif "CUDAExecutionProvider" in available:
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            print("[InsightFaceWrapper] Using GPU acceleration (CUDAExecutionProvider)")
+        else:
+            providers = ["CPUExecutionProvider"]
+            print("[InsightFaceWrapper] Using CPU only (no GPU provider found)")
+
+        # Initialize FaceAnalysis
         ctx_id = 0 if device == "cuda" else -1
-        self.model = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
+        self.model = insightface.app.FaceAnalysis(name="buffalo_l", providers=providers)
         self.model.prepare(ctx_id=ctx_id, det_size=det_size)
-        print(f"[InsightFaceWrapper] Loaded InsightFace with det_size={det_size}")
+        print(
+            f"[InsightFaceWrapper] Loaded InsightFace with det_size={det_size} and providers={providers}"
+        )
 
     def detect_and_embed(self, frame: np.ndarray):
         """
@@ -2378,8 +2459,7 @@ class BenchmarkPage(QWidget):
             return
 
         dataset_lower = (self.dataset_path or "").lower()
-        iters = 50
-
+        iters = 0
         # If YTF, open subject picker correctly
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
             ds_for_dialog = self.dataset_path
@@ -2458,6 +2538,43 @@ class BenchmarkPage(QWidget):
                 va="center",
                 color="red",
             )
+            canvas.draw()
+            return
+
+                # --- Latency results (image/video) ---
+
+        if "latency_series_all" in data:
+            latency_series_all = data["latency_series_all"]
+            run_avgs = data.get("runs", [])
+            dataset = data.get("dataset", "")
+            model = data.get("model", "")
+            import numpy as np
+            import matplotlib.cm as cm
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+
+            num_runs = len(latency_series_all)
+            cmap = cm.get_cmap("tab10", max(1, num_runs))
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
+            styles = ["-", "--", "-.", ":"]
+
+            for i, latencies in enumerate(latency_series_all):
+                avg_ms = run_avgs[i] if i < len(run_avgs) else np.mean(latencies)
+                ax.plot(
+                    range(1, len(latencies) + 1),
+                    latencies,
+                    linestyle=styles[i % len(styles)],
+                    color=colors[i],
+                    linewidth=1.5,
+                    label=f"Run {i+1} ({avg_ms:.2f} ms)",
+                )
+
+            ax.legend(loc="upper right", title="Avg per Run", fontsize=9)
+            ax.set_xlabel("Frame Index")
+            ax.set_ylabel("Latency (ms)")
+            ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
+            ax.grid(True)
             canvas.draw()
             return
 

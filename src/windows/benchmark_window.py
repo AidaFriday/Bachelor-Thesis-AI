@@ -384,6 +384,43 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
+                # --- Latency results (image/video) ---
+
+        if "latency_series_all" in data:
+            latency_series_all = data["latency_series_all"]
+            run_avgs = data.get("runs", [])
+            dataset = data.get("dataset", "")
+            model = data.get("model", "")
+            import numpy as np
+            import matplotlib.cm as cm
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+
+            num_runs = len(latency_series_all)
+            cmap = cm.get_cmap("tab10", max(1, num_runs))
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
+            styles = ["-", "--", "-.", ":"]
+
+            for i, latencies in enumerate(latency_series_all):
+                avg_ms = run_avgs[i] if i < len(run_avgs) else np.mean(latencies)
+                ax.plot(
+                    range(1, len(latencies) + 1),
+                    latencies,
+                    linestyle=styles[i % len(styles)],
+                    color=colors[i],
+                    linewidth=1.5,
+                    label=f"Run {i+1} ({avg_ms:.2f} ms)",
+                )
+
+            ax.legend(loc="upper right", title="Avg per Run", fontsize=9)
+            ax.set_xlabel("Frame Index")
+            ax.set_ylabel("Latency (ms)")
+            ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
+            ax.grid(True)
+            canvas.draw()
+            return
+
         # Plot FPS results
         if "fps_series_all" in data:
             fps_series_all = data.get("fps_series_all", [])
