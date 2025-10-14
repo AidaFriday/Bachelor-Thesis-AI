@@ -1,3 +1,5 @@
+# ==== windows/benchmark_window.py ====
+
 import os
 import sys
 import subprocess
@@ -22,7 +24,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
-# ------------------ New Dialog ------------------
+# ------------------ Dialog for YTF subject selection ------------------
 class SelectSubjectsDialog(QDialog):
     """Popup dialog to select multiple subjects (folders) from dataset."""
 
@@ -47,7 +49,7 @@ class SelectSubjectsDialog(QDialog):
             )
             for name in people:
                 item = QListWidgetItem(name)
-                item.setCheckState(0)  # Unchecked
+                item.setCheckState(0)
                 self.list_widget.addItem(item)
         else:
             print(f"[WARN] Invalid dataset path: {dataset_path}")
@@ -97,11 +99,9 @@ class RunnerThread(QThread):
                 str(self.iters),
             ]
 
-            # Always include dataset if available
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # validation_accuracy only uses test image
             if (
                 "validation_accuracy" in os.path.basename(self.file_path)
                 and self.test_image
@@ -126,7 +126,7 @@ class RunnerThread(QThread):
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
 
-# ------------------ Main GUI Page ------------------
+# ------------------ Benchmark Page ------------------
 class BenchmarkPage(QWidget):
     def __init__(self, parent=None, get_model_name=None):
         super().__init__(parent)
@@ -135,7 +135,6 @@ class BenchmarkPage(QWidget):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
 
-        # fixed test image path
         self.test_image = os.path.join(
             self.benchmark_dir, "validation_accuracy", "test_image", "test_image1.jpg"
         )
@@ -145,19 +144,20 @@ class BenchmarkPage(QWidget):
         if os.path.exists(settings_path):
             with open(settings_path, "r") as f:
                 cfg = json.load(f)
-            self.dataset_path = cfg.get(
-                "dataset", r"C:\programming\Datasets\LFW\lfw-deepfunneled"
+            # Unified dataset key support
+            self.dataset_path = (
+                cfg.get("dataset_path")
+                or cfg.get("dataset")
+                or r"C:\programming\Datasets\LFW\lfw-deepfunneled"
             )
         else:
             self.dataset_path = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
 
         main_layout = QVBoxLayout()
-
-        # --- row of buttons ---
         self.button_layout = QHBoxLayout()
         main_layout.addLayout(self.button_layout)
 
-        # --- output area ---
+        # Output frame
         self.output_stack = QStackedWidget()
         self.pages = {}
 
@@ -182,18 +182,14 @@ class BenchmarkPage(QWidget):
         self.output_stack.setCurrentIndex(-1)
         self.current_thread = None
 
-    def _pretty_name_for(self, file_path: str) -> str:
+    def _pretty_name_for(self, file_path):
         base = os.path.splitext(os.path.basename(file_path))[0]
         return base.capitalize()
 
-    def _button_color_for(self, fname: str) -> str:
+    def _button_color_for(self, fname):
         if "logic" in fname.lower():
             return "#8e44ad"
-        elif (
-            "latency" in fname.lower()
-            or "fps" in fname.lower()
-            or "inference" in fname.lower()
-        ):
+        elif any(x in fname.lower() for x in ["latency", "fps", "inference"]):
             return "#27ae60"
         elif "validation" in fname.lower() or "accuracy" in fname.lower():
             return "#2980b9"
@@ -201,6 +197,7 @@ class BenchmarkPage(QWidget):
             return "#7f8c8d"
 
     def load_benchmark_tabs(self):
+        """Dynamically create benchmark buttons and output panels."""
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
@@ -208,21 +205,16 @@ class BenchmarkPage(QWidget):
         all_scripts = []
         for dirpath, _, filenames in os.walk(self.benchmark_dir):
             for fname in filenames:
-                if not fname.endswith(".py"):
-                    continue
-                if fname.startswith("__") or fname.startswith("."):
+                if not fname.endswith(".py") or fname.startswith("__"):
                     continue
                 if "logic" in fname.lower():
                     continue
                 all_scripts.append(os.path.join(dirpath, fname))
-
         all_scripts.sort(key=lambda p: os.path.basename(p).lower())
 
         for file_path in all_scripts:
             fname = os.path.basename(file_path)
             tab_name = self._pretty_name_for(file_path)
-            if tab_name in self.pages:
-                tab_name += f"_{len(self.pages)}"
 
             btn = QPushButton(tab_name)
             btn.setMinimumHeight(40)
@@ -247,8 +239,18 @@ class BenchmarkPage(QWidget):
             """
             )
 
+            # 🚫 Disable FPS button if dataset is LFW
+            if "fps" in fname.lower():
+                ds_lower = (self.dataset_path or "").lower()
+                if "lfw" in ds_lower:
+                    btn.setEnabled(False)
+                    btn.setToolTip(
+                        "FPS benchmark only works with YTF (video) datasets)."
+                    )
+
             self.button_layout.addWidget(btn)
 
+            # Matplotlib page
             page = QWidget()
             layout = QVBoxLayout()
             fig = Figure(figsize=(5, 4))
@@ -268,7 +270,7 @@ class BenchmarkPage(QWidget):
         idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
-        model_name = self.get_model_name() if self.get_model_name else None
+        model_name = self.get_model_name() if callable(self.get_model_name) else None
         if not model_name:
             fig.clear()
             ax = fig.add_subplot(111)
@@ -285,41 +287,28 @@ class BenchmarkPage(QWidget):
             return
 
         dataset_lower = (self.dataset_path or "").lower()
-        iters = 50  # default always defined
+        iters = 50
 
         if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
-            dataset_name = "YTF (aligned)"
             dlg = SelectSubjectsDialog(self.dataset_path, self)
             if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                 return
-
-            selected_subjects = dlg.selected_subjects
-            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(selected_subjects)
-            print(
-                f"[INFO] Selected {len(selected_subjects)} people: {', '.join(selected_subjects[:5])}"
-            )
-
+            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
             num_runs, ok = QInputDialog.getInt(
-                self,
-                "Number of Runs",
-                "How many runs do you want to perform?",
-                5,
-                1,
-                100,
-                1,
+                self, "Number of Runs", "How many runs?", 5, 1, 100, 1
             )
             if not ok:
                 return
             os.environ["YTF_RUNS"] = str(num_runs)
-
-            # no frame popup
-            iters = 50
         else:
-            dataset_name = (
-                "LFW"
-                if "lfw" in dataset_lower
-                else os.path.basename(self.dataset_path) or "synthetic"
-            )
+            # No YTF selected → warn but continue for other benchmarks
+            if "fps" in os.path.basename(file_path).lower():
+                QMessageBox.warning(
+                    self,
+                    "FPS Unsupported",
+                    "FPS benchmark is only supported for YTF (video) datasets.",
+                )
+                return
 
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
@@ -377,53 +366,29 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        if "fps_series_all" in data:
-            fps_series_all = data.get("fps_series_all", [])
-            dataset = data.get("dataset", "synthetic")
-            model = data.get("model", "")
-
-            # Pick color palette for multiple runs
-            import matplotlib.cm as cm
-            import numpy as np
-
-            colors = cm.get_cmap("tab10", len(fps_series_all))
-
+        # Plot FPS results
         if "fps_series_all" in data:
             fps_series_all = data.get("fps_series_all", [])
             run_avgs = data.get("runs", [])
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
-
             import matplotlib.cm as cm
             import numpy as np
 
             num_runs = len(fps_series_all)
-
-            # ✅ Choose colormap dynamically depending on number of runs
-            if num_runs <= 10:
-                cmap = cm.get_cmap("tab10", num_runs)
-            elif num_runs <= 20:
-                cmap = cm.get_cmap("tab20", num_runs)
-            else:
-                # fallback: continuous hue gradient for large N
-                cmap = cm.get_cmap("hsv", num_runs)
-
-            # Generate distinct colors evenly spaced
+            cmap = cm.get_cmap("tab10", max(1, num_runs))
             colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
-
-            # Optional: alternate line styles for clarity if many runs
-            line_styles = ["-", "--", "-.", ":"]
-            ax.set_prop_cycle(None)  # reset color cycle
+            styles = ["-", "--", "-.", ":"]
 
             for i, fps_series in enumerate(fps_series_all):
                 avg_fps = run_avgs[i] if i < len(run_avgs) else np.mean(fps_series)
                 ax.plot(
                     range(1, len(fps_series) + 1),
                     fps_series,
-                    linestyle=line_styles[i % len(line_styles)],
+                    linestyle=styles[i % len(styles)],
                     color=colors[i],
                     linewidth=1.5,
-                    label=f"Run {i+1}  ({avg_fps:.2f} FPS)",  # ✅ show averages in legend
+                    label=f"Run {i+1} ({avg_fps:.2f} FPS)",
                 )
 
             ax.legend(loc="upper right", title="Per-Run Averages", fontsize=9)

@@ -14,8 +14,8 @@
 .\components\sidebar.py
 .\components\utilities\file_indexer.py
 .\dataset\LFW.py
+.\dataset\manager.py
 .\dataset\YTF.py
-.\example1\train_lfw_arcface_cpu.py
 .\models\wrap_arcface.py
 .\models\wrap_facenet.py
 .\models\wrap_insightface.py
@@ -136,23 +136,24 @@ if __name__ == "__main__":
 
 # ==== .\benchmark_parameters\performance\fps\fps.py ====
 
-import argparse, json, os, sys, time
+# ==== benchmark_parameters/performance/fps/fps.py ====
+
+import argparse
+import json
+import os
+import sys
+import time
 import numpy as np
 import cv2
 
 # ---- Bootstrap sys.path so connector and dataset are importable ----
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONNECTOR_PARENT = os.path.dirname(
-    os.path.dirname(CURRENT_DIR)
-)  # one level up (benchmark_parameters)
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # src
-
-for p in [CONNECTOR_PARENT, PROJECT_ROOT]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # src/
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
-from dataset import LFW, YTF
+from dataset import YTF
 
 try:
     import torch
@@ -180,26 +181,19 @@ def _random_frame(h=640, w=640):
     return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
 
 
-def measure_once(wrapper, mode="detect", frame=None):
-    """Measure latency for one run (detect+embed or embed only)."""
+def measure_once(wrapper, frame):
+    """Measure latency for one detect+embed operation."""
     _cuda_synchronize_if_needed()
     t0 = time.perf_counter()
-    if mode == "detect":
-        _ = wrapper.detect_and_embed(frame)
-    else:
-        _ = wrapper.embed(frame)
+    _ = wrapper.detect_and_embed(frame)
     _cuda_synchronize_if_needed()
     t1 = time.perf_counter()
     return (t1 - t0) * 1000.0  # ms
 
 
 def _ytf_loaded_subset_summary(root_dir: str, image_paths):
-    """
-    Summarize the loaded YTF subset (subjects/videos/frames).
-    Assumes layout: subject / video / aligned_detect_*_{frame}.jpg
-    """
-    subjects = set()
-    videos = set()
+    """Summarize the loaded YTF subset (subjects/videos/frames)."""
+    subjects, videos = set(), set()
     for p in image_paths:
         rel = os.path.relpath(p, root_dir)
         parts = rel.split(os.sep)
@@ -209,115 +203,166 @@ def _ytf_loaded_subset_summary(root_dir: str, image_paths):
     return len(subjects), len(videos), len(image_paths)
 
 
-def run(model_name, iters, target, frame_h, frame_w, dataset=None):
-    wrapper = load_model(model_name)
+# ---------------- Main Run ----------------
+def run(model_name, iters, frame_h, frame_w, dataset):
+    # --- Validate dataset (FPS must use YTF) ---
+    if not dataset or not os.path.exists(dataset):
+        send_log(
+            "❌ Invalid dataset path. FPS benchmark requires YTF dataset.",
+            level="error",
+        )
+        print(json.dumps({"error": "Invalid or missing YTF dataset path"}))
+        sys.exit(1)
 
-    send_log(
-        f"Running FPS benchmark | Model: {model_name} | "
-        f"Dataset: {dataset or 'synthetic'} | Mode: {target}"
+    dataset_lower = dataset.lower()
+    if "lfw" in dataset_lower:
+        send_log("❌ FPS test not available for LFW (image) datasets.", level="error")
+        print(json.dumps({"error": "FPS benchmark supports only YTF (video) datasets"}))
+        sys.exit(1)
+
+    # Ensure aligned_images_DB subfolder is used
+    aligned = os.path.join(dataset, "aligned_images_DB")
+    if os.path.exists(aligned):
+        dataset = aligned
+
+    wrapper = load_model(model_name)
+    send_log(f"Running FPS benchmark | Model: {model_name} | Dataset: YTF (video)")
+
+    # --- Load YTF frames ---
+    selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS")
+    selected_subjects = (
+        set(s.strip() for s in selected_subjects_env.split(",") if s.strip())
+        if selected_subjects_env
+        else None
     )
 
+    all_images = YTF.list_all_images(root_dir=dataset, shuffle=False, verbose=False)
+
+    if selected_subjects:
+        images = [
+            p
+            for p in all_images
+            if os.path.basename(os.path.dirname(os.path.dirname(p)))
+            in selected_subjects
+        ]
+        if not images:
+            send_log("⚠️ No YTF frames found for selected subjects", level="error")
+            print(json.dumps({"error": "No frames found for selected subjects"}))
+            sys.exit(1)
+        send_log(f"Filtering to selected subjects: {', '.join(selected_subjects)}")
+    else:
+        images = all_images
+
+    if not images:
+        send_log("⚠️ YTF dataset contains no images", level="error")
+        print(json.dumps({"error": "Empty YTF dataset"}))
+        sys.exit(1)
+
+    s, v, f = _ytf_loaded_subset_summary(dataset, images)
+    send_log(f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames", level="info")
+    iters = len(images)
     frames = []
     image_map = {}
 
-    # -------- Load dataset automatically (LFW or YTF) --------
-    images = []
-    dataset_name = "synthetic"
-    if dataset:
-        dl = dataset.lower()
-        if ("ytf" in dl) or ("aligned_images_db" in dl):
-            dataset_name = "YTF (aligned)"
-            images = YTF.list_all_images(
-                root_dir=dataset, limit=iters, shuffle=True, verbose=False
-            )
-            # summary for reporting (subset you actually loaded)
-            s, v, f = _ytf_loaded_subset_summary(dataset, images)
-            send_log(
-                f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames",
-                level="result",
-            )
-        else:
-            dataset_name = "LFW"
-            images = LFW.list_all_images(
-                root_dir=dataset, limit=iters, shuffle=True, verbose=False
-            )
-
-    # Load frames into memory (works for both LFW and YTF aligned frames)
     for idx, path in enumerate(images, 1):
         img = cv2.imread(path)
         if img is not None:
             frames.append(img)
             image_map[idx] = os.path.basename(path)
-            send_log(f"[{idx:03d}] Loaded dataset image: {path}")
+            if idx <= 3:
+                send_log(f"Loaded image: {path}")
 
-    # -------- Measure --------
-    times_ms = []
-    start = time.time()
+    # --- Multi-run support ---
+    num_runs = int(os.getenv("YTF_RUNS", "1"))
+    send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
 
-    for i in range(iters):
-        frame = frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
-        t = measure_once(wrapper, mode=target, frame=frame)
-        times_ms.append(t)
+    all_run_fps = []
+    all_run_series = []
 
-        if (i + 1) % 5 == 0 or (i + 1) == iters:
-            send_log(f"Processed {i+1}/{iters} frames…")
+    for run_idx in range(num_runs):
+        send_log(f"--- Run {run_idx + 1}/{num_runs} ---")
+        times_ms = []
+        start = time.time()
 
-    elapsed = time.time() - start
-    send_log(f"Completed {iters} iterations in {elapsed:.2f}s", level="result")
+        for i in range(iters):
+            frame = (
+                frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
+            )
+            t = measure_once(wrapper, frame)
+            times_ms.append(t)
+            if (i + 1) % 10 == 0 or (i + 1) == iters:
+                send_log(f"Processed {i + 1}/{iters} frames (run {run_idx + 1})")
 
-    # Convert latency → FPS
-    fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
-    mean_fps = float(np.mean(fps_series)) if fps_series else float("nan")
+        elapsed = time.time() - start
+        fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+        mean_fps = float(np.mean(fps_series))
+        all_run_fps.append(mean_fps)
+        all_run_series.append(fps_series)
 
+        send_log(
+            f"[Run {run_idx + 1}] {iters} frames → {mean_fps:.2f} FPS", level="result"
+        )
+
+    avg_fps = sum(all_run_fps) / len(all_run_fps)
     send_log(
-        f"Average FPS on {dataset_name if dataset else 'synthetic'} "
-        f"({len(fps_series)} frames): {mean_fps:.2f} FPS",
-        level="result",
+        f"[RESULT] Average FPS over {num_runs} run(s): {avg_fps:.2f}", level="result"
     )
 
     payload = {
         "kind": "fps",
         "model": model_name,
-        "mode": "detect_and_embed" if target == "detect" else "embed_only",
-        "dataset": dataset_name if dataset else "synthetic",
-        "fps": mean_fps,
-        "fps_series": fps_series,
+        "dataset": "YTF (video)",
+        "fps": avg_fps,
+        "runs": all_run_fps,
+        "fps_series_all": all_run_series,
     }
 
-    if dataset and frames:
-        mapping_file = os.path.join(PROJECT_ROOT, "fps_index_map.json")
-        with open(mapping_file, "w") as f:
-            json.dump(image_map, f, indent=4)
-        send_log(f"Saved image index mapping to {mapping_file}")
+    # --- Save per-run summary JSON ---
+    report = {"runs": []}
+    for run_idx, fps_series in enumerate(all_run_series):
+        min_idx = int(np.argmin(fps_series))
+        max_idx = int(np.argmax(fps_series))
+        report["runs"].append(
+            {
+                "run": run_idx + 1,
+                "min_fps": round(float(fps_series[min_idx]), 2),
+                "max_fps": round(float(fps_series[max_idx]), 2),
+                "avg_fps": round(all_run_fps[run_idx], 2),
+                "min_file": image_map.get(min_idx + 1, f"frame_{min_idx + 1}"),
+                "max_file": image_map.get(max_idx + 1, f"frame_{max_idx + 1}"),
+            }
+        )
+
+    report_file = os.path.join(PROJECT_ROOT, "fps_report.json")
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=4)
+    send_log(f"Saved FPS summary report → {report_file}")
 
     print(json.dumps(payload))
     sys.stdout.flush()
 
 
+# ---------------- CLI Entry ----------------
 def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
                 return json.load(f)
         except Exception:
-            return {}
+            pass
     return {}
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    parser.add_argument("--iters", type=int, default=50, help="Number of iterations")
-    parser.add_argument("--target", choices=["detect", "embed"], default="detect")
-    parser.add_argument("--frame-size", type=str, default="640x640", help="HxW size")
-    parser.add_argument(
-        "--dataset", type=str, default=None, help="Path to dataset (optional)"
-    )
+    parser.add_argument("--model", type=str, required=False)
+    parser.add_argument("--iters", type=int, default=50)
+    parser.add_argument("--frame-size", type=str, default="640x640")
+    parser.add_argument("--dataset", type=str, required=False)
     args = parser.parse_args()
 
     cfg = _resolve_settings()
     model = args.model or cfg.get("model")
-    # ✅ Prefer CLI path if provided; else fall back to settings.json
     dataset = args.dataset or cfg.get("dataset")
 
     if not model:
@@ -325,11 +370,11 @@ def main():
         sys.exit(1)
 
     try:
-        h, w = [int(p) for p in args.frame_size.lower().split("x")]
+        h, w = [int(x) for x in args.frame_size.lower().split("x")]
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, args.target, h, w, dataset=dataset)
+    run(model, args.iters, h, w, dataset)
 
 
 if __name__ == "__main__":
@@ -1175,16 +1220,16 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
 )
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, Qt
 import os
 import json
 
+# Import the centralized dataset manager
+from dataset.manager import DatasetManager
+
 # Project root (…/src)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATASET_SCRIPTS_DIR = os.path.join(BASE_DIR, "dataset")
-
-
-SETTINGS_FILE = "settings.json"
+SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
 LIGHT_THEME = """
     QWidget {
@@ -1225,25 +1270,44 @@ DARK_THEME = """
 
 
 class SettingsPage(QWidget):
-    theme_changed = pyqtSignal(str)  # 🔔 signal to notify theme changes
+    theme_changed = pyqtSignal(str)  # 🔔 notify theme changes
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.dataset_path = None
+
+        # --- Core state ---
         self.model_name = "arcface"
         self.theme = "light"
 
-        # Try to load saved settings
+        # Central dataset manager (handles registry & validation)
+        self.dataset_manager = DatasetManager()
+        self.dataset_name = None
+        self.dataset_path = None
+
+        # Load saved settings if available
         self.load_settings()
 
+        # --- Layout ---
         layout = QVBoxLayout()
 
         # --- Dataset selection ---
-        self.dataset_label = QLabel("Choose dataset folder:")
-        if self.dataset_path:
-            self.dataset_label.setText(f"Dataset: {self.dataset_path}")
-        self.dataset_btn = QPushButton("Browse Dataset")
-        self.dataset_btn.clicked.connect(self.browse_dataset)
+        self.dataset_label = QLabel("Select dataset:")
+        self.dataset_combo = QComboBox()
+        self.dataset_combo.addItems(self.dataset_manager.list_available())
+
+        # Set current dataset if saved
+        if self.dataset_name:
+            idx = self.dataset_combo.findText(self.dataset_name, Qt.MatchFixedString)
+            if idx >= 0:
+                self.dataset_combo.setCurrentIndex(idx)
+
+        # Keep dataset_name synced
+        self.dataset_name = self.dataset_combo.currentText()
+        self.dataset_combo.currentTextChanged.connect(self.update_dataset_choice)
+
+        self.dataset_path_label = QLabel(f"Path: {self.dataset_path or 'Not selected'}")
+        self.dataset_browse_btn = QPushButton("Browse Dataset Folder")
+        self.dataset_browse_btn.clicked.connect(self.browse_dataset)
 
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
@@ -1267,9 +1331,11 @@ class SettingsPage(QWidget):
         self.save_btn = QPushButton("Save Settings")
         self.save_btn.clicked.connect(self.save_settings)
 
-        # Layout
+        # --- Assemble layout ---
         layout.addWidget(self.dataset_label)
-        layout.addWidget(self.dataset_btn)
+        layout.addWidget(self.dataset_combo)
+        layout.addWidget(self.dataset_path_label)
+        layout.addWidget(self.dataset_browse_btn)
         layout.addSpacing(15)
         layout.addWidget(self.model_label)
         layout.addWidget(self.model_combo)
@@ -1278,92 +1344,105 @@ class SettingsPage(QWidget):
         layout.addWidget(self.theme_combo)
         layout.addStretch()
         layout.addWidget(self.save_btn)
-
         self.setLayout(layout)
 
-    def _resolve_dataset_script(self, selected_path: str):
-        """Given a selected dataset folder, return (folder_name, matching_script_path_or_None).
-        Matching is case-insensitive and ignores spaces and hyphens.
-        """
-        ds_name = os.path.basename(os.path.normpath(selected_path))
-        normalized = ds_name.replace(" ", "").replace("-", "").lower()
-
-        try:
-            candidates = {
-                os.path.splitext(f)[0]
-                .replace(" ", "")
-                .replace("-", "")
-                .lower(): os.path.join(DATASET_SCRIPTS_DIR, f)
-                for f in os.listdir(DATASET_SCRIPTS_DIR)
-                if f.endswith(".py")
-            }
-        except Exception:
-            candidates = {}
-
-        return ds_name, candidates.get(normalized)
+    # ===============================================================
+    # 🔹 Dataset Handling
+    # ===============================================================
+    def update_dataset_choice(self, name: str):
+        """Update selected dataset name and apply default path."""
+        self.dataset_name = name
+        default_info = self.dataset_manager.DATASET_REGISTRY.get(name.lower(), {})
+        default_path = default_info.get("default_path")
+        self.dataset_path = default_path
+        self.dataset_path_label.setText(f"Path: {self.dataset_path or 'N/A'}")
 
     def browse_dataset(self):
+        """Manually browse for a dataset folder and override default."""
         path = QFileDialog.getExistingDirectory(
             self, "Select Dataset Folder", os.getcwd()
         )
         if not path:
             return
 
-        ds_name, script_path = self._resolve_dataset_script(path)
-
-        if not script_path or not os.path.exists(script_path):
-            QMessageBox.critical(
-                self,
-                "Dataset not supported",
-                (
-                    f"Dataset logic not implemented for '{ds_name}'.\n\n"
-                    f"I expected a Python file in:\n"
-                    f"{DATASET_SCRIPTS_DIR}\n"
-                    f"named like '{ds_name}.py' (case-insensitive).\n\n"
-                    "Create the dataset loader there and try again."
-                ),
-            )
-            return
-
-        # ok ✔️
+        # Apply manually chosen path to the currently selected dataset
         self.dataset_path = path
-        self.dataset_label.setText(f"Dataset: {path}")
+        self.dataset_path_label.setText(f"Path: {path}")
 
+    # ===============================================================
+    # 🔹 Model & Theme
+    # ===============================================================
     def update_model(self, text):
         self.model_name = text
 
     def update_theme(self, text):
         self.theme = text
-        self.theme_changed.emit(text)  # 🔔 tell parent window
+        self.theme_changed.emit(text)
+
+    # ===============================================================
+    # 🔹 Save & Load
+    # ===============================================================
 
     def save_settings(self):
+        # Always read current dataset from combo box in case signal didn't fire
+        self.dataset_name = self.dataset_combo.currentText().strip() or None
+
+        # --- Auto-correct dataset type based on chosen path ---
+        auto_dataset = self.dataset_name
+        if self.dataset_path and "ytf" in self.dataset_path.lower():
+            auto_dataset = "ytf"
+        elif self.dataset_path and "lfw" in self.dataset_path.lower():
+            auto_dataset = "lfw"
+
         data = {
             "model": self.model_name,
-            "dataset": self.dataset_path,
+            "dataset_name": auto_dataset,
+            "dataset_path": self.dataset_path,
             "theme": self.theme,
         }
+
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
-        msg = (
-            f"✅ Settings saved:\n\n"
-            f"Model: {self.model_name}\n"
-            f"Dataset: {self.dataset_path or 'Not selected'}\n"
-            f"Theme: {self.theme}"
+        QMessageBox.information(
+            self,
+            "Settings",
+            (
+                f"✅ Settings saved:\n\n"
+                f"Model: {self.model_name}\n"
+                f"Dataset: {auto_dataset or 'Not selected'}\n"
+                f"Path: {self.dataset_path or 'N/A'}\n"
+                f"Theme: {self.theme}"
+            ),
         )
-        QMessageBox.information(self, "Settings", msg)
 
     def load_settings(self):
+        """Load settings.json and prefill UI state."""
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
                     data = json.load(f)
+
                 self.model_name = data.get("model", "arcface")
-                self.dataset_path = data.get("dataset", None)
+                self.dataset_name = data.get("dataset_name")
+                self.dataset_path = data.get("dataset_path")
                 self.theme = data.get("theme", "light")
+
                 print(
-                    f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}, theme={self.theme}"
+                    f"[INFO] Loaded settings: "
+                    f"model={self.model_name}, dataset={self.dataset_name}, "
+                    f"path={self.dataset_path}, theme={self.theme}"
                 )
+
+                # Pre-set dataset in manager if valid
+                if self.dataset_name:
+                    try:
+                        self.dataset_manager.set_dataset(
+                            self.dataset_name, self.dataset_path
+                        )
+                    except Exception as e:
+                        print(f"[WARN] Could not set dataset: {e}")
+
             except Exception as e:
                 print(f"[WARN] Could not load settings.json: {e}")
 
@@ -1596,15 +1675,96 @@ if __name__ == "__main__":
 
 
 
+# ==== .\dataset\manager.py ====
+
+# dataset/manager.py
+
+import os
+from typing import Dict, Type
+from dataset.LFW import list_all_images as lfw_list
+from dataset.YTF import list_all_images as ytf_list
+
+# You’ll add new ones here as you grow
+DATASET_REGISTRY: Dict[str, Dict[str, object]] = {
+    "lfw": {
+        "loader": lfw_list,
+        "default_path": r"C:\programming\Datasets\LFW\lfw-deepfunneled",
+        "kind": "image",
+    },
+    "ytf": {
+        "loader": ytf_list,
+        "default_path": r"C:\programming\Datasets\YTF\aligned_images_DB",
+        "kind": "video",
+    },
+    # future example
+    # "celeba": { "loader": celeba_list, "default_path": "C:/Datasets/CelebA", "kind": "image" },
+}
+
+
+class DatasetManager:
+    def __init__(self):
+        self.current_name = None
+        self.current_path = None
+
+    def list_available(self):
+        return list(DATASET_REGISTRY.keys())
+
+    def set_dataset(self, name: str, path: str = None):
+        name = name.lower()
+        if name not in DATASET_REGISTRY:
+            raise ValueError(f"Unknown dataset: {name}")
+
+        entry = DATASET_REGISTRY[name]
+        self.current_name = name
+        self.current_path = path or entry["default_path"]
+
+        if not os.path.exists(self.current_path):
+            raise FileNotFoundError(f"Dataset path not found: {self.current_path}")
+
+    def get_info(self):
+        if not self.current_name:
+            return None
+        entry = DATASET_REGISTRY[self.current_name]
+        return {
+            "name": self.current_name,
+            "path": self.current_path,
+            "kind": entry["kind"],
+        }
+
+    def load_images(self, limit=None, shuffle=True, verbose=False):
+        if not self.current_name:
+            raise RuntimeError("Dataset not set yet")
+        loader = DATASET_REGISTRY[self.current_name]["loader"]
+        return loader(self.current_path, limit=limit, shuffle=shuffle, verbose=verbose)
+
+
+
 # ==== .\dataset\YTF.py ====
 
-# ==== dataset/YTF.py ====
 import os
 import cv2
 import random
+import sys
+import math
+
+# --- Windows-safe stdout setup ---
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    # Fallback for older Python versions
+    pass
+
+
+def _safe_print(msg: str):
+    """Print safely across all OS terminals (avoids UnicodeEncodeError on Windows)."""
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        print(msg.encode("ascii", "ignore").decode())
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATASET_DIR = r"C:\programming\Datasets\YTF\aligned_images_DB"
+DATASET_DIR = r"C:\programming\Datasets\YTF"
 
 
 def list_all_images(root_dir, limit=None, shuffle=True, verbose=True):
@@ -1637,17 +1797,17 @@ def list_all_images(root_dir, limit=None, shuffle=True, verbose=True):
         all_images = all_images[:limit]
 
     if verbose:
-        print(f"[INFO] Found {len(all_images)} frames in YTF dataset")
+        _safe_print(f"[INFO] Found {len(all_images)} frames in YTF dataset")
         for idx, path in enumerate(all_images, 1):
-            print(f" {idx:03d}: {path}")
+            _safe_print(f" {idx:03d}: {path}")
 
-    # ✅ Final confirmation popup/log
+    # Final confirmation popup/log
     if all_images:
-        print(
-            f"\n✅ [SUCCESS] YTF dataset loaded successfully ({len(all_images)} frames found)"
+        _safe_print(
+            f"\n [SUCCESS] YTF dataset loaded successfully ({len(all_images)} frames found)"
         )
     else:
-        print(f"\n⚠️ [WARNING] No frames found in {root_dir}")
+        _safe_print(f"\n⚠️ [WARNING] No frames found in {root_dir}")
 
     return all_images
 
@@ -1657,398 +1817,66 @@ def load_image(path: str):
     img = cv2.imread(path)
     if img is None:
         raise FileNotFoundError(f"[ERROR] Frame not found: {path}")
-    print(f"[INFO] Loaded frame: {path}")
+    _safe_print(f"[INFO] Loaded frame: {path}")
     return img
 
 
-if __name__ == "__main__":
-    # Example: extract 50 video frames and log them
-    images = list_all_images(DATASET_DIR, limit=50, shuffle=True, verbose=True)
-
-    # Test loading the first frame
-    if images:
-        img = load_image(images[0])
-        print(f"[INFO] First frame shape: {img.shape}")
-
-    print("\n✅ [INFO] Dataset YTF loaded and verified successfully.")
-
-
-
-# ==== .\example1\train_lfw_arcface_cpu.py ====
-
-# train_lfw_arcface_cpu.py
-import math, argparse, time
-from pathlib import Path
-from collections import defaultdict
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms, models
-from torchvision.datasets import ImageFolder
-
-import numpy as np
-from sklearn.metrics import roc_auc_score, accuracy_score
-from tqdm import tqdm
-
-# ----------------------------
-# ArcFace head (classification)
-# ----------------------------
-class ArcMarginProduct(nn.Module):
-    def __init__(self, in_feat, out_feat, s=64.0, m=0.50, easy_margin=False):
-        super().__init__()
-        self.weight = nn.Parameter(torch.FloatTensor(out_feat, in_feat))
-        nn.init.xavier_uniform_(self.weight)
-        self.s = s
-        self.m = m
-        self.easy_margin = easy_margin
-        self.cos_m = math.cos(m)
-        self.sin_m = math.sin(m)
-        self.th = math.cos(math.pi - m)
-        self.mm = math.sin(math.pi - m) * m
-
-    def forward(self, emb, label):
-        emb = F.normalize(emb, p=2, dim=1)
-        W = F.normalize(self.weight, p=2, dim=1)
-        cosine = F.linear(emb, W).clamp(-1, 1)
-        sine = torch.sqrt((1.0 - cosine ** 2).clamp(0, 1))
-        phi = cosine * self.cos_m - sine * self.sin_m
-        if self.easy_margin:
-            phi = torch.where(cosine > 0, phi, cosine)
-        else:
-            phi = torch.where(cosine > self.th, phi, cosine - self.mm)
-
-        onehot = torch.zeros_like(cosine)
-        onehot.scatter_(1, label.view(-1, 1), 1.0)
-        logits = onehot * phi + (1.0 - onehot) * cosine
-        logits *= self.s
-        return logits
-
-# ----------------------------
-# Backbone: ResNet-18 → embedding
-# ----------------------------
-class FaceNet(nn.Module):
-    def __init__(self, embedding_dim=128, pretrained=False):
-        super().__init__()
-        self.backbone = models.resnet18(
-            weights=models.ResNet18_Weights.DEFAULT if pretrained else None
-        )
-        in_features = self.backbone.fc.in_features
-        self.backbone.fc = nn.Identity()
-        self.embed = nn.Linear(in_features, embedding_dim, bias=False)
-        self.bn = nn.BatchNorm1d(embedding_dim)
-
-    def forward(self, x):
-        x = self.backbone(x)
-        x = self.embed(x)
-        x = self.bn(x)
-        return x
-
-# ----------------------------
-# Utilities
-# ----------------------------
-def set_seed(seed=42):
-    import random
-    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
-
-def build_transforms(img_size):
-    return transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5,0.5,0.5],[0.5,0.5,0.5])
-    ])
-
-def _maybe_fix_nested_root(root):
-    inner = Path(root) / "lfw-deepfunneled"
-    if inner.exists() and inner.is_dir():
-        subdirs = [p for p in inner.iterdir() if p.is_dir()]
-        if len(subdirs) > 0:
-            return str(inner)
-    return root
-
-def split_by_identity(dataset: ImageFolder, train_id_frac=0.8, min_images_per_id=2, seed=42):
-    by_class = defaultdict(list)
-    for idx, (_, cls) in enumerate(dataset.samples):
-        by_class[cls].append(idx)
-
-    valid_classes = [c for c, idxs in by_class.items() if len(idxs) >= min_images_per_id]
-    if len(valid_classes) == 0:
-        return [], [], [], []
-
-    rng = np.random.default_rng(seed)
-    rng.shuffle(valid_classes)
-    split_point = max(1, int(len(valid_classes) * train_id_frac))
-    train_classes = set(valid_classes[:split_point])
-    val_classes   = set(valid_classes[split_point:]) or set(valid_classes[-1:])
-
-    train_idx, val_idx = [], []
-    for c, idxs in by_class.items():
-        if c in train_classes: train_idx.extend(idxs)
-        elif c in val_classes: val_idx.extend(idxs)
-    return train_idx, val_idx, sorted(list(train_classes)), sorted(list(val_classes))
-
-class RemapSubset(Dataset):
+def list_images_by_subset(root_dir, subset="A", limit=None, shuffle=False):
     """
-    Pickle-safe dataset wrapper that:
-      - selects a subset of ImageFolder by indices
-      - remaps class ids via a provided dict (for train set)
+    Divide YTF dataset folder-wise (by person) into 5 subsets (A–E),
+    and return up to `limit` image paths from the selected subset.
+
+    Each subset contains complete folders of people,
+    so frames of one person never get split across subsets.
     """
-    def __init__(self, base: ImageFolder, indices, class_remap=None):
-        self.base = base
-        self.indices = list(indices)
-        self.class_remap = class_remap  # dict old->new or None
+    aligned = os.path.join(root_dir, "aligned_images_DB")
+    if os.path.exists(aligned):
+        root_dir = aligned
 
-    def __len__(self):
-        return len(self.indices)
+    persons = [
+        d
+        for d in sorted(os.listdir(root_dir))
+        if os.path.isdir(os.path.join(root_dir, d))
+    ]
+    total_persons = len(persons)
+    if total_persons == 0:
+        raise FileNotFoundError(f"[YTF] No person folders found in {root_dir}")
 
-    def __getitem__(self, i):
-        x, y = self.base[self.indices[i]]
-        if self.class_remap is not None:
-            y = self.class_remap[y]
-        return x, y
+    subsets = ["A", "B", "C", "D", "E"]
+    if subset.upper() not in subsets:
+        raise ValueError(f"Invalid subset {subset}. Must be one of {subsets}")
 
-def make_loaders(img_size=112, batch_size=64, root="./archive/lfw-deepfunneled",
-                 train_id_frac=0.8, min_images_per_id=2, max_train_ids=None,
-                 num_workers=0, seed=42):
-    tfm = build_transforms(img_size)
-    root = _maybe_fix_nested_root(root)
-    full_dataset = ImageFolder(root=root, transform=tfm)
-    if len(full_dataset) == 0:
-        raise RuntimeError(f"No images under {root}")
+    import math
 
-    train_idx, val_idx, train_classes, val_classes = split_by_identity(
-        full_dataset, train_id_frac=train_id_frac, min_images_per_id=min_images_per_id, seed=seed
+    split_size = math.ceil(total_persons / len(subsets))
+    start = subsets.index(subset.upper()) * split_size
+    end = min(start + split_size, total_persons)
+
+    selected_persons = persons[start:end]
+    _safe_print(
+        f"[YTF] Subset {subset.upper()}: persons {start+1}-{end} / {total_persons}"
     )
 
-    # Optionally cap train identities
-    if train_classes and max_train_ids is not None and len(train_classes) > max_train_ids:
-        rng = np.random.default_rng(seed)
-        keep = set(rng.choice(train_classes, size=max_train_ids, replace=False))
-        train_idx = [i for i in train_idx if full_dataset.samples[i][1] in keep]
-        train_classes = sorted(list(keep))
+    all_images = []
+    for person in selected_persons:  # loop over each person
+        person_dir = os.path.join(root_dir, person)  # e.g., YTF/Aaron_Eckhart
+        for root, _, files in os.walk(person_dir):  # loop through all subfolders
+            for f in files:  # loop through files
+                if f.lower().endswith(".jpg"):  # filter JPGs
+                    all_images.append(os.path.join(root, f))  # store full image path
 
-    if len(train_idx) == 0:
-        # Fallback to random image split (so you can still run)
-        print("[WARN] Identity split empty; falling back to random image split.")
-        n_total = len(full_dataset)
-        n_train = max(1, int(0.8 * n_total))
-        n_val = n_total - n_train
-        gen = torch.Generator().manual_seed(seed)
-        train_subset, val_subset = torch.utils.data.random_split(full_dataset, [n_train, n_val], generator=gen)
-        # Approximate num classes (not exact under random split)
-        num_train_classes = len(full_dataset.classes)
-        train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=False)
-        val_loader   = DataLoader(val_subset,   batch_size=batch_size, shuffle=False,num_workers=num_workers, pin_memory=False)
-        print(f"[INFO] Random split: train images={len(train_subset)}, val images={len(val_subset)}")
-        return full_dataset, train_loader, val_loader, num_train_classes, list(range(len(val_subset)))
+    if limit:
+        all_images = all_images[:limit]
 
-    # Build class remap table (old id -> [0..num_train_classes-1])
-    class_remap = {old: new for new, old in enumerate(train_classes)}
-    train_set = RemapSubset(full_dataset, train_idx, class_remap=class_remap)
-    val_set   = RemapSubset(full_dataset, val_idx, class_remap=None)
-
-    print(f"[INFO] Train identities: {len(train_classes)} | Train images: {len(train_idx)}")
-    print(f"[INFO] Val   identities: {len(val_classes)} | Val   images: {len(val_idx)}")
-
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,  num_workers=num_workers, pin_memory=False)
-    val_loader   = DataLoader(val_set,   batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=False)
-    num_train_classes = len(train_classes)
-    return full_dataset, train_loader, val_loader, num_train_classes, val_idx
-
-# ---------- Build verification pairs from VAL identities ----------
-def build_verification_pairs(dataset: ImageFolder, val_indices, n_pos=2000, n_neg=2000, seed=42):
-    rng = np.random.default_rng(seed)
-    by_class = defaultdict(list)
-    for idx in val_indices:
-        _, c = dataset.samples[idx]
-        by_class[c].append(idx)
-
-    classes = [c for c, idxs in by_class.items() if len(idxs) >= 2]
-    if len(classes) == 0:
-        raise RuntimeError("No validation identities with >=2 images to make positive pairs.")
-
-    pos_pairs = []
-    for _ in range(n_pos):
-        c = rng.choice(classes)
-        i1, i2 = rng.choice(by_class[c], size=2, replace=False)
-        pos_pairs.append((i1, i2, 1))
-
-    neg_pairs = []
-    val_classes = list(by_class.keys())
-    for _ in range(n_neg):
-        c1, c2 = rng.choice(val_classes, size=2, replace=False)
-        i1 = rng.choice(by_class[c1])
-        i2 = rng.choice(by_class[c2])
-        neg_pairs.append((i1, i2, 0))
-
-    return pos_pairs + neg_pairs
-
-@torch.no_grad()
-def evaluate_verification(model, dataset: ImageFolder, pairs, batch_size=128, device="cpu"):
-    model.eval()
-    uniq = sorted({i for (i,_,_) in pairs} | {j for (_,j,_) in pairs})
-    imgs = torch.stack([dataset[inx][0] for inx in uniq], dim=0).to(device)
-
-    embs = []
-    for s in range(0, len(imgs), batch_size):
-        embs.append(model(imgs[s:s+batch_size]))
-    embs = F.normalize(torch.cat(embs, dim=0), p=2, dim=1)
-
-    idx_to_row = {idx: r for r, idx in enumerate(uniq)}
-    sims, labels = [], []
-    for i, j, lab in pairs:
-        e1 = embs[idx_to_row[i]]
-        e2 = embs[idx_to_row[j]]
-        sims.append(float(torch.sum(e1 * e2)))
-        labels.append(lab)
-
-    sims = np.array(sims); labels = np.array(labels)
-    auc = roc_auc_score(labels, sims)
-    thresholds = np.linspace(-1, 1, 4001)
-    accs = []
-    for th in thresholds:
-        preds = (sims >= th).astype(int)
-        accs.append(accuracy_score(labels, preds))
-    k = int(np.argmax(accs))
-    return auc, accs[k], thresholds[k]
-
-# ---------- Train / Eval ----------
-def train_epoch(model, head, loader, optimizer, device):
-    model.train(); head.train()
-    loss_meter, correct, total = 0.0, 0, 0
-    for imgs, targets in tqdm(loader, desc="Train", leave=False):
-        imgs = imgs.to(device); targets = targets.to(device)
-        optimizer.zero_grad()
-        emb = model(imgs)
-        logits = head(emb, targets)
-        loss = F.cross_entropy(logits, targets)
-        loss.backward(); optimizer.step()
-
-        loss_meter += loss.item() * imgs.size(0)
-        correct += (logits.argmax(1) == targets).sum().item()
-        total += imgs.size(0)
-    return loss_meter/total, correct/total
-
-@torch.no_grad()
-def eval_cls(model, head, loader, device):
-    model.eval(); head.eval()
-    loss_meter, correct, total = 0.0, 0, 0
-    for imgs, targets in tqdm(loader, desc="Eval", leave=False):
-        imgs = imgs.to(device)
-        targets = targets.to(device)
-
-        emb = model(imgs)
-        # Instead of ArcFace head, do cosine sim against head.weight
-        emb = F.normalize(emb, p=2, dim=1)
-        W = F.normalize(head.weight, p=2, dim=1)
-        logits = F.linear(emb, W) * head.s  # no margin
-
-        # Clamp labels to head size to avoid OOB
-        valid = targets < logits.shape[1]
-        if valid.sum() == 0:
-            continue
-        logits = logits[valid]
-        targets = targets[valid]
-
-        loss = F.cross_entropy(logits, targets)
-        loss_meter += loss.item() * imgs.size(0)
-        preds = logits.argmax(1)
-        correct += (preds == targets).sum().item()
-        total += imgs.size(0)
-    return (loss_meter / max(1,total)), (correct / max(1,total))
-
-
-# ---------- Main ----------
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-root", type=str, default="./archive/lfw-deepfunneled")
-    parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--img-size", type=int, default=96)
-    parser.add_argument("--embedding-dim", type=int, default=128)
-    parser.add_argument("--arc-s", type=float, default=64.0)
-    parser.add_argument("--arc-m", type=float, default=0.50)
-    parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--pretrained-backbone", action="store_true")
-    parser.add_argument("--max-train-ids", type=int, default=400)
-    parser.add_argument("--pairs-per-type", type=int, default=2000)
-    parser.add_argument("--min-images-per-id", type=int, default=2)
-    parser.add_argument("--num-workers", type=int, default=0, help="Use 0 on Windows to avoid pickling issues")
-    args = parser.parse_args()
-
-    set_seed(args.seed)
-    device = torch.device("cpu")
-
-    dataset, train_loader, val_loader, num_train_classes, val_indices = make_loaders(
-        img_size=args.img_size,
-        batch_size=args.batch_size,
-        root=args.data_root,
-        train_id_frac=0.8,
-        min_images_per_id=args.min_images_per_id,
-        max_train_ids=args.max_train_ids,
-        num_workers=args.num_workers,
-        seed=args.seed
+    _safe_print(
+        f"[YTF] Subset {subset.upper()} → {len(all_images)} frames from {len(selected_persons)} people"
     )
-
-    model = FaceNet(embedding_dim=args.embedding_dim, pretrained=args.pretrained_backbone).to(device)
-    head  = ArcMarginProduct(in_feat=args.embedding_dim, out_feat=num_train_classes,
-                             s=args.arc_s, m=args.arc_m).to(device)
-
-    optimizer = torch.optim.AdamW(
-        list(model.parameters()) + list(head.parameters()),
-        lr=args.lr, weight_decay=args.weight_decay
-    )
-
-    # verification pairs from VAL identities
-    try:
-        pairs = build_verification_pairs(dataset, val_indices,
-                                         n_pos=args.pairs_per_type, n_neg=args.pairs_per_type,
-                                         seed=args.seed)
-        have_pairs = True
-    except RuntimeError as e:
-        print(f"[WARN] No verification pairs: {e}")
-        have_pairs = False
-
-    best_auc = 0.0
-    ckpt_dir = Path("checkpoints"); ckpt_dir.mkdir(parents=True, exist_ok=True)
-    for epoch in range(1, args.epochs + 1):
-        t0 = time.time()
-        tr_loss, tr_acc = train_epoch(model, head, train_loader, optimizer, device)
-        va_loss, va_acc = eval_cls(model, head, val_loader, device)
-        if have_pairs:
-            auc, best_acc, best_th = evaluate_verification(model, dataset, pairs,
-                                                           batch_size=max(64, args.batch_size),
-                                                           device=device)
-        else:
-            auc, best_acc, best_th = float("nan"), float("nan"), float("nan")
-        dt = time.time() - t0
-
-        print(f"[Epoch {epoch:02d}] "
-              f"train_loss={tr_loss:.4f} train_acc={tr_acc:.3f} "
-              f"val_loss={va_loss:.4f} val_acc={va_acc:.3f} "
-              f"VERIF: AUC={auc:.4f} bestACC={best_acc:.3f} @thr={best_th:.3f} "
-              f"({dt:.1f}s)")
-
-        if have_pairs and auc > best_auc:
-            best_auc = auc
-            torch.save({
-                "model": model.state_dict(),
-                "head": head.state_dict(),
-                "args": vars(args),
-                "num_train_classes": num_train_classes,
-                "best_auc": best_auc
-            }, ckpt_dir / "model_best.pt")
-            print(f"  ↳ Saved new best checkpoint (AUC {best_auc:.4f})")
-
-    print("Done.")
-    return history
+    return all_images
 
 
 if __name__ == "__main__":
-    main()
+    # Optional quick test — not required for GUI
+    pass
 
 
 
@@ -2248,6 +2076,8 @@ class InsightFaceWrapper:
 
 # ==== .\windows\benchmark_window.py ====
 
+# ==== windows/benchmark_window.py ====
+
 import os
 import sys
 import subprocess
@@ -2262,6 +2092,9 @@ from PyQt5.QtWidgets import (
     QProgressBar,
     QInputDialog,
     QMessageBox,
+    QDialog,
+    QListWidget,
+    QListWidgetItem,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -2269,6 +2102,57 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
+# ------------------ Dialog for YTF subject selection ------------------
+class SelectSubjectsDialog(QDialog):
+    """Popup dialog to select multiple subjects (folders) from dataset."""
+
+    def __init__(self, dataset_path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select People")
+        self.setMinimumWidth(400)
+        self.selected_subjects = []
+
+        layout = QVBoxLayout(self)
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.MultiSelection)
+
+        # Load all subfolders (people)
+        if os.path.isdir(dataset_path):
+            people = sorted(
+                [
+                    d
+                    for d in os.listdir(dataset_path)
+                    if os.path.isdir(os.path.join(dataset_path, d))
+                ]
+            )
+            for name in people:
+                item = QListWidgetItem(name)
+                item.setCheckState(0)
+                self.list_widget.addItem(item)
+        else:
+            print(f"[WARN] Invalid dataset path: {dataset_path}")
+
+        layout.addWidget(self.list_widget)
+
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        cancel_btn = QPushButton("Cancel")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
+    def accept(self):
+        self.selected_subjects = [
+            self.list_widget.item(i).text()
+            for i in range(self.list_widget.count())
+            if self.list_widget.item(i).checkState()
+        ]
+        super().accept()
+
+
+# ------------------ Worker Thread ------------------
 class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
@@ -2293,11 +2177,9 @@ class RunnerThread(QThread):
                 str(self.iters),
             ]
 
-            # ✅ Always include dataset if available
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # ✅ validation_accuracy only uses test image
             if (
                 "validation_accuracy" in os.path.basename(self.file_path)
                 and self.test_image
@@ -2322,6 +2204,7 @@ class RunnerThread(QThread):
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
 
+# ------------------ Benchmark Page ------------------
 class BenchmarkPage(QWidget):
     def __init__(self, parent=None, get_model_name=None):
         super().__init__(parent)
@@ -2330,7 +2213,6 @@ class BenchmarkPage(QWidget):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
 
-        # fixed test image path
         self.test_image = os.path.join(
             self.benchmark_dir, "validation_accuracy", "test_image", "test_image1.jpg"
         )
@@ -2340,19 +2222,20 @@ class BenchmarkPage(QWidget):
         if os.path.exists(settings_path):
             with open(settings_path, "r") as f:
                 cfg = json.load(f)
-            self.dataset_path = cfg.get(
-                "dataset", r"C:\programming\Datasets\LFW\lfw-deepfunneled"
+            # Unified dataset key support
+            self.dataset_path = (
+                cfg.get("dataset_path")
+                or cfg.get("dataset")
+                or r"C:\programming\Datasets\LFW\lfw-deepfunneled"
             )
         else:
             self.dataset_path = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
 
         main_layout = QVBoxLayout()
-
-        # --- row of buttons ---
         self.button_layout = QHBoxLayout()
         main_layout.addLayout(self.button_layout)
 
-        # --- output area ---
+        # Output frame
         self.output_stack = QStackedWidget()
         self.pages = {}
 
@@ -2377,27 +2260,22 @@ class BenchmarkPage(QWidget):
         self.output_stack.setCurrentIndex(-1)
         self.current_thread = None
 
-    def _pretty_name_for(self, file_path: str) -> str:
+    def _pretty_name_for(self, file_path):
         base = os.path.splitext(os.path.basename(file_path))[0]
         return base.capitalize()
 
-    def _button_color_for(self, fname: str) -> str:
-        """Return background color for button based on category."""
+    def _button_color_for(self, fname):
         if "logic" in fname.lower():
-            return "#8e44ad"  # purple for logic scripts
-        elif (
-            "latency" in fname.lower()
-            or "fps" in fname.lower()
-            or "inference" in fname.lower()
-        ):
-            return "#27ae60"  # green for performance
+            return "#8e44ad"
+        elif any(x in fname.lower() for x in ["latency", "fps", "inference"]):
+            return "#27ae60"
         elif "validation" in fname.lower() or "accuracy" in fname.lower():
-            return "#2980b9"  # blue for validation
+            return "#2980b9"
         else:
-            return "#7f8c8d"  # gray fallback
+            return "#7f8c8d"
 
     def load_benchmark_tabs(self):
-        """Dynamically create benchmark buttons for every Python file (excluding logic scripts)."""
+        """Dynamically create benchmark buttons and output panels."""
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
@@ -2405,27 +2283,16 @@ class BenchmarkPage(QWidget):
         all_scripts = []
         for dirpath, _, filenames in os.walk(self.benchmark_dir):
             for fname in filenames:
-                if not fname.endswith(".py"):
+                if not fname.endswith(".py") or fname.startswith("__"):
                     continue
-                if fname.startswith("__") or fname.startswith("."):
-                    continue
-
-                # 🚫 Skip any 'logic' scripts (hidden from GUI)
                 if "logic" in fname.lower():
-                    print(f"[INFO] Skipping hidden logic script: {fname}")
                     continue
-
-                file_path = os.path.join(dirpath, fname)
-                all_scripts.append(file_path)
-
+                all_scripts.append(os.path.join(dirpath, fname))
         all_scripts.sort(key=lambda p: os.path.basename(p).lower())
 
         for file_path in all_scripts:
             fname = os.path.basename(file_path)
             tab_name = self._pretty_name_for(file_path)
-
-            if tab_name in self.pages:
-                tab_name += f"_{len(self.pages)}"
 
             btn = QPushButton(tab_name)
             btn.setMinimumHeight(40)
@@ -2433,7 +2300,6 @@ class BenchmarkPage(QWidget):
                 lambda _, n=tab_name, p=file_path: self.run_script(n, p)
             )
 
-            # 🎨 Color-coding by category
             color = self._button_color_for(fname)
             btn.setStyleSheet(
                 f"""
@@ -2451,45 +2317,43 @@ class BenchmarkPage(QWidget):
             """
             )
 
+            # 🚫 Disable FPS button if dataset is LFW
+            if "fps" in fname.lower():
+                ds_lower = (self.dataset_path or "").lower()
+                if "lfw" in ds_lower:
+                    btn.setEnabled(False)
+                    btn.setToolTip(
+                        "FPS benchmark only works with YTF (video) datasets)."
+                    )
+
             self.button_layout.addWidget(btn)
 
+            # Matplotlib page
             page = QWidget()
             layout = QVBoxLayout()
             fig = Figure(figsize=(5, 4))
             canvas = FigureCanvas(fig)
             layout.addWidget(canvas)
-
             progress = QProgressBar()
-            progress.setMinimum(0)
-            progress.setMaximum(100)
             layout.addWidget(progress)
-
             page.setLayout(layout)
+
             idx = self.output_stack.addWidget(page)
             self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
-
-        print(
-            f"[INFO] Loaded {len(all_scripts)} benchmark scripts into GUI (logic scripts hidden)."
-        )
 
     def run_script(self, name, file_path):
         if name not in self.pages:
             return
+
         idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
-        model_name = self.get_model_name() if self.get_model_name else None
+        model_name = self.get_model_name() if callable(self.get_model_name) else None
         if not model_name:
             fig.clear()
             ax = fig.add_subplot(111)
             ax.text(
-                0.5,
-                0.5,
-                "No model selected",
-                ha="center",
-                va="center",
-                color="red",
-                fontsize=12,
+                0.5, 0.5, "No model selected", ha="center", va="center", color="red"
             )
             canvas.draw()
             return
@@ -2500,33 +2364,29 @@ class BenchmarkPage(QWidget):
             )
             return
 
-        settings_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json"
-        )
-        if os.path.exists(settings_path):
-            with open(settings_path, "r") as f:
-                cfg = json.load(f)
-            self.dataset_path = cfg.get("dataset", self.dataset_path)
-
         dataset_lower = (self.dataset_path or "").lower()
-        if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
-            dataset_name = "YTF (aligned)"
-        elif "lfw" in dataset_lower:
-            dataset_name = "LFW"
-        else:
-            dataset_name = os.path.basename(self.dataset_path) or "synthetic"
+        iters = 50
 
-        iters, ok = QInputDialog.getInt(
-            self,
-            "Iterations",
-            f"How many frames to process ({dataset_name})?",
-            50,
-            1,
-            10000,
-            1,
-        )
-        if not ok:
-            return
+        if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
+            dlg = SelectSubjectsDialog(self.dataset_path, self)
+            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                return
+            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
+            num_runs, ok = QInputDialog.getInt(
+                self, "Number of Runs", "How many runs?", 5, 1, 100, 1
+            )
+            if not ok:
+                return
+            os.environ["YTF_RUNS"] = str(num_runs)
+        else:
+            # No YTF selected → warn but continue for other benchmarks
+            if "fps" in os.path.basename(file_path).lower():
+                QMessageBox.warning(
+                    self,
+                    "FPS Unsupported",
+                    "FPS benchmark is only supported for YTF (video) datasets.",
+                )
+                return
 
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
@@ -2539,6 +2399,7 @@ class BenchmarkPage(QWidget):
         )
         self.current_thread.start()
 
+    # ---------- Handle Output ----------
     def handle_output(self, msg, fig, canvas, progress):
         try:
             data = json.loads(msg)
@@ -2579,102 +2440,41 @@ class BenchmarkPage(QWidget):
                 ha="center",
                 va="center",
                 color="red",
-                fontsize=12,
             )
             canvas.draw()
             return
 
-        if "times" in data:
-            times = data.get("times", [])
+        # Plot FPS results
+        if "fps_series_all" in data:
+            fps_series_all = data.get("fps_series_all", [])
+            run_avgs = data.get("runs", [])
             dataset = data.get("dataset", "synthetic")
             model = data.get("model", "")
-            ax.plot(
-                range(1, len(times) + 1), times, marker="o", linestyle="-", color="blue"
-            )
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Latency (ms)")
-            ax.set_title(f"Latency per Inference - {model} ({dataset})")
-            ax.grid(True)
+            import matplotlib.cm as cm
+            import numpy as np
 
-            stats_text = (
-                f"Avg: {data.get('avg_ms', float('nan')):.2f} ms\n"
-                f"Min: {data.get('min_ms', float('nan')):.2f} ms\n"
-                f"Max: {data.get('max_ms', float('nan')):.2f} ms\n"
-                f"P50: {data.get('p50_ms', float('nan')):.2f} ms\n"
-                f"P90: {data.get('p90_ms', float('nan')):.2f} ms\n"
-                f"P95: {data.get('p95_ms', float('nan')):.2f} ms\n"
-                f"P99: {data.get('p99_ms', float('nan')):.2f} ms\n"
-                f"Std: {data.get('std_ms', float('nan')):.2f} ms"
-            )
+            num_runs = len(fps_series_all)
+            cmap = cm.get_cmap("tab10", max(1, num_runs))
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
+            styles = ["-", "--", "-.", ":"]
 
-            ax.text(
-                1.02,
-                0.95,
-                stats_text,
-                transform=ax.transAxes,
-                ha="left",
-                va="top",
-                fontsize=9,
-                family="monospace",
-                bbox=dict(facecolor="white", alpha=0.6, edgecolor="gray"),
-            )
-            canvas.draw()
-            return
-
-        if "fps_series" in data:
-            fps_series = data.get("fps_series", [])
-            dataset = data.get("dataset", "synthetic")
-            model = data.get("model", "")
-            ax.plot(
-                range(1, len(fps_series) + 1), fps_series, linestyle="-", color="blue"
-            )
-
-            for i, fps in enumerate(fps_series, 1):
-                va, offset = (
-                    ("top", -0.1)
-                    if (
-                        i > 1
-                        and i < len(fps_series)
-                        and fps < fps_series[i - 2]
-                        and fps < fps_series[i]
-                    )
-                    else ("bottom", 0.1)
-                )
-                ax.text(
-                    i,
-                    fps + offset,
-                    str(i),
-                    fontsize=9,
-                    fontweight="bold",
-                    ha="center",
-                    va=va,
-                    color="red",
+            for i, fps_series in enumerate(fps_series_all):
+                avg_fps = run_avgs[i] if i < len(run_avgs) else np.mean(fps_series)
+                ax.plot(
+                    range(1, len(fps_series) + 1),
+                    fps_series,
+                    linestyle=styles[i % len(styles)],
+                    color=colors[i],
+                    linewidth=1.5,
+                    label=f"Run {i+1} ({avg_fps:.2f} FPS)",
                 )
 
+            ax.legend(loc="upper right", title="Per-Run Averages", fontsize=9)
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second - {model} ({dataset})")
             ax.grid(True)
             canvas.draw()
-            return
-
-        if "positives" in data and "negatives" in data:
-            dataset = data.get("dataset", "synthetic")
-            model = data.get("model", "")
-            ax.hist(data["positives"], bins=50, alpha=0.6, label="Positive", color="g")
-            ax.hist(data["negatives"], bins=50, alpha=0.6, label="Negative", color="r")
-            ax.axvline(
-                data.get("threshold", 0.5),
-                color="blue",
-                linestyle="--",
-                label=f"Threshold={data.get('threshold', 0.5)}",
-            )
-            ax.set_xlabel("Cosine Similarity")
-            ax.set_ylabel("Frequency")
-            ax.legend()
-            ax.set_title(f"Face Verification - {model} ({dataset})")
-            canvas.draw()
-            return
 
 
 

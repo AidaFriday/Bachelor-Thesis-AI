@@ -1,6 +1,11 @@
 from PyQt5.QtWidgets import (
-    QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QWidget, QStackedWidget
+    QMainWindow,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QHBoxLayout,
+    QWidget,
+    QStackedWidget,
 )
 from PyQt5.QtCore import QTimer, Qt, QSize
 from PyQt5.QtGui import QImage, QPixmap
@@ -40,7 +45,9 @@ class HomeWindow(QMainWindow):
 
         # Page 2: Settings
         self.settings_page = SettingsPage()
-        self.settings_page.theme_changed.connect(self.apply_theme)  # 🔔 listen for theme change
+        self.settings_page.theme_changed.connect(
+            self.apply_theme
+        )  # 🔔 listen for theme change
 
         # Page 3: Benchmark
         self.benchmark_page = BenchmarkPage(
@@ -60,8 +67,12 @@ class HomeWindow(QMainWindow):
 
         # Sidebar navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
-        self.sidebar.btn_settings.clicked.connect(lambda: self.stacked.setCurrentIndex(1))
-        self.sidebar.btn_benchmark.clicked.connect(lambda: self.stacked.setCurrentIndex(2))
+        self.sidebar.btn_settings.clicked.connect(
+            lambda: self.stacked.setCurrentIndex(1)
+        )
+        self.sidebar.btn_benchmark.clicked.connect(
+            lambda: self.stacked.setCurrentIndex(2)
+        )
 
         # Layout wrapper
         wrapper_layout = QVBoxLayout()
@@ -151,4 +162,3 @@ class HomeWindow(QMainWindow):
 
         # also update sidebar buttons
         self.sidebar.apply_theme(theme)
-
