@@ -419,6 +419,7 @@ class BenchmarkPage(QWidget):
         ax = fig.add_subplot(111)
 
         # ===================== LATENCY MODE =====================
+
         if kind == "latency" or "latency_series_all" in data:
             latency_series_all = data.get("latency_series_all", [])
             run_avgs = data.get("runs", [])
@@ -430,29 +431,59 @@ class BenchmarkPage(QWidget):
             styles = ["-", "--", "-.", ":"]
             colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
 
-            base_dir = os.path.join(os.getcwd(), "latency_reports")
+            # ✅ Always use top-level latency_reports directory
+            base_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "latency_reports",
+            )
             os.makedirs(base_dir, exist_ok=True)
+
+            all_run_data = {"runs": []}
+            problem_files = []
 
             for i, latencies in enumerate(latency_series_all):
                 if not latencies:
+                    problem_files.append(f"Run_{i+1}_empty")
                     continue
+
                 latencies = np.array(latencies)
                 avg_ms = float(np.mean(latencies))
+                std_ms = float(np.std(latencies))
+                min_idx = int(np.argmin(latencies))
+                max_idx = int(np.argmax(latencies))
+                min_ms = float(latencies[min_idx])
+                max_ms = float(latencies[max_idx])
 
-                stats = {
+                # Try to attach filenames if available
+                frame_paths = data.get("frame_paths_all", [])
+                run_paths = frame_paths[i] if i < len(frame_paths) else []
+                min_file = (
+                    os.path.basename(run_paths[min_idx])
+                    if run_paths and min_idx < len(run_paths)
+                    else f"frame_{min_idx+1}"
+                )
+                max_file = (
+                    os.path.basename(run_paths[max_idx])
+                    if run_paths and max_idx < len(run_paths)
+                    else f"frame_{max_idx+1}"
+                )
+
+                run_entry = {
                     "run": i + 1,
-                    "average_ms": avg_ms,
-                    "min_ms": float(np.min(latencies)),
-                    "max_ms": float(np.max(latencies)),
-                    "std_ms": float(np.std(latencies)),
+                    "min_ms": min_ms,
+                    "max_ms": max_ms,
+                    "avg_ms": avg_ms,
+                    "min_file": min_file,
+                    "max_file": max_file,
                     "p50_ms": float(np.percentile(latencies, 50)),
                     "p90_ms": float(np.percentile(latencies, 90)),
                     "p95_ms": float(np.percentile(latencies, 95)),
                     "p99_ms": float(np.percentile(latencies, 99)),
+                    "std_ms": std_ms,
                 }
-                with open(os.path.join(base_dir, f"latency_run_{i+1}.json"), "w") as f:
-                    json.dump(stats, f, indent=4)
+                all_run_data["runs"].append(run_entry)
 
+                # Plot per run
                 ax.plot(
                     range(1, len(latencies) + 1),
                     latencies,
@@ -461,6 +492,15 @@ class BenchmarkPage(QWidget):
                     linewidth=1.5,
                     label=f"Run {i+1} – {avg_ms:.2f} ms",
                 )
+
+            # ✅ Save all runs into one JSON file
+            report_path = os.path.join(base_dir, "latency_report.json")
+            with open(report_path, "w") as f:
+                json.dump(all_run_data, f, indent=4)
+
+            if problem_files:
+                with open(os.path.join(base_dir, "problem_runs.txt"), "w") as f:
+                    f.write("\n".join(problem_files))
 
             ax.legend(loc="upper right", title="Latency per Run", fontsize=9)
             ax.set_xlabel("Frame Index")
