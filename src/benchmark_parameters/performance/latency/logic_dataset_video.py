@@ -97,7 +97,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         latency_series_all.append(latencies)
 
         fps = 1000.0 / avg_ms if avg_ms > 0 else 0
-        send_log(f"[Run {r+1}] {iters} frames → {fps:.2f} FPS")
+        send_log(f"[Run {r+1}] {iters} frames → {avg_ms:.2f} ms → {fps:.2f} FPS")
 
     # --- Final results ---
     if not avg_latency_runs:
