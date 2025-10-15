@@ -1,5 +1,5 @@
 # ==== logic_dataset_image.py ====
-import json, sys, time, numpy as np
+import json, sys, time, numpy as np, os, cv2
 from connector import load_model
 
 try:
@@ -20,12 +20,6 @@ def _cuda_sync():
         torch.cuda.synchronize()
 
 
-def _random_frame(h=640, w=640):
-    import numpy as np
-
-    return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
-
-
 def measure_once(wrapper, frame):
     _cuda_sync()
     t0 = time.perf_counter()
@@ -36,39 +30,106 @@ def measure_once(wrapper, frame):
 
 def run_logic(model_name, iters, frame_h, frame_w, dataset):
     wrapper = load_model(model_name)
-    send_log(f"Running image latency test with {iters} iterations")
 
-    frame = _random_frame(frame_h, frame_w)
-    _ = wrapper.embed(frame)
+    start_person = os.getenv("LFW_START_PERSON", "")
+    img_limit = int(os.getenv("LFW_IMAGE_COUNT", "0"))
+    num_runs = int(os.getenv("LFW_RUNS", "1"))
+
+    if not os.path.isdir(dataset):
+        send_log(f"❌ Invalid dataset path: {dataset}", "error")
+        return
+
+    # ---- Step 1: collect all people in alphabetical order ----
+    people = sorted(
+        [d for d in os.listdir(dataset) if os.path.isdir(os.path.join(dataset, d))]
+    )
+    if not people:
+        send_log("❌ No person folders found", "error")
+        return
+
+    # ---- Step 2: find start index ----
+    try:
+        start_idx = people.index(start_person)
+    except ValueError:
+        start_idx = 0
+        send_log(f"⚠️ Person '{start_person}' not found. Starting from '{people[0]}'")
+
+    # ---- Step 3: gather image paths ----
+    image_paths = []
+    for person in people[start_idx:]:
+        person_dir = os.path.join(dataset, person)
+        imgs = sorted(
+            [
+                os.path.join(person_dir, f)
+                for f in os.listdir(person_dir)
+                if f.lower().endswith(".jpg")
+            ]
+        )
+        image_paths.extend(imgs)
+        if img_limit and len(image_paths) >= img_limit:
+            break
+
+    if not image_paths:
+        send_log("❌ No images found in selected range", "error")
+        return
+
+    # clip to limit
+    if img_limit and len(image_paths) > img_limit:
+        image_paths = image_paths[:img_limit]
+
+    send_log(
+        f"[CONFIG] Start='{start_person}', Count={len(image_paths)}, Runs={num_runs}"
+    )
+
+    # ---- Warmup ----
+    first_frame = cv2.imread(image_paths[0])
+    if first_frame is None:
+        send_log("❌ Could not read first image", "error")
+        return
+    _ = wrapper.embed(first_frame)
     _cuda_sync()
 
-    times = []
-    for i in range(iters):
-        frame = _random_frame(frame_h, frame_w)
-        t = measure_once(wrapper, frame)
-        times.append(t)
-        if (i + 1) % 5 == 0:
-            send_log(f"Processed {i+1}/{iters} frames")
+    # ---- Runs ----
+    all_runs = []
+    avg_runs = []
+    for r in range(num_runs):
+        send_log(f"--- Run {r+1}/{num_runs} ---")
+        latencies = []
+        for i, img_path in enumerate(image_paths):
+            frame = cv2.imread(img_path)
+            if frame is None:
+                continue
+            t_ms = measure_once(wrapper, frame)
+            latencies.append(t_ms)
+            if (i + 1) % 5 == 0:
+                send_log(f"Processed {i+1}/{len(image_paths)} images")
 
-    avg_ms = float(np.mean(times))
-    stats = {
-        "p50_ms": float(np.percentile(times, 50)),
-        "p90_ms": float(np.percentile(times, 90)),
-        "p95_ms": float(np.percentile(times, 95)),
-        "p99_ms": float(np.percentile(times, 99)),
-        "min_ms": float(np.min(times)),
-        "max_ms": float(np.max(times)),
-        "std_ms": float(np.std(times)),
-    }
+        if not latencies:
+            send_log(f"⚠️ Run {r+1} had no valid images", "warn")
+            continue
 
-    send_log(f"Image Latency avg={avg_ms:.2f} ms", "result")
+        avg_ms = float(np.mean(latencies))
+        avg_runs.append(avg_ms)
+        all_runs.append(latencies)
+
+        send_log(f"[Run {r+1}] Avg={avg_ms:.2f} ms, {1000/avg_ms:.2f} FPS")
+
+    if not all_runs:
+        send_log("❌ All runs failed", "error")
+        return
+
+    overall_avg = float(np.mean(avg_runs))
+    send_log(f"✅ Overall Avg Latency = {overall_avg:.2f} ms", "result")
 
     payload = {
         "kind": "latency_image",
         "dataset": dataset,
-        "avg_ms": avg_ms,
-        "times": times,
-        **stats,
+        "start_person": start_person,
+        "num_images": len(image_paths),
+        "num_runs": num_runs,
+        "avg_latency_ms": overall_avg,
+        "latency_series_all": all_runs,
+        "image_paths": image_paths,
     }
     print(json.dumps(payload))
     sys.stdout.flush()

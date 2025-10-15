@@ -251,13 +251,13 @@ class BenchmarkPage(QWidget):
             """
             )
 
-            # Disable FPS button if dataset currently LFW
-            if "fps" in fname.lower():
+            # Disable FPS button only if it's truly FPS and dataset is LFW
+            if "fps" in fname.lower() and "latency" not in fname.lower():
                 ds_lower = (self.dataset_path or "").lower()
                 if "lfw" in ds_lower:
                     btn.setEnabled(False)
                     btn.setToolTip(
-                        "FPS benchmark only works with YTF (video) datasets)."
+                        "FPS benchmark only works with YTF (video) datasets."
                     )
 
             self.button_layout.addWidget(btn)
@@ -329,15 +329,57 @@ class BenchmarkPage(QWidget):
 
         # --- Image datasets (LFW etc.) ---
         elif is_image_dataset:
-
-            # Allow Latency & Accuracy, but block FPS
-            if "fps" in os.path.basename(file_path).lower():
+            # Allow Latency & Accuracy, but block FPS (but don't block latency scripts)
+            if (
+                "fps" in os.path.basename(file_path).lower()
+                and "latency" not in os.path.basename(file_path).lower()
+            ):
                 QMessageBox.warning(
                     self,
                     "FPS Unsupported",
                     "FPS benchmark is only supported for video datasets (e.g., YTF).",
                 )
                 return
+
+            # Ask for LFW start person, number of images, and runs
+            # Auto-fix: if the user selected LFW parent folder, go one level deeper
+            if os.path.isdir(os.path.join(self.dataset_path, "lfw-deepfunneled")):
+                self.dataset_path = os.path.join(self.dataset_path, "lfw-deepfunneled")
+
+            people = sorted(
+                [
+                    d
+                    for d in os.listdir(self.dataset_path)
+                    if os.path.isdir(os.path.join(self.dataset_path, d))
+                ]
+            )
+            if not people:
+                QMessageBox.warning(
+                    self, "No Folders", "No people found in dataset path."
+                )
+                return
+
+            start_person, ok1 = QInputDialog.getItem(
+                self, "Start Person", "Choose starting person:", people, 0, False
+            )
+            if not ok1:
+                return
+
+            img_count, ok2 = QInputDialog.getInt(
+                self, "Image Count", "How many images to include?", 10, 1, 10000, 1
+            )
+            if not ok2:
+                return
+
+            num_runs, ok3 = QInputDialog.getInt(
+                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+            )
+            if not ok3:
+                return
+
+            os.environ["LFW_START_PERSON"] = start_person
+            os.environ["LFW_IMAGE_COUNT"] = str(img_count)
+            os.environ["LFW_RUNS"] = str(num_runs)
 
         # --- Fallback: if unknown dataset ---
         else:
