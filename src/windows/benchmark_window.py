@@ -303,8 +303,15 @@ class BenchmarkPage(QWidget):
 
         dataset_lower = (self.dataset_path or "").lower()
         iters = 0
-        # If YTF, open subject picker correctly
-        if "ytf" in dataset_lower or "aligned_images_db" in dataset_lower:
+
+        # --- Detect dataset type ---
+        is_video_dataset = any(
+            x in dataset_lower for x in ["ytf", "aligned_images_db", "video"]
+        )
+        is_image_dataset = any(x in dataset_lower for x in ["lfw", "image", "photo"])
+
+        # --- Video datasets (YTF etc.) ---
+        if is_video_dataset:
             ds_for_dialog = self.dataset_path
             if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
                 ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
@@ -314,19 +321,32 @@ class BenchmarkPage(QWidget):
                 return
             os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
             num_runs, ok = QInputDialog.getInt(
-                self, "Number of Runs", "How many runs?", 5, 1, 100, 1
+                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
             )
             if not ok:
                 return
             os.environ["YTF_RUNS"] = str(num_runs)
-        else:
+
+        # --- Image datasets (LFW etc.) ---
+        elif is_image_dataset:
+
+            # Allow Latency & Accuracy, but block FPS
             if "fps" in os.path.basename(file_path).lower():
                 QMessageBox.warning(
                     self,
                     "FPS Unsupported",
-                    "FPS benchmark is only supported for YTF (video) datasets.",
+                    "FPS benchmark is only supported for video datasets (e.g., YTF).",
                 )
                 return
+
+        # --- Fallback: if unknown dataset ---
+        else:
+            QMessageBox.warning(
+                self,
+                "Unknown Dataset",
+                "Could not determine dataset type — please use either LFW (images) or YTF (videos).",
+            )
+            return
 
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.terminate()
@@ -340,13 +360,19 @@ class BenchmarkPage(QWidget):
         self.current_thread.start()
 
     # ---------- Handle Output ----------
+
     def handle_output(self, msg, fig, canvas, progress):
+        import numpy as np
+        import matplotlib.cm as cm
+        import os, json
+
         try:
             data = json.loads(msg)
         except Exception:
             print(f"[SCRIPT LOG] {msg}")
             return
 
+        # ----- Progress -----
         if "progress" in data and "total" in data:
             pct = int(100 * data["progress"] / data["total"])
             progress.setValue(pct)
@@ -365,14 +391,15 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
+        # ----- Logs -----
         if "log" in data:
             print(f"[SCRIPT LOG] {data['log']}")
             return
 
-        fig.clear()
-        ax = fig.add_subplot(111)
-
+        # ----- Errors -----
         if "error" in data:
+            fig.clear()
+            ax = fig.add_subplot(111)
             ax.text(
                 0.5,
                 0.5,
@@ -384,36 +411,58 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-                # --- Latency results (image/video) ---
+        # ------------------------------------------------------------------
+        # Auto-detect benchmark kind
+        # ------------------------------------------------------------------
+        kind = data.get("kind", "")
+        fig.clear()
+        ax = fig.add_subplot(111)
 
-        if "latency_series_all" in data:
-            latency_series_all = data["latency_series_all"]
+        # ===================== LATENCY MODE =====================
+        if kind == "latency" or "latency_series_all" in data:
+            latency_series_all = data.get("latency_series_all", [])
             run_avgs = data.get("runs", [])
             dataset = data.get("dataset", "")
             model = data.get("model", "")
-            import numpy as np
-            import matplotlib.cm as cm
-
-            fig.clear()
-            ax = fig.add_subplot(111)
 
             num_runs = len(latency_series_all)
             cmap = cm.get_cmap("tab10", max(1, num_runs))
-            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
             styles = ["-", "--", "-.", ":"]
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
+
+            base_dir = os.path.join(os.getcwd(), "latency_reports")
+            os.makedirs(base_dir, exist_ok=True)
 
             for i, latencies in enumerate(latency_series_all):
-                avg_ms = run_avgs[i] if i < len(run_avgs) else np.mean(latencies)
+                if not latencies:
+                    continue
+                latencies = np.array(latencies)
+                avg_ms = float(np.mean(latencies))
+
+                stats = {
+                    "run": i + 1,
+                    "average_ms": avg_ms,
+                    "min_ms": float(np.min(latencies)),
+                    "max_ms": float(np.max(latencies)),
+                    "std_ms": float(np.std(latencies)),
+                    "p50_ms": float(np.percentile(latencies, 50)),
+                    "p90_ms": float(np.percentile(latencies, 90)),
+                    "p95_ms": float(np.percentile(latencies, 95)),
+                    "p99_ms": float(np.percentile(latencies, 99)),
+                }
+                with open(os.path.join(base_dir, f"latency_run_{i+1}.json"), "w") as f:
+                    json.dump(stats, f, indent=4)
+
                 ax.plot(
                     range(1, len(latencies) + 1),
                     latencies,
                     linestyle=styles[i % len(styles)],
                     color=colors[i],
                     linewidth=1.5,
-                    label=f"Run {i+1} ({avg_ms:.2f} ms)",
+                    label=f"Run {i+1} – {avg_ms:.2f} ms",
                 )
 
-            ax.legend(loc="upper right", title="Avg per Run", fontsize=9)
+            ax.legend(loc="upper right", title="Latency per Run", fontsize=9)
             ax.set_xlabel("Frame Index")
             ax.set_ylabel("Latency (ms)")
             ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
@@ -421,19 +470,17 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # Plot FPS results
-        if "fps_series_all" in data:
+        # ===================== FPS MODE =====================
+        if kind == "fps" or "fps_series_all" in data:
             fps_series_all = data.get("fps_series_all", [])
             run_avgs = data.get("runs", [])
-            dataset = data.get("dataset", "synthetic")
+            dataset = data.get("dataset", "")
             model = data.get("model", "")
-            import matplotlib.cm as cm
-            import numpy as np
 
             num_runs = len(fps_series_all)
             cmap = cm.get_cmap("tab10", max(1, num_runs))
-            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
             styles = ["-", "--", "-.", ":"]
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
 
             for i, fps_series in enumerate(fps_series_all):
                 avg_fps = run_avgs[i] if i < len(run_avgs) else np.mean(fps_series)
@@ -449,6 +496,10 @@ class BenchmarkPage(QWidget):
             ax.legend(loc="upper right", title="Per-Run Averages", fontsize=9)
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
-            ax.set_title(f"Frames per Second - {model} ({dataset})")
+            ax.set_title(f"Frames per Second – {model} ({dataset})")
             ax.grid(True)
             canvas.draw()
+            return
+
+        # ------------------ fallback ------------------
+        print("[WARN] Unrecognized data:", data.keys())

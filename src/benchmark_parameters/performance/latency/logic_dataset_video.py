@@ -107,10 +107,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     avg_all_ms = float(np.mean(avg_latency_runs))
     avg_all_fps = 1000.0 / avg_all_ms if avg_all_ms > 0 else 0
 
-    send_log(
-        f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms → {avg_all_fps:.2f} FPS",
-        "result",
-    )
+    send_log
+    (f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms", "result")
 
     # ✅ Prepare GUI-compatible payload (latency not FPS)
     payload = {
