@@ -156,7 +156,13 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
             # ✅ Progress update every 10 frames or at end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
-                progress_msg = {"_type": "progress", "progress": i + 1, "total": iters}
+                progress_msg = {
+                    "_type": "progress",
+                    "progress": i + 1,
+                    "total": iters,
+                    "run": run_idx + 1,
+                    "num_runs": num_runs,
+                }
                 print(json.dumps(progress_msg), flush=True)
 
         elapsed = time.time() - start

@@ -424,7 +424,11 @@ class BenchmarkPage(QWidget):
                 pct = int(100 * cur / tot)
                 progress.setMaximum(100)
                 progress.setValue(pct)
-                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)")
+                run_str = ""
+                if "run" in data and "num_runs" in data:
+                    run_str = f" | Run {data['run']}/{data['num_runs']}"
+                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)" + run_str)
+
             except Exception as e:
                 print(f"[WARN] Progress parse failed: {e} | data={data}")
             return
