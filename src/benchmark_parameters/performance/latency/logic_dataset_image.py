@@ -94,6 +94,11 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     send_log(
         f"[CONFIG] Start='{start_person}', Count={len(image_paths)}, Runs={num_runs}"
     )
+    # ✅ Show image names only once
+    send_log("🖼️ Loaded images:")
+    for p in image_paths:
+        send_log(f" - {os.path.basename(p)}")
+    send_log(f"Total images: {len(image_paths)}")
 
     # ---- Warmup ----
     first_frame = cv2.imread(image_paths[0])
