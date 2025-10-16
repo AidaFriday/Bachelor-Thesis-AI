@@ -540,7 +540,20 @@ class BenchmarkPage(QWidget):
                 with open(os.path.join(base_dir, "problem_runs.txt"), "w") as f:
                     f.write("\n".join(problem_files))
 
-            ax.legend(loc="upper right", title="Latency per Run", fontsize=9)
+            # Place legend outside the plot area, aligned to the right
+            ax.legend(
+                loc="center left",
+                bbox_to_anchor=(1.02, 0.5),
+                borderaxespad=0,
+                title=(
+                    "Latency per Run"
+                    if kind == "latency" or "latency_series_all" in data
+                    else "Per-Run Averages"
+                ),
+                fontsize=9,
+            )
+            fig.subplots_adjust(right=0.8)
+
             ax.set_xlabel("Frame Index")
             ax.set_ylabel("Latency (ms)")
             ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
@@ -571,7 +584,20 @@ class BenchmarkPage(QWidget):
                     label=f"Run {i+1} ({avg_fps:.2f} FPS)",
                 )
 
-            ax.legend(loc="upper right", title="Per-Run Averages", fontsize=9)
+            # Place legend outside the plot area, aligned to the right
+            ax.legend(
+                loc="center left",
+                bbox_to_anchor=(1.02, 0.5),
+                borderaxespad=0,
+                title=(
+                    "Latency per Run"
+                    if kind == "latency" or "latency_series_all" in data
+                    else "Per-Run Averages"
+                ),
+                fontsize=9,
+            )
+            fig.subplots_adjust(right=0.8)
+
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second – {model} ({dataset})")

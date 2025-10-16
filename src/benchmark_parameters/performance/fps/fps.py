@@ -153,8 +153,11 @@ def run(model_name, iters, frame_h, frame_w, dataset):
             )
             t = measure_once(wrapper, frame)
             times_ms.append(t)
+
+            # ✅ Progress update every 10 frames or at end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
-                send_log(f"Processed {i + 1}/{iters} frames (run {run_idx + 1})")
+                progress_msg = {"_type": "progress", "progress": i + 1, "total": iters}
+                print(json.dumps(progress_msg), flush=True)
 
         elapsed = time.time() - start
         fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
