@@ -162,6 +162,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         "latency_series_all": all_runs,
         "image_paths": image_paths,
         "frame_paths_all": frame_paths_all,
+        "model": model_name,
     }
     print(json.dumps(payload))
     sys.stdout.flush()

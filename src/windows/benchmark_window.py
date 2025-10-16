@@ -571,7 +571,18 @@ class BenchmarkPage(QWidget):
 
             ax.set_xlabel("Frame Index")
             ax.set_ylabel("Latency (ms)")
-            ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
+
+            # --- format dataset/model names more nicely ---
+            dataset_name = os.path.basename(dataset).replace("-", " ").title()
+            if "lfw" in dataset_name.lower():
+                dataset_name = "LFW (Deepfunneled)"
+            if "ytf" in dataset_name.lower():
+                dataset_name = "YTF (Aligned)"
+            if not model:
+                model = "Unknown Model"
+
+            ax.set_title(f"Per-Frame Latency – {model} on {dataset_name}")
+
             ax.grid(True)
             canvas.draw()
             return
