@@ -84,7 +84,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     # ---- Warmup ----
     first_frame = cv2.imread(image_paths[0])
     if first_frame is None:
-        send_log("❌ Could not read first image", "error")
+        send_log("Could not read first image", "error")
         return
     _ = wrapper.embed(first_frame)
     _cuda_sync()
@@ -92,6 +92,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     # ---- Runs ----
     all_runs = []
     avg_runs = []
+    frame_paths_all = []  # collect image paths per run
     for r in range(num_runs):
         send_log(f"--- Run {r+1}/{num_runs} ---")
         latencies = []
@@ -105,9 +106,12 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
 
             # ✅ Send live progress updates every 5 images
             if (i + 1) % 5 == 0 or (i + 1) == len(image_paths):
-                progress_msg = {"_type": "progress", "progress": i + 1, "total": len(image_paths)}
+                progress_msg = {
+                    "_type": "progress",
+                    "progress": i + 1,
+                    "total": len(image_paths),
+                }
                 print(json.dumps(progress_msg), flush=True)
-
 
         if not latencies:
             send_log(f"⚠️ Run {r+1} had no valid images", "warn")
@@ -116,6 +120,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         avg_ms = float(np.mean(latencies))
         avg_runs.append(avg_ms)
         all_runs.append(latencies)
+        frame_paths_all.append(image_paths.copy())  # keep file list for this run
 
         send_log(f"[Run {r+1}] Avg={avg_ms:.2f} ms, {1000/avg_ms:.2f} FPS")
 
@@ -135,6 +140,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         "avg_latency_ms": overall_avg,
         "latency_series_all": all_runs,
         "image_paths": image_paths,
+        "frame_paths_all": frame_paths_all,
     }
     print(json.dumps(payload))
     sys.stdout.flush()
