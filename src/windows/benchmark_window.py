@@ -359,11 +359,15 @@ class BenchmarkPage(QWidget):
                 )
                 return
 
-            start_person, ok1 = QInputDialog.getItem(
-                self, "Start Person", "Choose starting person:", people, 0, False
-            )
-            if not ok1:
+            # ✅ Use the same multi-selection dialog used for YTF
+            dlg = SelectSubjectsDialog(self.dataset_path, self)
+            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                 return
+
+            # For compatibility, pick the first person as start, but also store all selections
+            selected_people = dlg.selected_subjects
+            start_person = selected_people[0]  # the first checked name
+            os.environ["LFW_SELECTED_PEOPLE"] = ",".join(selected_people)
 
             img_count, ok2 = QInputDialog.getInt(
                 self, "Image Count", "How many images to include?", 10, 1, 10000, 1
