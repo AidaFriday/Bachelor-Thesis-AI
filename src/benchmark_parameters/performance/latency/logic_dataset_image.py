@@ -95,14 +95,19 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     for r in range(num_runs):
         send_log(f"--- Run {r+1}/{num_runs} ---")
         latencies = []
+
         for i, img_path in enumerate(image_paths):
             frame = cv2.imread(img_path)
             if frame is None:
                 continue
             t_ms = measure_once(wrapper, frame)
             latencies.append(t_ms)
-            if (i + 1) % 5 == 0:
-                send_log(f"Processed {i+1}/{len(image_paths)} images")
+
+            # ✅ Send live progress updates every 5 images
+            if (i + 1) % 5 == 0 or (i + 1) == len(image_paths):
+                progress_msg = {"_type": "progress", "progress": i + 1, "total": len(image_paths)}
+                print(json.dumps(progress_msg), flush=True)
+
 
         if not latencies:
             send_log(f"⚠️ Run {r+1} had no valid images", "warn")

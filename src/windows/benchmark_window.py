@@ -415,22 +415,18 @@ class BenchmarkPage(QWidget):
             return
 
         # ----- Progress -----
-        if "progress" in data and "total" in data:
-            pct = int(100 * data["progress"] / data["total"])
-            progress.setValue(pct)
-            fig.clear()
-            ax = fig.add_subplot(111)
-            ax.axis("off")
-            ax.text(
-                0.5,
-                0.5,
-                f"Processing {data['progress']}/{data['total']} images\n({pct}%)",
-                ha="center",
-                va="center",
-                fontsize=12,
-                color="blue",
-            )
-            canvas.draw()
+        if any(k in data for k in ["_type", "progress", "total"]) and (
+            data.get("_type") == "progress" or ("progress" in data and "total" in data)
+        ):
+            try:
+                cur = int(data.get("progress", 0))
+                tot = int(data.get("total", 1))
+                pct = int(100 * cur / tot)
+                progress.setMaximum(100)
+                progress.setValue(pct)
+                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)")
+            except Exception as e:
+                print(f"[WARN] Progress parse failed: {e} | data={data}")
             return
 
         # ----- Logs -----
