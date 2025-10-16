@@ -150,7 +150,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         return
 
     overall_avg = float(np.mean(avg_runs))
-    send_log(f"✅ Overall Avg Latency = {overall_avg:.2f} ms", "result")
+    # send_log(f"✅ Overall Avg Latency = {overall_avg:.2f} ms", "result")
 
     payload = {
         "kind": "latency_image",
