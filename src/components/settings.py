@@ -7,16 +7,16 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QMessageBox,
 )
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, Qt
 import os
 import json
 
+# Import the centralized dataset manager
+from dataset.manager import DatasetManager
+
 # Project root (…/src)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATASET_SCRIPTS_DIR = os.path.join(BASE_DIR, "dataset")
-
-
-SETTINGS_FILE = "settings.json"
+SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
 LIGHT_THEME = """
     QWidget {
@@ -57,25 +57,32 @@ DARK_THEME = """
 
 
 class SettingsPage(QWidget):
-    theme_changed = pyqtSignal(str)  # 🔔 signal to notify theme changes
+    theme_changed = pyqtSignal(str)  # 🔔 notify theme changes
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.dataset_path = None
+
+        # --- Core state ---
         self.model_name = "arcface"
         self.theme = "light"
 
-        # Try to load saved settings
+        # Central dataset manager (handles registry & validation)
+        self.dataset_manager = DatasetManager()
+        self.dataset_name = None
+        self.dataset_path = None
+
+        # Load saved settings if available
         self.load_settings()
 
+        # --- Layout ---
         layout = QVBoxLayout()
 
-        # --- Dataset selection ---
-        self.dataset_label = QLabel("Choose dataset folder:")
-        if self.dataset_path:
-            self.dataset_label.setText(f"Dataset: {self.dataset_path}")
-        self.dataset_btn = QPushButton("Browse Dataset")
-        self.dataset_btn.clicked.connect(self.browse_dataset)
+        # --- Dataset section (auto detection, no combo box) ---
+        self.dataset_label = QLabel("Dataset:")
+        self.dataset_name_label = QLabel(self.dataset_name or "Not selected")
+        self.dataset_path_label = QLabel(f"Path: {self.dataset_path or 'Not selected'}")
+        self.dataset_browse_btn = QPushButton("Browse Dataset Folder")
+        self.dataset_browse_btn.clicked.connect(self.browse_dataset)
 
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
@@ -99,9 +106,11 @@ class SettingsPage(QWidget):
         self.save_btn = QPushButton("Save Settings")
         self.save_btn.clicked.connect(self.save_settings)
 
-        # Layout
+        # --- Assemble layout ---
         layout.addWidget(self.dataset_label)
-        layout.addWidget(self.dataset_btn)
+        layout.addWidget(self.dataset_name_label)
+        layout.addWidget(self.dataset_path_label)
+        layout.addWidget(self.dataset_browse_btn)
         layout.addSpacing(15)
         layout.addWidget(self.model_label)
         layout.addWidget(self.model_combo)
@@ -110,91 +119,113 @@ class SettingsPage(QWidget):
         layout.addWidget(self.theme_combo)
         layout.addStretch()
         layout.addWidget(self.save_btn)
-
         self.setLayout(layout)
 
-    def _resolve_dataset_script(self, selected_path: str):
-        """Given a selected dataset folder, return (folder_name, matching_script_path_or_None).
-        Matching is case-insensitive and ignores spaces and hyphens.
-        """
-        ds_name = os.path.basename(os.path.normpath(selected_path))
-        normalized = ds_name.replace(" ", "").replace("-", "").lower()
-
-        try:
-            candidates = {
-                os.path.splitext(f)[0]
-                .replace(" ", "")
-                .replace("-", "")
-                .lower(): os.path.join(DATASET_SCRIPTS_DIR, f)
-                for f in os.listdir(DATASET_SCRIPTS_DIR)
-                if f.endswith(".py")
-            }
-        except Exception:
-            candidates = {}
-
-        return ds_name, candidates.get(normalized)
-
+    # ===============================================================
+    # 🔹 Dataset Handling
+    # ===============================================================
     def browse_dataset(self):
+        """Manually browse for a dataset folder and auto-detect type."""
         path = QFileDialog.getExistingDirectory(
             self, "Select Dataset Folder", os.getcwd()
         )
         if not path:
             return
 
-        ds_name, script_path = self._resolve_dataset_script(path)
-
-        if not script_path or not os.path.exists(script_path):
-            QMessageBox.critical(
-                self,
-                "Dataset not supported",
-                (
-                    f"Dataset logic not implemented for '{ds_name}'.\n\n"
-                    f"I expected a Python file in:\n"
-                    f"{DATASET_SCRIPTS_DIR}\n"
-                    f"named like '{ds_name}.py' (case-insensitive).\n\n"
-                    "Create the dataset loader there and try again."
-                ),
-            )
-            return
-
-        # ok ✔️
         self.dataset_path = path
-        self.dataset_label.setText(f"Dataset: {path}")
 
+        # Auto-detect dataset type from folder name or path
+        lower = path.lower()
+        if "ytf" in lower or "aligned_images_db" in lower:
+            self.dataset_name = "ytf"
+        elif "lfw" in lower:
+            self.dataset_name = "lfw"
+        else:
+            self.dataset_name = "unknown"
+
+        # Update UI
+        self.dataset_name_label.setText(self.dataset_name.upper())
+        self.dataset_path_label.setText(f"Path: {path}")
+
+        # Immediate friendly notice if LFW chosen (so you don't need to hit Save)
+        # if self.dataset_name == "lfw":
+        # QMessageBox.information(
+        # self,
+        # "Dataset Notice",
+        # "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",)
+
+    # ===============================================================
+    # 🔹 Model & Theme
+    # ===============================================================
     def update_model(self, text):
         self.model_name = text
 
     def update_theme(self, text):
         self.theme = text
-        self.theme_changed.emit(text)  # 🔔 tell parent window
+        self.theme_changed.emit(text)
 
+    # ===============================================================
+    # 🔹 Save & Load
+    # ===============================================================
     def save_settings(self):
         data = {
             "model": self.model_name,
-            "dataset": self.dataset_path,
+            "dataset_name": self.dataset_name,
+            "dataset_path": self.dataset_path,
             "theme": self.theme,
         }
+
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
+        # Normal confirmation message
         msg = (
             f"✅ Settings saved:\n\n"
             f"Model: {self.model_name}\n"
-            f"Dataset: {self.dataset_path or 'Not selected'}\n"
+            f"Dataset: {self.dataset_name or 'Not selected'}\n"
+            f"Path: {self.dataset_path or 'N/A'}\n"
             f"Theme: {self.theme}"
         )
+
+        # Extra warning if user saved with LFW
+        # if self.dataset_name and self.dataset_name.lower() == "lfw":
+        # msg += (
+        # "\n\n⚠️ Note: LFW is an image dataset.\n"
+        # "FPS benchmark requires a video dataset like YTF."
+        # )
+        # QMessageBox.warning(
+        #  self,
+        #  "Dataset Notice",
+        #  "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
+        # )
+
         QMessageBox.information(self, "Settings", msg)
 
     def load_settings(self):
+        """Load settings.json and prefill UI state."""
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
                     data = json.load(f)
+
                 self.model_name = data.get("model", "arcface")
-                self.dataset_path = data.get("dataset", None)
+                self.dataset_name = data.get("dataset_name")
+                self.dataset_path = data.get("dataset_path")
                 self.theme = data.get("theme", "light")
+
                 print(
-                    f"[INFO] Loaded settings: model={self.model_name}, dataset={self.dataset_path}, theme={self.theme}"
+                    f"[INFO] Loaded settings: "
+                    f"model={self.model_name}, dataset={self.dataset_name}, "
+                    f"path={self.dataset_path}, theme={self.theme}"
                 )
+
+                if self.dataset_name:
+                    try:
+                        self.dataset_manager.set_dataset(
+                            self.dataset_name, self.dataset_path
+                        )
+                    except Exception as e:
+                        print(f"[WARN] Could not set dataset: {e}")
+
             except Exception as e:
                 print(f"[WARN] Could not load settings.json: {e}")

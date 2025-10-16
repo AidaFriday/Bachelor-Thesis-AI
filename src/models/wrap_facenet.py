@@ -1,6 +1,9 @@
+# ==== models/wrap_facenet.py (optional – behavior unchanged) ====
+
 import cv2
 import numpy as np
 import torch
+import os  # ADDED: optional env toggles (kept for symmetry)
 from facenet_pytorch import InceptionResnetV1, MTCNN
 
 
@@ -13,13 +16,18 @@ class FaceNetWrapper:
 
     def __init__(self, device: str = "cpu", input_size=(160, 160)):
         self.device = torch.device(device)
-        self.input_size = input_size
+        self.input_size = tuple(input_size)
 
         # Load pretrained InceptionResnetV1
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
         self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
 
+        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"  # ADDED
+
     def embed(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Embedding-only on an already aligned/cropped face (no detection).
+        """
         rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
         t = (t - 0.5) / 0.5
@@ -28,6 +36,9 @@ class FaceNetWrapper:
         return emb[0].cpu().numpy().astype(np.float32)
 
     def detect_and_embed(self, frame: np.ndarray):
+        """
+        Detection path for camera/production (unchanged).
+        """
         boxes, probs = self.detector.detect(frame)
         results = []
         if boxes is not None:
@@ -56,6 +67,8 @@ class FaceNetWrapper:
         # fallback: center crop
         h, w = frame.shape[:2]
         min_dim = min(h, w)
-        crop = frame[(h - min_dim)//2:(h + min_dim)//2,
-                     (w - min_dim)//2:(w + min_dim)//2]
+        crop = frame[
+            (h - min_dim) // 2 : (h + min_dim) // 2,
+            (w - min_dim) // 2 : (w + min_dim) // 2,
+        ]
         return self.embed(crop)

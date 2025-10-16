@@ -1,3 +1,5 @@
+# ==== windows/benchmark_window.py ====
+
 import os
 import sys
 import subprocess
@@ -11,6 +13,10 @@ from PyQt5.QtWidgets import (
     QFrame,
     QProgressBar,
     QInputDialog,
+    QMessageBox,
+    QDialog,
+    QListWidget,
+    QListWidgetItem,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -18,6 +24,57 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
+# ------------------ Dialog for YTF subject selection ------------------
+class SelectSubjectsDialog(QDialog):
+    """Popup dialog to select multiple subjects (folders) from dataset."""
+
+    def __init__(self, dataset_path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select People")
+        self.setMinimumWidth(400)
+        self.selected_subjects = []
+
+        layout = QVBoxLayout(self)
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.MultiSelection)
+
+        # Load all subfolders (people)
+        if os.path.isdir(dataset_path):
+            people = sorted(
+                [
+                    d
+                    for d in os.listdir(dataset_path)
+                    if os.path.isdir(os.path.join(dataset_path, d))
+                ]
+            )
+            for name in people:
+                item = QListWidgetItem(name)
+                item.setCheckState(0)
+                self.list_widget.addItem(item)
+        else:
+            print(f"[WARN] Invalid dataset path: {dataset_path}")
+
+        layout.addWidget(self.list_widget)
+
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        cancel_btn = QPushButton("Cancel")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
+    def accept(self):
+        self.selected_subjects = [
+            self.list_widget.item(i).text()
+            for i in range(self.list_widget.count())
+            if self.list_widget.item(i).checkState()
+        ]
+        super().accept()
+
+
+# ------------------ Worker Thread ------------------
 class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
@@ -42,12 +99,14 @@ class RunnerThread(QThread):
                 str(self.iters),
             ]
 
-            # ✅ Only validation_accuracy script supports dataset/test-image args
-            if "validation_accuracy" in os.path.basename(self.file_path):
-                if self.dataset_path:
-                    cmd.extend(["--dataset", self.dataset_path])
-                if self.test_image:
-                    cmd.extend(["--test-image", self.test_image])
+            if self.dataset_path:
+                cmd.extend(["--dataset", self.dataset_path])
+
+            if (
+                "validation_accuracy" in os.path.basename(self.file_path)
+                and self.test_image
+            ):
+                cmd.extend(["--test-image", self.test_image])
 
             process = subprocess.Popen(
                 cmd,
@@ -56,14 +115,18 @@ class RunnerThread(QThread):
                 text=True,
                 bufsize=1,
             )
+
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
+
             process.stdout.close()
             process.wait()
+
         except Exception as e:
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
 
+# ------------------ Benchmark Page ------------------
 class BenchmarkPage(QWidget):
     def __init__(self, parent=None, get_model_name=None):
         super().__init__(parent)
@@ -72,30 +135,29 @@ class BenchmarkPage(QWidget):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
 
-        # fixed test image path
         self.test_image = os.path.join(
             self.benchmark_dir, "validation_accuracy", "test_image", "test_image1.jpg"
         )
 
-        # dataset path (from config file if available)
-        config_path = os.path.join(base_dir, "models", "model.config")
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
+        # Load dataset from settings.json
+        self.settings_path = os.path.join(base_dir, "settings.json")
+        if os.path.exists(self.settings_path):
+            with open(self.settings_path, "r") as f:
                 cfg = json.load(f)
-            self.dataset_path = cfg.get(
-                "dataset", r"C:\programming\Datasets\LFW\lfw-deepfunneled"
+            # Unified dataset key support
+            self.dataset_path = (
+                cfg.get("dataset_path")
+                or cfg.get("dataset")
+                or r"C:\programming\Datasets\LFW\lfw-deepfunneled"
             )
         else:
-            # fallback
             self.dataset_path = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
 
         main_layout = QVBoxLayout()
-
-        # --- row of buttons ---
         self.button_layout = QHBoxLayout()
         main_layout.addLayout(self.button_layout)
 
-        # --- output area ---
+        # Output frame
         self.output_stack = QStackedWidget()
         self.pages = {}
 
@@ -120,76 +182,216 @@ class BenchmarkPage(QWidget):
         self.output_stack.setCurrentIndex(-1)
         self.current_thread = None
 
-    def _pretty_name_for(self, file_path: str) -> str:
+    def _pretty_name_for(self, file_path):
         base = os.path.splitext(os.path.basename(file_path))[0]
         return base.capitalize()
 
+    def _button_color_for(self, fname):
+        if "logic" in fname.lower():
+            return "#8e44ad"
+        elif any(x in fname.lower() for x in ["latency", "fps", "inference"]):
+            return "#27ae60"
+        elif "validation" in fname.lower() or "accuracy" in fname.lower():
+            return "#2980b9"
+        else:
+            return "#7f8c8d"
+
+    def _reload_settings_dataset(self):
+        """Reload dataset path from settings.json to reflect user changes."""
+        if os.path.exists(self.settings_path):
+            try:
+                with open(self.settings_path, "r") as f:
+                    cfg = json.load(f)
+                self.dataset_path = (
+                    cfg.get("dataset_path") or cfg.get("dataset") or self.dataset_path
+                )
+            except Exception as e:
+                print(f"[WARN] Could not reload settings: {e}")
+
     def load_benchmark_tabs(self):
+        """Dynamically create benchmark buttons and output panels."""
         if not os.path.isdir(self.benchmark_dir):
             print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
             return
 
+        all_scripts = []
         for dirpath, _, filenames in os.walk(self.benchmark_dir):
-            for fname in sorted(f for f in filenames if f.endswith(".py")):
-                file_path = os.path.join(dirpath, fname)
-                tab_name = self._pretty_name_for(file_path)
+            for fname in filenames:
+                if not fname.endswith(".py") or fname.startswith("__"):
+                    continue
+                if "logic" in fname.lower():
+                    continue
+                all_scripts.append(os.path.join(dirpath, fname))
+        all_scripts.sort(key=lambda p: os.path.basename(p).lower())
 
-                btn = QPushButton(tab_name)
-                btn.setMinimumHeight(40)
-                btn.clicked.connect(
-                    lambda _, n=tab_name, p=file_path: self.run_script(n, p)
-                )
-                self.button_layout.addWidget(btn)
+        for file_path in all_scripts:
+            fname = os.path.basename(file_path)
+            tab_name = self._pretty_name_for(file_path)
 
-                page = QWidget()
-                layout = QVBoxLayout()
-                fig = Figure(figsize=(5, 4))
-                canvas = FigureCanvas(fig)
-                layout.addWidget(canvas)
+            btn = QPushButton(tab_name)
+            btn.setMinimumHeight(40)
+            btn.clicked.connect(
+                lambda _, n=tab_name, p=file_path: self.run_script(n, p)
+            )
 
-                # progress bar
-                progress = QProgressBar()
-                progress.setMinimum(0)
-                progress.setMaximum(100)
-                layout.addWidget(progress)
+            color = self._button_color_for(fname)
+            btn.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {color};
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 6px 12px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #555;
+                }}
+            """
+            )
 
-                page.setLayout(layout)
-                idx = self.output_stack.addWidget(page)
+            # Disable FPS button only if it's truly FPS and dataset is LFW
+            if "fps" in fname.lower() and "latency" not in fname.lower():
+                ds_lower = (self.dataset_path or "").lower()
+                if "lfw" in ds_lower:
+                    btn.setEnabled(False)
+                    btn.setToolTip(
+                        "FPS benchmark only works with YTF (video) datasets."
+                    )
 
-                self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
+            self.button_layout.addWidget(btn)
+
+            # Matplotlib page
+            page = QWidget()
+            layout = QVBoxLayout()
+            fig = Figure(figsize=(5, 4))
+            canvas = FigureCanvas(fig)
+            layout.addWidget(canvas)
+            progress = QProgressBar()
+            layout.addWidget(progress)
+            page.setLayout(layout)
+
+            idx = self.output_stack.addWidget(page)
+            self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
 
     def run_script(self, name, file_path):
         if name not in self.pages:
             return
+
+        # 🔄 Refresh dataset in case user changed it in Settings
+        self._reload_settings_dataset()
+
         idx, fig, canvas, file_path, progress = self.pages[name]
         self.output_stack.setCurrentIndex(idx)
 
-        model_name = self.get_model_name() if self.get_model_name else None
+        model_name = self.get_model_name() if callable(self.get_model_name) else None
         if not model_name:
             fig.clear()
             ax = fig.add_subplot(111)
             ax.text(
-                0.5,
-                0.5,
-                "❌ No model selected",
-                ha="center",
-                va="center",
-                color="red",
-                fontsize=12,
+                0.5, 0.5, "No model selected", ha="center", va="center", color="red"
             )
             canvas.draw()
             return
 
-        iters, ok = QInputDialog.getInt(
-            self,
-            "Iterations",
-            "How many images do you want to process?",
-            50,
-            1,
-            10000,
-            1,
+        if not self.dataset_path:
+            QMessageBox.warning(
+                self, "No Dataset", "Please select a dataset in Settings first."
+            )
+            return
+
+        dataset_lower = (self.dataset_path or "").lower()
+        iters = 0
+
+        # --- Detect dataset type ---
+        is_video_dataset = any(
+            x in dataset_lower for x in ["ytf", "aligned_images_db", "video"]
         )
-        if not ok:
+        is_image_dataset = any(x in dataset_lower for x in ["lfw", "image", "photo"])
+
+        # --- Video datasets (YTF etc.) ---
+        if is_video_dataset:
+            ds_for_dialog = self.dataset_path
+            if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+            dlg = SelectSubjectsDialog(ds_for_dialog, self)
+            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                return
+            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
+            num_runs, ok = QInputDialog.getInt(
+                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+            )
+            if not ok:
+                return
+            os.environ["YTF_RUNS"] = str(num_runs)
+
+        # --- Image datasets (LFW etc.) ---
+        elif is_image_dataset:
+            # Allow Latency & Accuracy, but block FPS (but don't block latency scripts)
+            if (
+                "fps" in os.path.basename(file_path).lower()
+                and "latency" not in os.path.basename(file_path).lower()
+            ):
+                QMessageBox.warning(
+                    self,
+                    "FPS Unsupported",
+                    "FPS benchmark is only supported for video datasets (e.g., YTF).",
+                )
+                return
+
+            # Ask for LFW start person, number of images, and runs
+            # Auto-fix: if the user selected LFW parent folder, go one level deeper
+            if os.path.isdir(os.path.join(self.dataset_path, "lfw-deepfunneled")):
+                self.dataset_path = os.path.join(self.dataset_path, "lfw-deepfunneled")
+
+            people = sorted(
+                [
+                    d
+                    for d in os.listdir(self.dataset_path)
+                    if os.path.isdir(os.path.join(self.dataset_path, d))
+                ]
+            )
+            if not people:
+                QMessageBox.warning(
+                    self, "No Folders", "No people found in dataset path."
+                )
+                return
+
+            # ✅ Use the same multi-selection dialog used for YTF
+            dlg = SelectSubjectsDialog(self.dataset_path, self)
+            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                return
+
+            # For compatibility, pick the first person as start, but also store all selections
+            selected_people = dlg.selected_subjects
+            start_person = selected_people[0]  # the first checked name
+            os.environ["LFW_SELECTED_PEOPLE"] = ",".join(selected_people)
+
+            img_count, ok2 = QInputDialog.getInt(
+                self, "Image Count", "How many images to include?", 10, 1, 10000, 1
+            )
+            if not ok2:
+                return
+
+            num_runs, ok3 = QInputDialog.getInt(
+                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+            )
+            if not ok3:
+                return
+
+            os.environ["LFW_START_PERSON"] = start_person
+            os.environ["LFW_IMAGE_COUNT"] = str(img_count)
+            os.environ["LFW_RUNS"] = str(num_runs)
+
+        # --- Fallback: if unknown dataset ---
+        else:
+            QMessageBox.warning(
+                self,
+                "Unknown Dataset",
+                "Could not determine dataset type — please use either LFW (images) or YTF (videos).",
+            )
             return
 
         if self.current_thread and self.current_thread.isRunning():
@@ -203,44 +405,54 @@ class BenchmarkPage(QWidget):
         )
         self.current_thread.start()
 
+    # ---------- Handle Output ----------
+
     def handle_output(self, msg, fig, canvas, progress):
+        import numpy as np
+        import matplotlib.cm as cm
+        import os, json
+
         try:
             data = json.loads(msg)
         except Exception:
-            # plain log lines
             print(f"[SCRIPT LOG] {msg}")
             return
 
-        # Runtime progress updates
-        if "progress" in data and "total" in data:
-            pct = int(100 * data["progress"] / data["total"])
-            progress.setValue(pct)
+        # ----- Progress -----
+        if any(k in data for k in ["_type", "progress", "total"]) and (
+            data.get("_type") == "progress" or ("progress" in data and "total" in data)
+        ):
+            try:
+                cur = int(data.get("progress", 0))
+                tot = int(data.get("total", 1))
+                pct = int(100 * cur / tot)
+                progress.setMaximum(100)
+                progress.setValue(pct)
 
-            fig.clear()
-            ax = fig.add_subplot(111)
-            ax.axis("off")
-            ax.text(
-                0.5,
-                0.5,
-                f"Processing {data['progress']}/{data['total']} images\n({pct}%)",
-                ha="center",
-                va="center",
-                fontsize=12,
-                color="blue",
-            )
-            canvas.draw()
+                # ✅ Include run info if present
+                run_str = ""
+                if "run" in data and "num_runs" in data:
+                    run_str = f" | Run {data['run']}/{data['num_runs']}"
+
+                # ✅ Auto-reset progress bar when new run starts
+                if data.get("progress") == 1:
+                    progress.reset()
+
+                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)" + run_str)
+
+            except Exception as e:
+                print(f"[WARN] Progress parse failed: {e} | data={data}")
             return
 
-        # Plain log messages
+        # ----- Logs -----
         if "log" in data:
             print(f"[SCRIPT LOG] {data['log']}")
             return
 
-        # --- final results plotting ---
-        fig.clear()
-        ax = fig.add_subplot(111)
-
+        # ----- Errors -----
         if "error" in data:
+            fig.clear()
+            ax = fig.add_subplot(111)
             ax.text(
                 0.5,
                 0.5,
@@ -248,88 +460,165 @@ class BenchmarkPage(QWidget):
                 ha="center",
                 va="center",
                 color="red",
-                fontsize=12,
             )
             canvas.draw()
             return
 
-        if "times" in data:
-            times = list(data.get("times", []))
-            dataset = data.get("dataset", "synthetic")
+        # ------------------------------------------------------------------
+        # Auto-detect benchmark kind
+        # ------------------------------------------------------------------
+        kind = data.get("kind", "")
+        fig.clear()
+        ax = fig.add_subplot(111)
+
+        # ===================== LATENCY MODE =====================
+
+        if kind == "latency" or "latency_series_all" in data:
+            latency_series_all = data.get("latency_series_all", [])
+            run_avgs = data.get("runs", [])
+            dataset = data.get("dataset", "")
             model = data.get("model", "")
-            ax.plot(
-                range(1, len(times) + 1), times, marker="o", linestyle="-", color="blue"
+
+            num_runs = len(latency_series_all)
+            cmap = cm.get_cmap("tab10", max(1, num_runs))
+            styles = ["-", "--", "-.", ":"]
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
+
+            # ✅ Always use top-level latency_reports directory
+            base_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "latency_reports",
             )
-            ax.set_xlabel("Iteration")
+            os.makedirs(base_dir, exist_ok=True)
+
+            all_run_data = {"runs": []}
+            problem_files = []
+
+            for i, latencies in enumerate(latency_series_all):
+                if not latencies:
+                    problem_files.append(f"Run_{i+1}_empty")
+                    continue
+
+                latencies = np.array(latencies)
+                avg_ms = float(np.mean(latencies))
+                std_ms = float(np.std(latencies))
+                min_idx = int(np.argmin(latencies))
+                max_idx = int(np.argmax(latencies))
+                min_ms = float(latencies[min_idx])
+                max_ms = float(latencies[max_idx])
+
+                # Try to attach filenames if available
+                frame_paths = data.get("frame_paths_all", [])
+                run_paths = frame_paths[i] if i < len(frame_paths) else []
+                min_file = (
+                    os.path.basename(run_paths[min_idx])
+                    if run_paths and min_idx < len(run_paths)
+                    else f"frame_{min_idx+1}"
+                )
+                max_file = (
+                    os.path.basename(run_paths[max_idx])
+                    if run_paths and max_idx < len(run_paths)
+                    else f"frame_{max_idx+1}"
+                )
+
+                run_entry = {
+                    "run": i + 1,
+                    "min_ms": min_ms,
+                    "max_ms": max_ms,
+                    "avg_ms": avg_ms,
+                    "min_file": min_file,
+                    "max_file": max_file,
+                    "p50_ms": float(np.percentile(latencies, 50)),
+                    "p90_ms": float(np.percentile(latencies, 90)),
+                    "p95_ms": float(np.percentile(latencies, 95)),
+                    "p99_ms": float(np.percentile(latencies, 99)),
+                    "std_ms": std_ms,
+                }
+                all_run_data["runs"].append(run_entry)
+
+                # Plot per run
+                ax.plot(
+                    range(1, len(latencies) + 1),
+                    latencies,
+                    linestyle=styles[i % len(styles)],
+                    color=colors[i],
+                    linewidth=1.5,
+                    label=f"Run {i+1} – {avg_ms:.2f} ms",
+                )
+
+            # ✅ Save all runs into one JSON file
+            report_path = os.path.join(base_dir, "latency_report.json")
+            with open(report_path, "w") as f:
+                json.dump(all_run_data, f, indent=4)
+
+            if problem_files:
+                with open(os.path.join(base_dir, "problem_runs.txt"), "w") as f:
+                    f.write("\n".join(problem_files))
+
+            # Place legend outside the plot area, aligned to the right
+            ax.legend(
+                loc="center left",
+                bbox_to_anchor=(1.02, 0.5),
+                borderaxespad=0,
+                title=(
+                    "Latency per Run"
+                    if kind == "latency" or "latency_series_all" in data
+                    else "Per-Run Averages"
+                ),
+                fontsize=9,
+            )
+            fig.subplots_adjust(right=0.8)
+
+            ax.set_xlabel("Frame Index")
             ax.set_ylabel("Latency (ms)")
-            ax.set_title(f"Latency per Inference - {model} ({dataset})")
+            ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
             ax.grid(True)
             canvas.draw()
             return
 
-        if "fps_series" in data:
-            fps_series = list(data.get("fps_series", []))
-            dataset = data.get("dataset", "synthetic")
+        # ===================== FPS MODE =====================
+        if kind == "fps" or "fps_series_all" in data:
+            fps_series_all = data.get("fps_series_all", [])
+            run_avgs = data.get("runs", [])
+            dataset = data.get("dataset", "")
             model = data.get("model", "")
 
-            # plot as line
+            num_runs = len(fps_series_all)
+            cmap = cm.get_cmap("tab10", max(1, num_runs))
+            styles = ["-", "--", "-.", ":"]
+            colors = [cmap(i / max(1, num_runs - 1)) for i in range(num_runs)]
 
-            ax.plot(
-                range(1, len(fps_series) + 1),
-                fps_series,
-                linestyle="-",
-                color="blue",
-            )
-
-            # annotate each point with its index
-            for i, fps in enumerate(fps_series, 1):
-                # Decide placement: if this point is a local minimum, put below, else above
-                if (
-                    i > 1
-                    and i < len(fps_series)
-                    and fps < fps_series[i - 2]
-                    and fps < fps_series[i]
-                ):
-                    # local minimum → label below
-                    va = "top"
-                    offset = -0.1
-                else:
-                    # otherwise label above
-                    va = "bottom"
-                    offset = 0.1
-
-                ax.text(
-                    i,
-                    fps + offset,
-                    str(i),
-                    fontsize=9,
-                    fontweight="bold",
-                    ha="center",
-                    va=va,
-                    color="red",
+            for i, fps_series in enumerate(fps_series_all):
+                avg_fps = run_avgs[i] if i < len(run_avgs) else np.mean(fps_series)
+                ax.plot(
+                    range(1, len(fps_series) + 1),
+                    fps_series,
+                    linestyle=styles[i % len(styles)],
+                    color=colors[i],
+                    linewidth=1.5,
+                    label=f"Run {i+1} ({avg_fps:.2f} FPS)",
                 )
+
+            # Place legend outside the plot area, aligned to the right
+            ax.legend(
+                loc="center left",
+                bbox_to_anchor=(1.02, 0.5),
+                borderaxespad=0,
+                title=(
+                    "Latency per Run"
+                    if kind == "latency" or "latency_series_all" in data
+                    else "Per-Run Averages"
+                ),
+                fontsize=9,
+            )
+            fig.subplots_adjust(right=0.8)
 
             ax.set_xlabel("Iteration")
             ax.set_ylabel("FPS")
-            ax.set_title(f"Frames per Second - {model} ({dataset})")
+            ax.set_title(f"Frames per Second – {model} ({dataset})")
             ax.grid(True)
             canvas.draw()
             return
 
-        if "positives" in data and "negatives" in data:
-            dataset = data.get("dataset", "synthetic")
-            model = data.get("model", "")
-            ax.hist(data["positives"], bins=50, alpha=0.6, label="Positive", color="g")
-            ax.hist(data["negatives"], bins=50, alpha=0.6, label="Negative", color="r")
-            ax.axvline(
-                data.get("threshold", 0.5),
-                color="blue",
-                linestyle="--",
-                label=f"Threshold={data.get('threshold', 0.5)}",
-            )
-            ax.set_xlabel("Cosine Similarity")
-            ax.set_ylabel("Frequency")
-            ax.legend()
-            ax.set_title(f"Face Verification - {model} ({dataset})")
-            canvas.draw()
-            return
+        # ------------------ fallback ------------------
+        print("[WARN] Unrecognized data:", data.keys())
