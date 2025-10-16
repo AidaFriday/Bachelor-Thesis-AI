@@ -28,8 +28,22 @@ def measure_once(wrapper, frame):
     return (time.perf_counter() - t0) * 1000.0
 
 
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+from connector import load_model
+
+# global singleton
+_cached_wrapper = None
+
+
 def run_logic(model_name, iters, frame_h, frame_w, dataset):
-    wrapper = load_model(model_name)
+    global _cached_wrapper, _cached_model_name
+    if _cached_wrapper is None or _cached_model_name != model_name:
+        _cached_wrapper = load_model(model_name)
+        _cached_model_name = model_name
+    wrapper = _cached_wrapper
 
     start_person = os.getenv("LFW_START_PERSON", "")
     img_limit = int(os.getenv("LFW_IMAGE_COUNT", "0"))
