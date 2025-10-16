@@ -424,9 +424,16 @@ class BenchmarkPage(QWidget):
                 pct = int(100 * cur / tot)
                 progress.setMaximum(100)
                 progress.setValue(pct)
+
+                # ✅ Include run info if present
                 run_str = ""
                 if "run" in data and "num_runs" in data:
                     run_str = f" | Run {data['run']}/{data['num_runs']}"
+
+                # ✅ Auto-reset progress bar when new run starts
+                if data.get("progress") == 1:
+                    progress.reset()
+
                 progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)" + run_str)
 
             except Exception as e:

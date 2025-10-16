@@ -104,12 +104,14 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
             t_ms = measure_once(wrapper, frame)
             latencies.append(t_ms)
 
-            # ✅ Send live progress updates every 5 images
+            # ✅ Send live progress updates every 5 images or at the end
             if (i + 1) % 5 == 0 or (i + 1) == len(image_paths):
                 progress_msg = {
                     "_type": "progress",
                     "progress": i + 1,
                     "total": len(image_paths),
+                    "run": r + 1,  # include current run number
+                    "num_runs": num_runs,  # include total number of runs
                 }
                 print(json.dumps(progress_msg), flush=True)
 
