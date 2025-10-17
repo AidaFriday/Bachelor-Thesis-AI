@@ -21,11 +21,17 @@ def _cuda_sync():
 
 
 def measure_once(wrapper, frame):
-    _cuda_sync()
-    t0 = time.perf_counter()
-    _ = wrapper.embed(frame)
-    _cuda_sync()
-    return (time.perf_counter() - t0) * 1000.0
+    _cuda_sync()  # Ensures all GPU operations are finished before and after the measurement
+    t0 = (
+        time.perf_counter()
+    )  # Records the precise high-resolution time (in seconds) before the embedding operation starts
+    _ = wrapper.embed(
+        frame
+    )  # Runs the actual model inference or feature extraction on a single image/video frame
+    _cuda_sync()  # Waits for all GPU work to finish — ensures we measure complete inference time
+    return (
+        time.perf_counter() - t0
+    ) * 1000.0  # Subtracts start time from end time → elapsed seconds per frame
 
 
 import warnings
@@ -100,13 +106,25 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         send_log(f" - {os.path.basename(p)}")
     send_log(f"Total images: {len(image_paths)}")
 
-    # ---- Warmup ----
+    # ---- Adaptive Warmup ----
     first_frame = cv2.imread(image_paths[0])
     if first_frame is None:
-        send_log("Could not read first image", "error")
+        send_log("❌ Could not read first image for warm-up", "error")
         return
-    _ = wrapper.embed(first_frame)
-    _cuda_sync()
+
+    # Decide warm-up count based on device
+    if _HAS_TORCH and torch.cuda.is_available():
+        warmup_iters = 5  # GPUs need more iterations to stabilize kernels
+        device_name = "GPU"
+    else:
+        warmup_iters = 1  # CPU warm-up is mostly negligible
+        device_name = "CPU"
+
+    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
+
+    for _ in range(warmup_iters):
+        _ = wrapper.embed(first_frame)
+        _cuda_sync()
 
     # ---- Runs ----
     all_runs = []

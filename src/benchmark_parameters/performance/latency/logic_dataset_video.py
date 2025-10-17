@@ -64,10 +64,26 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     num_runs = int(os.getenv("YTF_RUNS", "1"))
     send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
 
-    # ✅ Warmup
-    warmup = cv2.imread(image_paths[0])
-    _ = wrapper.embed(warmup)
-    _cuda_sync()
+    # ---- Adaptive Warmup ----
+    first_frame = cv2.imread(image_paths[0]) if len(image_paths) > 0 else None
+    if first_frame is None:
+        send_log("❌ Could not read first frame for warm-up", "error")
+        # fallback: create random frame if dataset read fails
+        first_frame = np.random.randint(0, 255, (frame_h, frame_w, 3), dtype=np.uint8)
+
+    # Decide warm-up count based on device
+    if _HAS_TORCH and torch.cuda.is_available():
+        warmup_iters = 5  # GPU needs multiple iterations to stabilize kernels
+        device_name = "GPU"
+    else:
+        warmup_iters = 1  # CPU only needs one iteration
+        device_name = "CPU"
+
+    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
+
+    for _ in range(warmup_iters):
+        _ = wrapper.embed(first_frame)
+        _cuda_sync()
 
     # --- Multiple runs ---
     latency_series_all = []  # per-frame latency per run

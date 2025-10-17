@@ -139,6 +139,29 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     num_runs = int(os.getenv("YTF_RUNS", "1"))
     send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
 
+    # ---- Adaptive Warmup ----
+    first_frame = None
+    if len(images) > 0:
+        first_frame = cv2.imread(images[0])
+    if first_frame is None:
+        send_log("❌ Could not read first frame for warm-up", "error")
+        first_frame = _random_frame(frame_h, frame_w)
+
+    # Decide warm-up count based on device
+    if _HAS_TORCH and torch.cuda.is_available():
+        warmup_iters = 5  # GPUs need more warm-up to stabilize
+        device_name = "GPU"
+    else:
+        warmup_iters = 1  # CPU warm-up mostly negligible
+        device_name = "CPU"
+
+    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
+
+    for _ in range(warmup_iters):
+        _ = wrapper.detect_and_embed(first_frame)
+        _cuda_synchronize_if_needed()
+
+    # --- Initialize data collectors ---
     all_run_fps = []
     all_run_series = []
 
@@ -167,6 +190,10 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
         elapsed = time.time() - start
         fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+        # t = latency of one frame in milliseconds
+        # 1000.0 / t → converts latency (ms) into FPS
+        # FPS = “frames per second” = reciprocal of average per-frame processing time
+
         mean_fps = float(np.mean(fps_series))
         all_run_fps.append(mean_fps)
         all_run_series.append(fps_series)
@@ -191,7 +218,7 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
     # --- Save per-run summary JSON ---
     report = {
-        "source_file": os.path.basename(__file__),  # ✅ Add the name of this file
+        "source_file": os.path.basename(__file__),
         "runs": [],
     }
     for run_idx, fps_series in enumerate(all_run_series):
