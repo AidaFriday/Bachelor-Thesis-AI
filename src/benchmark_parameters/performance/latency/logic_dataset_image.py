@@ -152,7 +152,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     overall_avg = float(np.mean(avg_runs))
     # send_log(f"✅ Overall Avg Latency = {overall_avg:.2f} ms", "result")
 
+    # --- Build JSON payload ---
     payload = {
+        "source_file": os.path.basename(__file__),  # ✅ Add the file name
         "kind": "latency_image",
         "dataset": dataset,
         "start_person": start_person,
@@ -164,5 +166,6 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         "frame_paths_all": frame_paths_all,
         "model": model_name,
     }
+
     print(json.dumps(payload))
     sys.stdout.flush()

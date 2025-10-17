@@ -95,10 +95,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
                     "progress": i + 1,
                     "total": iters,
                     "run": r + 1,
-                    "num_runs": num_runs
+                    "num_runs": num_runs,
                 }
                 print(json.dumps(progress_msg), flush=True)
-
 
         if not latencies:
             send_log(f"❌ No valid frames processed in run {r+1}", "error")
@@ -124,7 +123,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     (f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms", "result")
 
     # ✅ Prepare GUI-compatible payload (latency not FPS)
+
     payload = {
+        "source_file": os.path.basename(__file__),  # ✅ Add the file name
         "kind": "latency",
         "dataset": dataset,
         "subjects": selected_subjects,

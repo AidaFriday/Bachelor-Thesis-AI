@@ -190,7 +190,10 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     }
 
     # --- Save per-run summary JSON ---
-    report = {"runs": []}
+    report = {
+        "source_file": os.path.basename(__file__),  # ✅ Add the name of this file
+        "runs": [],
+    }
     for run_idx, fps_series in enumerate(all_run_series):
         min_idx = int(np.argmin(fps_series))
         max_idx = int(np.argmax(fps_series))

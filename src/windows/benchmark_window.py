@@ -491,7 +491,10 @@ class BenchmarkPage(QWidget):
             )
             os.makedirs(base_dir, exist_ok=True)
 
-            all_run_data = {"runs": []}
+            # ✅ Include the originating file name if present in payload
+            source_file = data.get("source_file", "unknown")
+            all_run_data = {"source_file": source_file, "runs": []}
+
             problem_files = []
 
             for i, latencies in enumerate(latency_series_all):
