@@ -62,7 +62,7 @@ def run(model_name, iters, frame_h, frame_w, dataset=None):
 
         send_log(f"[accuracy] Defaulting to IMAGE dataset logic (no match)")
 
-    logic_run(model_name, iters, frame_h, frame_w, dataset)
+    logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
 
 
 def main():
@@ -86,7 +86,12 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, h, w, dataset)
+    iters = args.iters or cfg.get("iters", 300)
+    if iters <= 0:
+        iters = 300
+        send_log("[WARN] iters was 0 — using default 300 instead")
+
+    run(model, iters, h, w, dataset)
 
 
 if __name__ == "__main__":

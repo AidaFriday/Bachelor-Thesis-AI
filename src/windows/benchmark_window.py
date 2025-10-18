@@ -102,12 +102,6 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            if (
-                "validation_accuracy" in os.path.basename(self.file_path)
-                and self.test_image
-            ):
-                cmd.extend(["--test-image", self.test_image])
-
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -341,49 +335,63 @@ class BenchmarkPage(QWidget):
                 )
                 return
 
-            # Ask for LFW start person, number of images, and runs
-            # Auto-fix: if the user selected LFW parent folder, go one level deeper
+            # Auto-fix: if user selected LFW parent folder, go one level deeper
             if os.path.isdir(os.path.join(self.dataset_path, "lfw-deepfunneled")):
                 self.dataset_path = os.path.join(self.dataset_path, "lfw-deepfunneled")
 
-            people = sorted(
-                [
-                    d
-                    for d in os.listdir(self.dataset_path)
-                    if os.path.isdir(os.path.join(self.dataset_path, d))
-                ]
-            )
-            if not people:
-                QMessageBox.warning(
-                    self, "No Folders", "No people found in dataset path."
+            # For validation accuracy, skip person selection — script handles pairs internally
+            if "validation_accuracy" in os.path.basename(file_path).lower():
+                num_runs, ok = QInputDialog.getInt(
+                    self,
+                    "Number of Pairs",
+                    "How many pairs to test?",
+                    600,
+                    100,
+                    6000,
+                    100,
                 )
-                return
+                if not ok:
+                    return
+                os.environ["LFW_RUNS"] = str(num_runs)
 
-            # ✅ Use the same multi-selection dialog used for YTF
-            dlg = SelectSubjectsDialog(self.dataset_path, self)
-            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
-                return
+            else:
+                # Show person-selection dialog for latency, inference etc.
+                people = sorted(
+                    [
+                        d
+                        for d in os.listdir(self.dataset_path)
+                        if os.path.isdir(os.path.join(self.dataset_path, d))
+                    ]
+                )
+                if not people:
+                    QMessageBox.warning(
+                        self, "No Folders", "No people found in dataset path."
+                    )
+                    return
 
-            # For compatibility, pick the first person as start, but also store all selections
-            selected_people = dlg.selected_subjects
-            start_person = selected_people[0]  # the first checked name
-            os.environ["LFW_SELECTED_PEOPLE"] = ",".join(selected_people)
+                dlg = SelectSubjectsDialog(self.dataset_path, self)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
 
-            img_count, ok2 = QInputDialog.getInt(
-                self, "Image Count", "How many images to include?", 10, 1, 10000, 1
-            )
-            if not ok2:
-                return
+                selected_people = dlg.selected_subjects
+                start_person = selected_people[0]
+                os.environ["LFW_SELECTED_PEOPLE"] = ",".join(selected_people)
 
-            num_runs, ok3 = QInputDialog.getInt(
-                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
-            )
-            if not ok3:
-                return
+                img_count, ok2 = QInputDialog.getInt(
+                    self, "Image Count", "How many images to include?", 10, 1, 10000, 1
+                )
+                if not ok2:
+                    return
 
-            os.environ["LFW_START_PERSON"] = start_person
-            os.environ["LFW_IMAGE_COUNT"] = str(img_count)
-            os.environ["LFW_RUNS"] = str(num_runs)
+                num_runs, ok3 = QInputDialog.getInt(
+                    self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+                )
+                if not ok3:
+                    return
+
+                os.environ["LFW_START_PERSON"] = start_person
+                os.environ["LFW_IMAGE_COUNT"] = str(img_count)
+                os.environ["LFW_RUNS"] = str(num_runs)
 
         # --- Fallback: if unknown dataset ---
         else:
@@ -631,6 +639,42 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second – {model} ({dataset})")
             ax.grid(True)
+            canvas.draw()
+            return
+
+            # ===================== VALIDATION ACCURACY MODE =====================
+        if kind == "accuracy_image":
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc = float(data.get("accuracy", 0)) * 100.0
+            threshold = data.get("threshold", 0)
+            num_pairs = data.get("num_pairs", 0)
+            elapsed = data.get("elapsed_sec", 0)
+
+            # Clear and create a bar plot
+            ax.barh([model], [acc], color="#2980b9")
+            ax.set_xlim(0, 100)
+            ax.set_xlabel("Accuracy (%)")
+            ax.set_title(f"Validation Accuracy – {model} on {dataset}")
+            ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+
+            # Annotate accuracy value next to bar
+            ax.text(
+                acc + 1, 0, f"{acc:.2f}%", va="center", color="black", fontweight="bold"
+            )
+
+            # Add threshold and stats below plot
+            ax.text(
+                0.5,
+                -0.3,
+                f"Threshold: {threshold:.3f} | Pairs: {num_pairs} | Time: {elapsed:.1f}s",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=9,
+                color="gray",
+            )
+
             canvas.draw()
             return
 
