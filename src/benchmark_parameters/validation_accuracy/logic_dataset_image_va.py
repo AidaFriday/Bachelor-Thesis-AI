@@ -377,7 +377,13 @@ def run_logic(
         )
         return
 
-    acc, best_t = find_best_threshold(sims, labels)
+    # --- Use fixed threshold instead of searching for best ---
+    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))  # default 0.7 if not set
+    labels_np = np.array(labels, dtype=int)
+    preds = (np.array(sims) > fixed_t).astype(int)
+    acc = float(np.mean(preds == labels_np))
+    best_t = fixed_t  # just for output consistency
+
     elapsed = time.time() - start_time
 
     # --- Confusion counts at best threshold ---
