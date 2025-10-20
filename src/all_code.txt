@@ -1122,7 +1122,7 @@ def cosine_similarity(a, b):
 
 
 def generate_pairs(dataset_path, max_pairs=600):
-    """Generate balanced same/different image pairs from dataset folders."""
+    """Generate same/different image pairs from dataset folders."""
     people = [
         p
         for p in os.listdir(dataset_path)
@@ -1130,41 +1130,41 @@ def generate_pairs(dataset_path, max_pairs=600):
     ]
     all_pairs = []
 
-    # Positive pairs
-    # Positive pairs (skip identities with less than 2 images)
+    # Positive pairs (keep only if at least 2 images)
+    valid_people = []
     for person in people:
         imgs = [
             os.path.join(dataset_path, person, f)
             for f in os.listdir(os.path.join(dataset_path, person))
             if f.lower().endswith((".jpg", ".png"))
         ]
-        if len(imgs) < 2:
-            continue  # skip single-image identities
+        if len(imgs) >= 2:
+            valid_people.append(person)
+            for i in range(len(imgs)):
+                for j in range(i + 1, len(imgs)):
+                    all_pairs.append((imgs[i], imgs[j], 1))
 
-        for i in range(len(imgs)):
-            for j in range(i + 1, len(imgs)):
-                all_pairs.append((imgs[i], imgs[j], 1))
-
-    random.shuffle(all_pairs)
-
-    # Negative pairs
-    neg_pairs = []
-    while len(neg_pairs) < len(all_pairs):
-        p1, p2 = random.sample(people, 2)
-        imgs1 = [
-            os.path.join(dataset_path, p1, f)
-            for f in os.listdir(os.path.join(dataset_path, p1))
-            if f.lower().endswith((".jpg", ".png"))
+    # Fallback if no positive pairs (too many single-image folders)
+    if not all_pairs:
+        print("[WARN] No multi-image identities found; generating only negative pairs")
+        people_with_imgs = [
+            (
+                p,
+                [
+                    os.path.join(dataset_path, p, f)
+                    for f in os.listdir(os.path.join(dataset_path, p))
+                    if f.lower().endswith((".jpg", ".png"))
+                ],
+            )
+            for p in people
         ]
-        imgs2 = [
-            os.path.join(dataset_path, p2, f)
-            for f in os.listdir(os.path.join(dataset_path, p2))
-            if f.lower().endswith((".jpg", ".png"))
-        ]
-        if imgs1 and imgs2:
-            neg_pairs.append((random.choice(imgs1), random.choice(imgs2), 0))
+        people_with_imgs = [(p, imgs) for p, imgs in people_with_imgs if imgs]
+        while len(all_pairs) < max_pairs and len(people_with_imgs) >= 2:
+            p1, p2 = random.sample(people_with_imgs, 2)
+            img1 = random.choice(p1[1])
+            img2 = random.choice(p2[1])
+            all_pairs.append((img1, img2, 0))
 
-    all_pairs.extend(neg_pairs)
     random.shuffle(all_pairs)
     print(f"[DEBUG] Generated {len(all_pairs)} pairs from {len(people)} identities")
     return all_pairs[:max_pairs]
@@ -1193,6 +1193,8 @@ def run_logic(model_path, iters=300, frame_h=None, frame_w=None, dataset_path=No
 
     wrapper = load_model(model_path)
     model_name = getattr(wrapper, "name", os.path.basename(model_path))
+
+    print(f"[DEBUG] run_logic() called with iters={iters}, dataset_path={dataset_path}")
 
     pairs = generate_pairs(dataset_path, max_pairs=iters)
     sims, labels = [], []
@@ -1423,7 +1425,12 @@ def main():
     except Exception:
         h, w = 640, 640
 
-    run(model, args.iters, h, w, dataset)
+    iters = args.iters or cfg.get("iters", 300)
+    if iters <= 0:
+        iters = 300
+        send_log("[WARN] iters was 0 — using default 300 instead")
+
+    run(model, iters, h, w, dataset)
 
 
 if __name__ == "__main__":

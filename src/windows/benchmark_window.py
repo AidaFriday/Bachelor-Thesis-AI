@@ -79,7 +79,13 @@ class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
     def __init__(
-        self, file_path, model_name, dataset_path=None, test_image=None, iters=50
+        self,
+        file_path,
+        model_name,
+        dataset_path=None,
+        test_image=None,
+        iters=50,
+        extra_args=None,
     ):
         super().__init__()
         self.file_path = file_path
@@ -87,6 +93,7 @@ class RunnerThread(QThread):
         self.dataset_path = dataset_path
         self.test_image = test_image
         self.iters = iters
+        self.extra_args = extra_args or []  # NEW
 
     def run(self):
         try:
@@ -102,6 +109,10 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
+            # NEW: append any extra CLI arguments (e.g., --start-person, --pos-ratio)
+            if self.extra_args:
+                cmd.extend(self.extra_args)
+
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -109,13 +120,10 @@ class RunnerThread(QThread):
                 text=True,
                 bufsize=1,
             )
-
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
-
             process.stdout.close()
             process.wait()
-
         except Exception as e:
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
@@ -297,6 +305,7 @@ class BenchmarkPage(QWidget):
 
         dataset_lower = (self.dataset_path or "").lower()
         iters = 0
+        extra_args = []
 
         # --- Detect dataset type ---
         is_video_dataset = any(
@@ -341,18 +350,36 @@ class BenchmarkPage(QWidget):
 
             # For validation accuracy, skip person selection — script handles pairs internally
             if "validation_accuracy" in os.path.basename(file_path).lower():
-                num_runs, ok = QInputDialog.getInt(
+                num_pairs, ok = QInputDialog.getInt(
                     self,
                     "Number of Pairs",
                     "How many pairs to test?",
-                    600,
-                    100,
-                    6000,
-                    100,
+                    600,  # default
+                    100,  # min
+                    6000,  # max
+                    100,  # step
                 )
                 if not ok:
                     return
-                os.environ["LFW_RUNS"] = str(num_runs)
+
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+                start_person = dlg.selected_subjects[0]
+
+                pos_ratio = 0.5  # or prompt later if you want
+
+                # pass via env (the VA script reads these)
+                os.environ["LFW_START_PERSON"] = start_person
+                os.environ["POS_RATIO"] = str(pos_ratio)
+
+                iters = num_pairs  # pairs count
+                # extra_args stays [] for VA
 
             else:
                 # Show person-selection dialog for latency, inference etc.
@@ -406,7 +433,12 @@ class BenchmarkPage(QWidget):
             self.current_thread.terminate()
 
         self.current_thread = RunnerThread(
-            file_path, model_name, self.dataset_path, self.test_image, iters=iters
+            file_path,
+            model_name,
+            self.dataset_path,
+            self.test_image,
+            iters=iters,
+            extra_args=extra_args,
         )
         self.current_thread.output_signal.connect(
             lambda msg: self.handle_output(msg, fig, canvas, progress)
