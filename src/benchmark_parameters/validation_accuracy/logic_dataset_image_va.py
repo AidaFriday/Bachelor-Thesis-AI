@@ -49,48 +49,89 @@ def _ring_index(i, n):  # helper for wrap-around
 
 
 def build_pairs_deterministic(
-    dataset_path, start_person=None, max_pairs=600, pos_ratio=0.5
+    dataset_path,
+    start_person=None,
+    max_pairs=600,
+    pos_ratio=0.5,
+    exclude_singletons=True,  # to allowing singletons (..., exclude_singletons=False)
 ):
     """
-    Deterministic pair set:
-      - start from `start_person` (if provided), else from the first folder
-      - generate positives (same identity) and negatives (different identities)
-      - order is stable, no randomness; good for cross-model reproducibility
+    Deterministic pair set (Option B):
+      - Only use identities with >= 2 images for BOTH positives and negatives.
+      - Start at `start_person` if available; if it is a singleton or missing,
+        start at the next available >=2-image identity in alphabetical order.
+      - Order is stable and reproducible.
     """
     pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
-    people = _collect_ordered_people_with_images(dataset_path)
-    if not people:
+
+    # 1) collect all people (alphabetical)
+    people_all = _collect_ordered_people_with_images(dataset_path)
+    if not people_all:
         print("[ERROR] No images found in dataset")
         return []
 
-    # locate start index
-    names = [p for p, _ in people]
-    if start_person in names:
-        start_idx = names.index(start_person)
+    # 2) filter to >=2 images if Option B
+    if exclude_singletons:
+        people = [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
+    else:
+        people = people_all[:]  # (kept for completeness, but Option B => default True)
+
+    if not people:
+        print("[ERROR] No identities with >=2 images were found; nothing to build")
+        return []
+
+    all_names = [p for p, _ in people_all]
+    filt_names = [p for p, _ in people]
+
+    # 3) find a deterministic start index that honors the user's choice
+    #    even if that chosen folder is a singleton (skip forward to next valid).
+    if start_person:
+        if start_person in filt_names:
+            start_idx = filt_names.index(start_person)
+        else:
+            # if start_person exists among all_names, find the next filt_names after it
+            if start_person in all_names:
+                base = all_names.index(start_person)
+                # walk forward from 'base' through all_names (wrap) and pick
+                # the first name that is in filt_names
+                chosen = None
+                for k in range(len(all_names)):
+                    name = all_names[(base + k) % len(all_names)]
+                    if name in filt_names:
+                        chosen = name
+                        break
+                if chosen is None:
+                    # shouldn't happen because filt_names is non-empty
+                    start_idx = 0
+                else:
+                    start_idx = filt_names.index(chosen)
+                    print(
+                        f"[WARN] start_person '{start_person}' has <2 images; "
+                        f"starting at next available '{chosen}'"
+                    )
+            else:
+                print(
+                    f"[WARN] start_person '{start_person}' not found; starting at '{filt_names[0]}'"
+                )
+                start_idx = 0
     else:
         start_idx = 0
-        if start_person:
-            print(
-                f"[WARN] start_person '{start_person}' not found; starting at '{names[0]}'"
-            )
 
-    # --- build ordered positive pool (deterministic) ---
+    # 4) build positives from filtered people (>=2 images)
     pos_pool = []
-    for k in range(len(people)):  # walk over people starting at start_idx (wrap-around)
+    for k in range(len(people)):  # walk from start_idx with wrap-around
         person_idx = _ring_index(start_idx + k, len(people))
         _, imgs = people[person_idx]
-        if len(imgs) < 2:
-            continue
+        # all deterministic combinations for that person
         for i in range(len(imgs)):
             for j in range(i + 1, len(imgs)):
                 pos_pool.append((imgs[i], imgs[j], 1))
 
-    # --- build ordered negative pool (deterministic) ---
+    # 5) build negatives from filtered people only (Option B)
     neg_pool = []
     n = len(people)
     if n >= 2:
-        # pair each person with the next, then the next-next, etc., round-robin
-        # and pair images by index with wrap-around for determinism
+        # round-robin across identities; pair by matching index with wrap-around
         for offset in range(1, n):
             for a in range(n):
                 b = _ring_index(a + offset, n)
@@ -100,14 +141,12 @@ def build_pairs_deterministic(
                 for t in range(L):
                     neg_pool.append((imgs_a[t], imgs_b[t], 0))
 
-    # decide counts
+    # 6) allocate counts + top-up deterministically
     want_pos = int(round(max_pairs * pos_ratio))
     want_neg = max_pairs - want_pos
-
     pos_take = pos_pool[:want_pos]
     neg_take = neg_pool[:want_neg]
 
-    # top up if one side is short
     combined = pos_take + neg_take
     if len(combined) < max_pairs:
         rest_pos = pos_pool[len(pos_take) :]
@@ -120,9 +159,9 @@ def build_pairs_deterministic(
 
     print(
         f"[INFO] Built {len(combined)} pairs "
-        f"({sum(1 for *_,l in combined if l==1)} pos / "
-        f"{sum(1 for *_,l in combined if l==0)} neg) "
-        f"starting at '{names[start_idx]}'"
+        f"({sum(1 for *_, l in combined if l==1)} pos / "
+        f"{sum(1 for *_, l in combined if l==0)} neg) "
+        f"starting at '{filt_names[start_idx]}'"
     )
     return combined[:max_pairs]
 
