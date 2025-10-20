@@ -54,39 +54,47 @@ def _ring_index(i, n):  # helper for wrap-around
     return i % n if n else 0
 
 
+def _pair_key(a: str, b: str, lbl: int):
+    """Order-insensitive unique key for a pair."""
+    a = os.path.normpath(a)
+    b = os.path.normpath(b)
+    if a <= b:
+        return (a, b, int(lbl))
+    else:
+        return (b, a, int(lbl))
+
+
 def build_pairs_deterministic(
     dataset_path,
     start_person=None,
     max_pairs=600,
     pos_ratio=0.5,
-    exclude_singletons=True,  # Option B: use only folders with ≥2 images for both pos & neg
-    max_pos_per_identity=10,  # NEW: cap positive pairs contributed by each identity
-    max_neg_per_identity=20,  # NEW: cap negative pairs involving each identity
+    exclude_singletons=True,  # only folders with ≥2 images for pos & neg
+    max_pos_per_identity=10,  # cap positive pairs contributed by each identity
+    max_neg_per_identity=20,  # cap negative pairs involving each identity
+    max_pos_per_image=3,  # NEW: cap how many positive pairs each *image* can be in
+    max_neg_per_image=3,  # NEW: cap how many negative pairs each *image* can be in
 ):
     """
-    Deterministic pair set (Option B + caps):
-      - Only use identities with >= 2 images for BOTH positives and negatives.
-      - Start at `start_person` if available; if it is a singleton or missing,
-        start at the next available >=2-image identity in alphabetical order.
-      - Limit how many pairs each identity contributes:
-          * At most `max_pos_per_identity` positive pairs per identity.
-          * At most `max_neg_per_identity` negative pairs involving that identity.
-      - Order is stable and reproducible.
+    Deterministic (reproducible) pair set with:
+      - Option B (no singletons)
+      - per-identity caps
+      - per-image caps (prevents one image from repeating a lot)
+      - order-insensitive pair de-duplication
+      - round-robin image selection to diversify pairs
     """
     pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
 
-    # 1) collect all people (alphabetical)
     people_all = _collect_ordered_people_with_images(dataset_path)
     if not people_all:
         print("[ERROR] No images found in dataset")
         return []
 
-    # 2) filter to >=2 images if Option B
-    if exclude_singletons:
-        people = [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
-    else:
-        people = people_all[:]  # retained for completeness
-
+    people = (
+        [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
+        if exclude_singletons
+        else people_all[:]
+    )
     if not people:
         print("[ERROR] No identities with >=2 images were found; nothing to build")
         return []
@@ -94,7 +102,7 @@ def build_pairs_deterministic(
     all_names = [p for p, _ in people_all]
     filt_names = [p for p, _ in people]
 
-    # 3) find deterministic start index, honoring chosen person if possible
+    # start index resolution
     if start_person:
         if start_person in filt_names:
             start_idx = filt_names.index(start_person)
@@ -103,17 +111,14 @@ def build_pairs_deterministic(
                 base = all_names.index(start_person)
                 chosen = None
                 for k in range(len(all_names)):
-                    name = all_names[(base + k) % len(all_names)]
-                    if name in filt_names:
-                        chosen = name
+                    cand = all_names[(base + k) % len(all_names)]
+                    if cand in filt_names:
+                        chosen = cand
                         break
-                if chosen is None:
-                    start_idx = 0
-                else:
-                    start_idx = filt_names.index(chosen)
+                start_idx = filt_names.index(chosen) if chosen else 0
+                if chosen:
                     print(
-                        f"[WARN] start_person '{start_person}' has <2 images; "
-                        f"starting at next available '{chosen}'"
+                        f"[WARN] start_person '{start_person}' has <2 images; starting at next available '{chosen}'"
                     )
             else:
                 print(
@@ -123,65 +128,119 @@ def build_pairs_deterministic(
     else:
         start_idx = 0
 
-    # 4) build positives (all combinations) from filtered people, but cap per identity
-    pos_pool = []
-    pos_count = {name: 0 for name, _ in people}  # track how many pos pairs per identity
-    for k in range(len(people)):  # walk from start_idx with wrap-around
-        person_idx = _ring_index(start_idx + k, len(people))
-        name, imgs = people[person_idx]
+    # --- POSITIVES (diversified & capped per image + per identity) ---
+    pos_pool: list[tuple[str, str, int]] = []
+    pos_seen: set[tuple[str, str, int]] = set()
+    pos_count_id = {name: 0 for name, _ in people}
+    pos_use_img: dict[str, int] = {}
 
-        # generate deterministic combinations, but stop once the cap is hit
-        if pos_count[name] >= max_pos_per_identity:
+    for k in range(len(people)):  # walk from start with wrap-around
+        pi = _ring_index(start_idx + k, len(people))
+        name, imgs = people[pi]
+        if pos_count_id[name] >= max_pos_per_identity:
             continue
-        added_for_this_identity = 0
 
-        for i in range(len(imgs)):
-            if added_for_this_identity >= max_pos_per_identity:
-                break
-            for j in range(i + 1, len(imgs)):
-                if added_for_this_identity >= max_pos_per_identity:
+        # Round-robin pairing inside the identity:
+        # shift=1 pairs (0,1), (1,2), ..., then shift=2 pairs (0,2), (1,3), ...
+        added_for_id = 0
+        m = len(imgs)
+        for shift in range(1, m):
+            for i in range(m):
+                if added_for_id >= max_pos_per_identity:
                     break
-                pos_pool.append((imgs[i], imgs[j], 1))
-                added_for_this_identity += 1
-                pos_count[name] += 1
+                j = (i + shift) % m
+                if i >= j:  # enforce i<j once, to avoid mirror duplicates
+                    continue
+                a, b = imgs[i], imgs[j]
+                # per-image caps
+                if pos_use_img.get(a, 0) >= max_pos_per_image:
+                    continue
+                if pos_use_img.get(b, 0) >= max_pos_per_image:
+                    continue
+                key = _pair_key(a, b, 1)
+                if key in pos_seen:
+                    continue
+                pos_seen.add(key)
+                pos_pool.append((a, b, 1))
+                pos_use_img[a] = pos_use_img.get(a, 0) + 1
+                pos_use_img[b] = pos_use_img.get(b, 0) + 1
+                pos_count_id[name] += 1
+                added_for_id += 1
+            if added_for_id >= max_pos_per_identity:
+                break
 
-    # 5) build negatives (round-robin by index) from filtered people only, cap per identity
-    neg_pool = []
-    neg_count = {name: 0 for name, _ in people}  # track how many neg pairs per identity
+    # --- NEGATIVES (diversified & capped per image + per identity) ---
+    neg_pool: list[tuple[str, str, int]] = []
+    neg_seen: set[tuple[str, str, int]] = set()
+    neg_count_id = {name: 0 for name, _ in people}
+    neg_use_img: dict[str, int] = {}
+
     n = len(people)
     if n >= 2:
-        for offset in range(1, n):  # round-robin partner distance
-            for a in range(n):
-                b = _ring_index(a + offset, n)
-                name_a, imgs_a = people[a]
-                name_b, imgs_b = people[b]
-                # pair by index with wrap-around deterministically
-                L = min(len(imgs_a), len(imgs_b))
-                for t in range(L):
-                    # enforce per-identity negative caps before appending
-                    if neg_count[name_a] >= max_neg_per_identity:
-                        continue
-                    if neg_count[name_b] >= max_neg_per_identity:
-                        continue
-                    neg_pool.append((imgs_a[t], imgs_b[t], 0))
-                    neg_count[name_a] += 1
-                    neg_count[name_b] += 1
+        # offset over identities (round-robin across different people)
+        for id_offset in range(1, n):
+            for a_idx in range(n):
+                b_idx = _ring_index(a_idx + id_offset, n)
+                name_a, imgs_a = people[a_idx]
+                name_b, imgs_b = people[b_idx]
+                if (
+                    neg_count_id[name_a] >= max_neg_per_identity
+                    and neg_count_id[name_b] >= max_neg_per_identity
+                ):
+                    continue
 
-    # 6) allocate counts + top-up deterministically
+                # diversify which image matches which: use an image offset too
+                La, Lb = len(imgs_a), len(imgs_b)
+                L = min(La, Lb)
+                for img_offset in range(L):
+                    a = imgs_a[img_offset % La]
+                    b = imgs_b[(img_offset + id_offset) % Lb]  # shift pairing
+
+                    if neg_count_id[name_a] >= max_neg_per_identity:
+                        continue
+                    if neg_count_id[name_b] >= max_neg_per_identity:
+                        continue
+                    if neg_use_img.get(a, 0) >= max_neg_per_image:
+                        continue
+                    if neg_use_img.get(b, 0) >= max_neg_per_image:
+                        continue
+
+                    key = _pair_key(a, b, 0)
+                    if key in neg_seen:
+                        continue
+                    neg_seen.add(key)
+                    neg_pool.append((a, b, 0))
+                    neg_use_img[a] = neg_use_img.get(a, 0) + 1
+                    neg_use_img[b] = neg_use_img.get(b, 0) + 1
+                    neg_count_id[name_a] += 1
+                    neg_count_id[name_b] += 1
+
+    # --- Allocate counts + top-up deterministically (still dedup) ---
     want_pos = int(round(max_pairs * pos_ratio))
     want_neg = max_pairs - want_pos
-    pos_take = pos_pool[:want_pos]
-    neg_take = neg_pool[:want_neg]
 
-    combined = pos_take + neg_take
+    combined: list[tuple[str, str, int]] = []
+    combined_seen: set[tuple[str, str, int]] = set()
+
+    def _try_add(pair):
+        key = _pair_key(pair[0], pair[1], pair[2])
+        if key in combined_seen:
+            return False
+        combined.append(pair)
+        combined_seen.add(key)
+        return True
+
+    for p in pos_pool[:want_pos]:
+        _try_add(p)
+    for q in neg_pool[:want_neg]:
+        _try_add(q)
+
     if len(combined) < max_pairs:
-        rest_pos = pos_pool[len(pos_take) :]
-        rest_neg = neg_pool[len(neg_take) :]
-        for chunk in (rest_pos, rest_neg):
-            for item in chunk:
+        for pool in (pos_pool[want_pos:], neg_pool[want_neg:]):
+            for item in pool:
                 if len(combined) >= max_pairs:
                     break
-                combined.append(item)
+                _try_add(item)
 
     print(
         f"[INFO] Built {len(combined)} pairs "
@@ -257,10 +316,10 @@ def run_logic(
     # --- Build pairs deterministically ---
     pairs = build_pairs_deterministic(
         dataset_path,
-        start_person=start_person,  # ask via popup in GUI; or CLI flag
-        max_pairs=iters,  # “How many pairs?” from popup/CLI
-        pos_ratio=pos_ratio,  # 0.5 = balanced pos/neg
-        exclude_singletons=True,  # Option B in effect
+        start_person=start_person,
+        max_pairs=iters,
+        pos_ratio=pos_ratio,
+        exclude_singletons=True,
         max_pos_per_identity=max_pos_cap,
         max_neg_per_identity=max_neg_cap,
     )
@@ -367,9 +426,67 @@ def run_logic(
         "identities_preview": identities_preview,
         "max_pos_per_identity": max_pos_cap,
         "max_neg_per_identity": max_neg_cap,
-        "title": f"{model_name} – VA (Image) – Start: {start_person or 'N/A'}",
+        "title": f"Model: {model_name} – Validation Accuracy (Image) – Start: {start_person or 'N/A'}",
         "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities} | caps(+:{max_pos_cap}, -:{max_neg_cap})",
     }
+
+    # ------- Export full run details to a separate JSON file -------
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    dataset_name = os.path.basename(dataset_path.rstrip(os.sep))
+    test_name = "Validation Accuracy (Image)"
+
+    # Store pairs with paths relative to dataset for portability
+    pairs_export = []
+    for a, b, lbl in pairs:
+        pairs_export.append(
+            {
+                "a": os.path.relpath(os.path.normpath(a), dataset_path),
+                "b": os.path.relpath(os.path.normpath(b), dataset_path),
+                "label": "pos" if int(lbl) == 1 else "neg",
+            }
+        )
+
+    export_payload = {
+        "meta": {
+            "model": model_name,
+            "dataset": dataset_name,
+            "test_name": test_name,
+            "start_person": start_person,
+            "pos_ratio": pos_ratio,
+            "iters_requested": iters,
+            "pairs_evaluated": len(sims),
+            "timestamp": timestamp,
+        },
+        "stats": {
+            "accuracy": result["accuracy"],
+            "threshold": result["threshold"],
+            "elapsed_sec": result["elapsed_sec"],
+            "tp": result["tp"],
+            "fp": result["fp"],
+            "tn": result["tn"],
+            "fn": result["fn"],
+            "pos_pairs": result["pos_pairs"],
+            "neg_pairs": result["neg_pairs"],
+            "unique_identities": result["unique_identities"],
+        },
+        "identities": identities_used,  # full, sorted list
+        "pairs": pairs_export,  # every evaluated pair (no duplicates)
+    }
+
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    export_path = os.path.join(
+        export_dir, f"va_{dataset_name}_{model_name}_{timestamp}.json"
+    )
+    with open(export_path, "w", encoding="utf-8") as f:
+        json.dump(export_payload, f, indent=2)
+
+    # Optional info for console
+    result["export_path"] = export_path
+    try:
+        send_log(f"[export] wrote {export_path}")
+    except NameError:
+        pass
 
     # Human-readable pretty block for the console
     print("[RESULT]", flush=True)
