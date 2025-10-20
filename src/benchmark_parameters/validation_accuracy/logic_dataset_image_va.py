@@ -60,12 +60,17 @@ def build_pairs_deterministic(
     max_pairs=600,
     pos_ratio=0.5,
     exclude_singletons=True,  # Option B: use only folders with ≥2 images for both pos & neg
+    max_pos_per_identity=10,  # NEW: cap positive pairs contributed by each identity
+    max_neg_per_identity=20,  # NEW: cap negative pairs involving each identity
 ):
     """
-    Deterministic pair set (Option B):
+    Deterministic pair set (Option B + caps):
       - Only use identities with >= 2 images for BOTH positives and negatives.
       - Start at `start_person` if available; if it is a singleton or missing,
         start at the next available >=2-image identity in alphabetical order.
+      - Limit how many pairs each identity contributes:
+          * At most `max_pos_per_identity` positive pairs per identity.
+          * At most `max_neg_per_identity` negative pairs involving that identity.
       - Order is stable and reproducible.
     """
     pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
@@ -118,27 +123,49 @@ def build_pairs_deterministic(
     else:
         start_idx = 0
 
-    # 4) build positives (all combinations) from filtered people
+    # 4) build positives (all combinations) from filtered people, but cap per identity
     pos_pool = []
+    pos_count = {name: 0 for name, _ in people}  # track how many pos pairs per identity
     for k in range(len(people)):  # walk from start_idx with wrap-around
         person_idx = _ring_index(start_idx + k, len(people))
-        _, imgs = people[person_idx]
-        for i in range(len(imgs)):
-            for j in range(i + 1, len(imgs)):
-                pos_pool.append((imgs[i], imgs[j], 1))
+        name, imgs = people[person_idx]
 
-    # 5) build negatives (round-robin by index) from filtered people only
+        # generate deterministic combinations, but stop once the cap is hit
+        if pos_count[name] >= max_pos_per_identity:
+            continue
+        added_for_this_identity = 0
+
+        for i in range(len(imgs)):
+            if added_for_this_identity >= max_pos_per_identity:
+                break
+            for j in range(i + 1, len(imgs)):
+                if added_for_this_identity >= max_pos_per_identity:
+                    break
+                pos_pool.append((imgs[i], imgs[j], 1))
+                added_for_this_identity += 1
+                pos_count[name] += 1
+
+    # 5) build negatives (round-robin by index) from filtered people only, cap per identity
     neg_pool = []
+    neg_count = {name: 0 for name, _ in people}  # track how many neg pairs per identity
     n = len(people)
     if n >= 2:
-        for offset in range(1, n):
+        for offset in range(1, n):  # round-robin partner distance
             for a in range(n):
                 b = _ring_index(a + offset, n)
-                imgs_a = people[a][1]
-                imgs_b = people[b][1]
+                name_a, imgs_a = people[a]
+                name_b, imgs_b = people[b]
+                # pair by index with wrap-around deterministically
                 L = min(len(imgs_a), len(imgs_b))
                 for t in range(L):
+                    # enforce per-identity negative caps before appending
+                    if neg_count[name_a] >= max_neg_per_identity:
+                        continue
+                    if neg_count[name_b] >= max_neg_per_identity:
+                        continue
                     neg_pool.append((imgs_a[t], imgs_b[t], 0))
+                    neg_count[name_a] += 1
+                    neg_count[name_b] += 1
 
     # 6) allocate counts + top-up deterministically
     want_pos = int(round(max_pairs * pos_ratio))
@@ -211,9 +238,20 @@ def run_logic(
         pass
     pos_ratio = max(0.0, min(1.0, pos_ratio))
 
+    # per-identity caps (allow env override if needed)
+    try:
+        max_pos_cap = int(os.getenv("MAX_POS_PER_ID", "10"))
+    except Exception:
+        max_pos_cap = 10
+    try:
+        max_neg_cap = int(os.getenv("MAX_NEG_PER_ID", "20"))
+    except Exception:
+        max_neg_cap = 20
+
     print(
         f"[DEBUG] run_logic() iters={iters}, dataset={dataset_path}, "
-        f"start_person={start_person}, pos_ratio={pos_ratio}"
+        f"start_person={start_person}, pos_ratio={pos_ratio}, "
+        f"max_pos_per_identity={max_pos_cap}, max_neg_per_identity={max_neg_cap}"
     )
 
     # --- Build pairs deterministically ---
@@ -223,6 +261,8 @@ def run_logic(
         max_pairs=iters,  # “How many pairs?” from popup/CLI
         pos_ratio=pos_ratio,  # 0.5 = balanced pos/neg
         exclude_singletons=True,  # Option B in effect
+        max_pos_per_identity=max_pos_cap,
+        max_neg_per_identity=max_neg_cap,
     )
 
     if not pairs:
@@ -325,14 +365,18 @@ def run_logic(
         "neg_pairs": neg,
         "unique_identities": unique_identities,
         "identities_preview": identities_preview,
+        "max_pos_per_identity": max_pos_cap,
+        "max_neg_per_identity": max_neg_cap,
         "title": f"{model_name} – VA (Image) – Start: {start_person or 'N/A'}",
-        "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities}",
+        "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities} | caps(+:{max_pos_cap}, -:{max_neg_cap})",
     }
 
     # Human-readable pretty block for the console
     print("[RESULT]", flush=True)
     print(json.dumps(result, indent=2), flush=True)
     print("", flush=True)  # blank line for readability
+
+    # Raw JSON (single-line) for GUI to parse
     print(json.dumps(result), flush=True)
 
 
