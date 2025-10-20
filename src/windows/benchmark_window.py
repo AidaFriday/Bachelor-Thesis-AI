@@ -458,6 +458,11 @@ class BenchmarkPage(QWidget):
             print(f"[SCRIPT LOG] {msg}")
             return
 
+        if not isinstance(data, dict):
+            # Not a top-level JSON object (likely a line from the pretty block) → ignore
+            print(f"[SCRIPT LOG] {msg}")
+            return
+
         # ----- Progress -----
         if any(k in data for k in ["_type", "progress", "total"]) and (
             data.get("_type") == "progress" or ("progress" in data and "total" in data)

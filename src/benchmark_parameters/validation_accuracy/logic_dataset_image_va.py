@@ -329,10 +329,11 @@ def run_logic(
         "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities}",
     }
 
-    # Friendly log + raw JSON (GUI consumes the raw JSON one)
-    send_log(f"[RESULT] {json.dumps(result)}")
+    # Human-readable pretty block for the console
+    print("[RESULT]", flush=True)
+    print(json.dumps(result, indent=2), flush=True)
+    print("", flush=True)  # blank line for readability
     print(json.dumps(result), flush=True)
-    return result
 
 
 # ----------------- CLI -----------------
