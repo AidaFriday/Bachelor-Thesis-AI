@@ -12,6 +12,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from connector import load_model
 
 
+def send_log(msg: str, level: str = "info"):
+    """Emit a structured log line that the GUI will ignore (it only parses pure JSON objects)."""
+    print(json.dumps({"log": msg, "level": level}))
+    sys.stdout.flush()
+
+
 def cosine_similarity(a, b):
     """Compute cosine similarity between two embeddings."""
     a = np.asarray(a, dtype=np.float32).flatten()
@@ -53,7 +59,7 @@ def build_pairs_deterministic(
     start_person=None,
     max_pairs=600,
     pos_ratio=0.5,
-    exclude_singletons=True,  # to allowing singletons (..., exclude_singletons=False)
+    exclude_singletons=True,  # Option B: use only folders with ≥2 images for both pos & neg
 ):
     """
     Deterministic pair set (Option B):
@@ -74,7 +80,7 @@ def build_pairs_deterministic(
     if exclude_singletons:
         people = [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
     else:
-        people = people_all[:]  # (kept for completeness, but Option B => default True)
+        people = people_all[:]  # retained for completeness
 
     if not people:
         print("[ERROR] No identities with >=2 images were found; nothing to build")
@@ -83,17 +89,13 @@ def build_pairs_deterministic(
     all_names = [p for p, _ in people_all]
     filt_names = [p for p, _ in people]
 
-    # 3) find a deterministic start index that honors the user's choice
-    #    even if that chosen folder is a singleton (skip forward to next valid).
+    # 3) find deterministic start index, honoring chosen person if possible
     if start_person:
         if start_person in filt_names:
             start_idx = filt_names.index(start_person)
         else:
-            # if start_person exists among all_names, find the next filt_names after it
             if start_person in all_names:
                 base = all_names.index(start_person)
-                # walk forward from 'base' through all_names (wrap) and pick
-                # the first name that is in filt_names
                 chosen = None
                 for k in range(len(all_names)):
                     name = all_names[(base + k) % len(all_names)]
@@ -101,7 +103,6 @@ def build_pairs_deterministic(
                         chosen = name
                         break
                 if chosen is None:
-                    # shouldn't happen because filt_names is non-empty
                     start_idx = 0
                 else:
                     start_idx = filt_names.index(chosen)
@@ -117,21 +118,19 @@ def build_pairs_deterministic(
     else:
         start_idx = 0
 
-    # 4) build positives from filtered people (>=2 images)
+    # 4) build positives (all combinations) from filtered people
     pos_pool = []
     for k in range(len(people)):  # walk from start_idx with wrap-around
         person_idx = _ring_index(start_idx + k, len(people))
         _, imgs = people[person_idx]
-        # all deterministic combinations for that person
         for i in range(len(imgs)):
             for j in range(i + 1, len(imgs)):
                 pos_pool.append((imgs[i], imgs[j], 1))
 
-    # 5) build negatives from filtered people only (Option B)
+    # 5) build negatives (round-robin by index) from filtered people only
     neg_pool = []
     n = len(people)
     if n >= 2:
-        # round-robin across identities; pair by matching index with wrap-around
         for offset in range(1, n):
             for a in range(n):
                 b = _ring_index(a + offset, n)
@@ -223,6 +222,7 @@ def run_logic(
         start_person=start_person,  # ask via popup in GUI; or CLI flag
         max_pairs=iters,  # “How many pairs?” from popup/CLI
         pos_ratio=pos_ratio,  # 0.5 = balanced pos/neg
+        exclude_singletons=True,  # Option B in effect
     )
 
     if not pairs:
@@ -235,7 +235,8 @@ def run_logic(
                     "num_pairs": 0,
                     "error": "No pairs could be built (check dataset path or start person)",
                 }
-            )
+            ),
+            flush=True,
         )
         return
 
@@ -272,12 +273,38 @@ def run_logic(
                     "num_pairs": 0,
                     "error": "All pairs were unreadable or produced no embeddings",
                 }
-            )
+            ),
+            flush=True,
         )
         return
 
     acc, best_t = find_best_threshold(sims, labels)
     elapsed = time.time() - start_time
+
+    # --- Confusion counts at best threshold ---
+    labels_np = np.array(labels, dtype=int)
+    preds = (np.array(sims) > best_t).astype(int)
+
+    tp = int(((preds == 1) & (labels_np == 1)).sum())
+    tn = int(((preds == 0) & (labels_np == 0)).sum())
+    fp = int(((preds == 1) & (labels_np == 0)).sum())
+    fn = int(((preds == 0) & (labels_np == 1)).sum())
+
+    pos = int((labels_np == 1).sum())
+    neg = int((labels_np == 0).sum())
+
+    # identities involved (folder names)
+    def _identity_from_path(p):
+        return os.path.basename(os.path.dirname(p))
+
+    identities_used = sorted(
+        set(
+            [_identity_from_path(p1) for p1, _, _ in pairs]
+            + [_identity_from_path(p2) for _, p2, _ in pairs]
+        )
+    )
+    unique_identities = len(identities_used)
+    identities_preview = identities_used[:8]
 
     result = {
         "kind": "accuracy_image",
@@ -290,8 +317,21 @@ def run_logic(
         "threshold": round(float(best_t), 3),
         "elapsed_sec": round(float(elapsed), 2),
         "start_person": start_person,
+        "tp": tp,
+        "fp": fp,
+        "tn": tn,
+        "fn": fn,
+        "pos_pairs": pos,
+        "neg_pairs": neg,
+        "unique_identities": unique_identities,
+        "identities_preview": identities_preview,
+        "title": f"{model_name} – VA (Image) – Start: {start_person or 'N/A'}",
+        "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities}",
     }
-    print(json.dumps(result, indent=2))
+
+    # Friendly log + raw JSON (GUI consumes the raw JSON one)
+    send_log(f"[RESULT] {json.dumps(result)}")
+    print(json.dumps(result), flush=True)
     return result
 
 

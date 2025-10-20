@@ -683,22 +683,29 @@ class BenchmarkPage(QWidget):
             num_pairs = data.get("num_pairs", 0)
             elapsed = data.get("elapsed_sec", 0)
 
-            # Clear and create a bar plot
+            # NEW: pull start person, title, and summary
+            start_person = data.get("start_person") or "N/A"
+            custom_title = (
+                data.get("title") or f"{model} – VA (Image) – Start: {start_person}"
+            )
+            summary = data.get(
+                "summary"
+            )  # "TP:.. FP:.. TN:.. FN:.. | +:.. -:.. | IDs:.."
+
             ax.barh([model], [acc], color="#2980b9")
             ax.set_xlim(0, 100)
             ax.set_xlabel("Accuracy (%)")
-            ax.set_title(f"Validation Accuracy – {model} on {dataset}")
+            ax.set_title(custom_title)
             ax.grid(True, axis="x", linestyle="--", alpha=0.5)
 
-            # Annotate accuracy value next to bar
             ax.text(
                 acc + 1, 0, f"{acc:.2f}%", va="center", color="black", fontweight="bold"
             )
 
-            # Add threshold and stats below plot
+            # First line: threshold/time/pairs (existing)
             ax.text(
                 0.5,
-                -0.3,
+                -0.28,
                 f"Threshold: {threshold:.3f} | Pairs: {num_pairs} | Time: {elapsed:.1f}s",
                 ha="center",
                 va="center",
@@ -706,6 +713,19 @@ class BenchmarkPage(QWidget):
                 fontsize=9,
                 color="gray",
             )
+
+            # NEW second line: confusion and identities (if present)
+            if summary:
+                ax.text(
+                    0.5,
+                    -0.45,
+                    summary,
+                    ha="center",
+                    va="center",
+                    transform=ax.transAxes,
+                    fontsize=9,
+                    color="gray",
+                )
 
             canvas.draw()
             return
