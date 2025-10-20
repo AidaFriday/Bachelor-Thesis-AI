@@ -679,39 +679,71 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-            # ===================== VALIDATION ACCURACY MODE =====================
+        # ===================== VALIDATION ACCURACY MODE =====================
         if kind == "accuracy_image":
+            # ---- read fields from payload ----
             model = data.get("model", "Unknown")
             dataset = data.get("dataset", "Unknown")
-            acc = float(data.get("accuracy", 0)) * 100.0
-            threshold = data.get("threshold", 0)
-            num_pairs = data.get("num_pairs", 0)
-            elapsed = data.get("elapsed_sec", 0)
-
-            # NEW: pull start person, title, and summary
+            acc_pct = float(data.get("accuracy", 0)) * 100.0  # %
+            threshold = float(data.get("threshold", 0))  # cosine-sim threshold
+            elapsed = float(data.get("elapsed_sec", 0))  # seconds
+            num_pairs = int(data.get("num_pairs", 0))
             start_person = data.get("start_person") or "N/A"
-            custom_title = (
-                data.get("title") or f"{model} – VA (Image) – Start: {start_person}"
+
+            tp = int(data.get("tp", 0))
+            fp = int(data.get("fp", 0))
+            tn = int(data.get("tn", 0))
+            fn = int(data.get("fn", 0))
+
+            # ---- title ----
+            ax.set_title(
+                f"Model: {model} – Validation Accuracy (Image) – Start: {start_person}"
             )
-            summary = data.get(
-                "summary"
-            )  # "TP:.. FP:.. TN:.. FN:.. | +:.. -:.. | IDs:.."
 
-            ax.barh([model], [acc], color="#2980b9")
-            ax.set_xlim(0, 100)
-            ax.set_xlabel("Accuracy (%)")
-            ax.set_title(custom_title)
-            ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+            # ---- histogram (categorical bars on X) ----
+            labels = ["Accuracy (%)", "Threshold", "Elapsed (s)"]
+            values = [acc_pct, threshold, elapsed]
+            bars = ax.bar(labels, values)
 
+            # annotate values on top of bars
+            for rect, val in zip(bars, values):
+                ax.text(
+                    rect.get_x() + rect.get_width() / 2.0,
+                    rect.get_height(),
+                    f"{val:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                )
+
+            ax.set_ylabel("Value")
+            ax.grid(axis="y", linestyle="--", alpha=0.3)
+
+            # ---- confusion box in upper-right ----
+            conf_text = (
+                "Confusion Matrix\n"
+                f"True Positive : {tp}\n"
+                f"False Positive: {fp}\n"
+                f"True Negative : {tn}\n"
+                f"False Negative: {fn}"
+            )
             ax.text(
-                acc + 1, 0, f"{acc:.2f}%", va="center", color="black", fontweight="bold"
+                0.98,
+                0.98,
+                conf_text,
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=9,
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
             )
 
-            # First line: threshold/time/pairs (existing)
+            # small footer with run context (optional)
+            footer = f"Pairs: {num_pairs} | Dataset: {dataset} | Time: {elapsed:.1f}s | Thr: {threshold:.3f}"
             ax.text(
                 0.5,
-                -0.28,
-                f"Threshold: {threshold:.3f} | Pairs: {num_pairs} | Time: {elapsed:.1f}s",
+                -0.18,
+                footer,
                 ha="center",
                 va="center",
                 transform=ax.transAxes,
@@ -719,19 +751,7 @@ class BenchmarkPage(QWidget):
                 color="gray",
             )
 
-            # NEW second line: confusion and identities (if present)
-            if summary:
-                ax.text(
-                    0.5,
-                    -0.45,
-                    summary,
-                    ha="center",
-                    va="center",
-                    transform=ax.transAxes,
-                    fontsize=9,
-                    color="gray",
-                )
-
+            fig.tight_layout()
             canvas.draw()
             return
 
