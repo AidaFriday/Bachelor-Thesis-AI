@@ -67,10 +67,10 @@ def run(model_name, iters, frame_h, frame_w, dataset=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str)
+    parser.add_argument("--model", "--model_path", dest="model")
     parser.add_argument("--iters", type=int, default=50)
     parser.add_argument("--frame-size", type=str, default="640x640")
-    parser.add_argument("--dataset", type=str, default=None)
+    parser.add_argument("--dataset", "--dataset_path", dest="dataset", default=None)
     args = parser.parse_args()
 
     cfg = _resolve_settings()

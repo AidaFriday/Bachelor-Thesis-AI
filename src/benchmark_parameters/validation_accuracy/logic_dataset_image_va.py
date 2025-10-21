@@ -8,7 +8,6 @@ import sys
 
 # Add the "src" directory to Python path dynamically
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
-
 from connector import load_model
 
 
@@ -50,10 +49,6 @@ def _collect_ordered_people_with_images(dataset_path):
     return imgs_by_person  # list of (person, [img paths])
 
 
-def _ring_index(i, n):  # helper for wrap-around
-    return i % n if n else 0
-
-
 def _pair_key(a: str, b: str, lbl: int):
     """Order-insensitive unique key for a pair."""
     a = os.path.normpath(a)
@@ -79,13 +74,12 @@ def build_pairs_deterministic(
     Deterministic builder:
       • starts at start_person and goes FORWARD ONLY (NO WRAP)
       • skips identities with <2 images when exclude_singletons=True
-      • caps positive pairs per identity
+      • caps positive/negative pairs per identity
       • builds negatives only among the forward slice
       • no randomness; stable across runs/models
     """
     pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
 
-    # ---- collect ordered people + images (alphabetical per folder) ----
     people_all = _collect_ordered_people_with_images(dataset_path)
     if not people_all:
         print("[ERROR] No images found in dataset")
@@ -100,20 +94,18 @@ def build_pairs_deterministic(
         print("[ERROR] No identities with >=2 images were found; nothing to build")
         return []
 
-    # ---- resolve start index inside the *filtered* list; no wrap ----
+    # resolve start index inside the filtered list; forward-only (no wrap)
     names = [p for p, _ in people]
     if start_person and start_person in names:
         start_idx = names.index(start_person)
     else:
-        # if given a person with <2 imgs or not found, choose the next available ≥2 images
         if start_person:
             all_names = [p for p, _ in people_all]
             if start_person in all_names:
-                pos = all_names.index(start_person)
-                # find next with ≥2
+                # pick the first filtered identity alphabetically >= start_person
                 start_idx = 0
-                for i, (p, imgs) in enumerate(people):
-                    if p >= start_person:  # alphabetically at or after
+                for i, (p, _) in enumerate(people):
+                    if p >= start_person:
                         start_idx = i
                         break
             else:
@@ -121,24 +113,18 @@ def build_pairs_deterministic(
         else:
             start_idx = 0
 
-    # ---- forward-only slice, no wrap ----
     people_slice = people[start_idx:]
     if not people_slice:
         return []
 
     # ---------- POSITIVES ----------
-    pos_pool = []
-    pos_seen = set()
+    pos_pool, pos_seen = [], set()
     pos_count_id = {name: 0 for name, _ in people_slice}
     pos_use_img = {}
 
     for name, imgs in people_slice:
-        if len(imgs) < 2:
+        if len(imgs) < 2 or pos_count_id[name] >= max_pos_per_identity:
             continue
-        if pos_count_id[name] >= max_pos_per_identity:
-            continue
-
-        # round-robin inside the identity; deterministic (imgs already sorted)
         added_for_id = 0
         m = len(imgs)
         for shift in range(1, m):
@@ -147,7 +133,7 @@ def build_pairs_deterministic(
                     break
                 j = i + shift
                 if j >= m:
-                    break  # no wrap inside the identity either
+                    break  # no wrap within identity
                 a, b = imgs[i], imgs[j]
                 if pos_use_img.get(a, 0) >= max_pos_per_image:
                     continue
@@ -166,15 +152,14 @@ def build_pairs_deterministic(
                 break
 
     # ---------- NEGATIVES ----------
-    neg_pool = []
-    neg_seen = set()
+    neg_pool, neg_seen = [], set()
     neg_count_id = {name: 0 for name, _ in people_slice}
     neg_use_img = {}
 
     n = len(people_slice)
     for a_idx in range(n):
         name_a, imgs_a = people_slice[a_idx]
-        for b_idx in range(a_idx + 1, n):  # only forward identities; no wrap/back
+        for b_idx in range(a_idx + 1, n):  # forward only, no wrap/back
             name_b, imgs_b = people_slice[b_idx]
             if (
                 neg_count_id[name_a] >= max_neg_per_identity
@@ -208,8 +193,7 @@ def build_pairs_deterministic(
     want_pos = int(round(max_pairs * pos_ratio))
     want_neg = max_pairs - want_pos
 
-    combined = []
-    combined_seen = set()
+    combined, combined_seen = [], set()
 
     def _add(pair):
         k = _pair_key(pair[0], pair[1], pair[2])
@@ -220,12 +204,12 @@ def build_pairs_deterministic(
         return True
 
     for p in pos_pool:
-        if len([1 for *_, l in combined if l == 1]) >= want_pos:
+        if sum(1 for *_, l in combined if l == 1) >= want_pos:
             break
         _add(p)
 
     for q in neg_pool:
-        if len([1 for *_, l in combined if l == 0]) >= want_neg:
+        if sum(1 for *_, l in combined if l == 0) >= want_neg:
             break
         _add(q)
 
@@ -242,28 +226,11 @@ def build_pairs_deterministic(
 # ----------------- Eval utilities -----------------
 
 
-def find_best_threshold(sims, labels):
-    thresholds = np.linspace(-1, 1, 200)
-    best_acc, best_t = 0.0, 0.0
-    labels = np.array(labels)
-    sims = np.array(sims)
-    for t in thresholds:
-        preds = (sims > t).astype(int)
-        acc = np.mean(preds == labels)
-        if acc > best_acc:
-            best_acc, best_t = float(acc), float(t)
-    return best_acc, best_t
-
-
-import numpy as np
-
-
 def _roc_curve(labels: np.ndarray, scores: np.ndarray):
     """
     Return FPR, TPR, thresholds for a binary classifier given positive=1 labels.
     No sklearn dependency.
     """
-    # Sort by descending score
     order = np.argsort(-scores)
     y = labels[order].astype(int)
     s = scores[order]
@@ -271,10 +238,8 @@ def _roc_curve(labels: np.ndarray, scores: np.ndarray):
     P = np.sum(y == 1)
     N = np.sum(y == 0)
     if P == 0 or N == 0:
-        # Degenerate case: can't form ROC
         return np.array([0.0, 1.0]), np.array([0.0, 1.0]), np.array([np.inf, -np.inf])
 
-    # Walk thresholds at score changes
     tpr = [0.0]
     fpr = [0.0]
     thresholds = [np.inf]
@@ -284,7 +249,6 @@ def _roc_curve(labels: np.ndarray, scores: np.ndarray):
     last_score = np.inf
     for yi, si in zip(y, s):
         if si != last_score:
-            # record point before stepping to new threshold
             tpr.append(tp / P)
             fpr.append(fp / N)
             thresholds.append(si)
@@ -294,7 +258,6 @@ def _roc_curve(labels: np.ndarray, scores: np.ndarray):
         else:
             fp += 1
 
-    # final point (all positives/negatives predicted positive)
     tpr.append(tp / P)
     fpr.append(fp / N)
     thresholds.append(-np.inf)
@@ -303,7 +266,6 @@ def _roc_curve(labels: np.ndarray, scores: np.ndarray):
 
 
 def _auc(x: np.ndarray, y: np.ndarray) -> float:
-    """Trapezoidal rule; assumes x increases."""
     return float(np.trapz(y, x))
 
 
@@ -322,14 +284,14 @@ def run_logic(
     if dataset_path is None:
         dataset_path = model_path
 
-    # --- Auto-fix for common dataset folder structure ---
+    # Auto-fix for common dataset folder structure
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
     wrapper = load_model(model_path)
     model_name = getattr(wrapper, "name", os.path.basename(model_path))
 
-    # allow env overrides (useful when called from GUI)
+    # env overrides (useful from GUI)
     start_person = start_person or os.getenv("LFW_START_PERSON") or None
     try:
         pos_ratio = float(os.getenv("POS_RATIO", pos_ratio))
@@ -337,7 +299,6 @@ def run_logic(
         pass
     pos_ratio = max(0.0, min(1.0, pos_ratio))
 
-    # per-identity caps (allow env override if needed)
     try:
         max_pos_cap = int(os.getenv("MAX_POS_PER_ID", "10"))
     except Exception:
@@ -347,13 +308,7 @@ def run_logic(
     except Exception:
         max_neg_cap = 20
 
-    print(
-        f"[DEBUG] run_logic() iters={iters}, dataset={dataset_path}, "
-        f"start_person={start_person}, pos_ratio={pos_ratio}, "
-        f"max_pos_per_identity={max_pos_cap}, max_neg_per_identity={max_neg_cap}"
-    )
-
-    # --- Build pairs deterministically ---
+    # Build pairs deterministically
     pairs = build_pairs_deterministic(
         dataset_path,
         start_person=start_person,
@@ -379,24 +334,27 @@ def run_logic(
         )
         return
 
-    # --- Evaluate pairs ---
+    # Evaluate pairs
     sims, labels = [], []
     start_time = time.time()
 
-    for img1, img2, label in tqdm(pairs, desc="Validating", ncols=80):
+    # progress -> STDERR so stdout stays clean
+    for img1, img2, label in tqdm(pairs, desc="Validating", ncols=80, file=sys.stderr):
         img1 = os.path.normpath(img1)
         img2 = os.path.normpath(img2)
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
-            print(f"[WARN] Skipping unreadable pair:\n  {img1}\n  {img2}")
+            send_log(f"Skipping unreadable pair:\n  {img1}\n  {img2}", "warn")
             continue
 
         emb1 = wrapper.embed(a)
         emb2 = wrapper.embed(b)
         if emb1 is None or emb2 is None:
-            print(f"[WARN] Skipping pair with missing embedding:\n  {img1}\n  {img2}")
+            send_log(
+                f"Skipping pair with missing embedding:\n  {img1}\n  {img2}", "warn"
+            )
             continue
 
         sims.append(cosine_similarity(emb1, emb2))
@@ -417,39 +375,35 @@ def run_logic(
         )
         return
 
-    # --- Use fixed threshold instead of searching for best ---
-    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.7"))  # default 0.7 if not set
+    # fixed threshold (for apples-to-apples between models)
+    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.7"))
     labels_np = np.array(labels, dtype=int)
     preds = (np.array(sims) > fixed_t).astype(int)
     acc = float(np.mean(preds == labels_np))
-    best_t = fixed_t  # just for output consistency
+    best_t = fixed_t
 
     elapsed = time.time() - start_time
 
-    # --- Confusion counts at best threshold ---
-    labels_np = np.array(labels, dtype=int)
-    preds = (np.array(sims) > best_t).astype(int)
-
+    # confusion counts
     tp = int(((preds == 1) & (labels_np == 1)).sum())
     tn = int(((preds == 0) & (labels_np == 0)).sum())
     fp = int(((preds == 1) & (labels_np == 0)).sum())
     fn = int(((preds == 0) & (labels_np == 1)).sum())
-
     pos = int((labels_np == 1).sum())
     neg = int((labels_np == 0).sum())
 
-    # Compute ROC + AUC once (labels_np already exists above)
+    # ROC + AUC (compute once)
     scores_np = np.array(sims, dtype=float)
     fpr, tpr, thr = _roc_curve(labels_np, scores_np)
     auc = _auc(fpr, tpr)
 
-    # identities involved (folder names) — keep traversal order (no sorting)
+    # identities involved (order preserved from traversal)
     def _identity_from_path(p):
         return os.path.basename(os.path.dirname(p))
 
     identities_used = []
     _seen = set()
-    for a, b, _ in pairs:  # pairs are already in your forward-only order
+    for a, b, _ in pairs:
         for p in (a, b):
             name = _identity_from_path(p)
             if name not in _seen:
@@ -463,8 +417,8 @@ def run_logic(
         "kind": "accuracy_image",
         "dataset": os.path.basename(dataset_path),
         "model": model_name,
-        "num_pairs": len(sims),  # effective evaluated pairs
-        "requested_pairs": len(pairs),  # before skipping any invalids
+        "num_pairs": len(sims),
+        "requested_pairs": len(pairs),
         "pos_ratio": round(float(pos_ratio), 3),
         "accuracy": round(float(acc), 5),
         "threshold": round(float(best_t), 3),
@@ -482,13 +436,12 @@ def run_logic(
         "max_neg_per_identity": max_neg_cap,
         "title": f"Model: {model_name} – Validation Accuracy (Image) – Start: {start_person or 'N/A'}",
         "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities} | caps(+:{max_pos_cap}, -:{max_neg_cap})",
-    }
-    # Attach ROC once (after it's computed)
-    result["roc"] = {
-        "fpr": fpr.tolist(),
-        "tpr": tpr.tolist(),
-        "thresholds": [float(x) for x in thr[:2000]],  # optional trim
-        "auc": round(float(auc), 5),
+        "roc": {
+            "fpr": fpr.tolist(),
+            "tpr": tpr.tolist(),
+            "thresholds": [float(x) for x in thr[:2000]],
+            "auc": round(float(auc), 5),
+        },
     }
 
     # ------- Export full run details to a separate JSON file -------
@@ -496,7 +449,6 @@ def run_logic(
     dataset_name = os.path.basename(dataset_path.rstrip(os.sep))
     test_name = "Validation Accuracy (Image)"
 
-    # Store pairs with paths relative to dataset for portability
     pairs_export = []
     for a, b, lbl in pairs:
         pairs_export.append(
@@ -530,8 +482,8 @@ def run_logic(
             "neg_pairs": result["neg_pairs"],
             "unique_identities": result["unique_identities"],
         },
-        "identities": identities_used,  # order preserved from traversal
-        "pairs": pairs_export,  # every evaluated pair (no duplicates)
+        "identities": identities_used,  # order preserved
+        "pairs": pairs_export,
     }
 
     export_dir = os.path.join(os.path.dirname(__file__), "exports")
@@ -542,70 +494,33 @@ def run_logic(
     with open(export_path, "w", encoding="utf-8") as f:
         json.dump(export_payload, f, indent=2)
 
-    # Optional info for console
     result["export_path"] = export_path
     try:
         send_log(f"[export] wrote {export_path}")
     except NameError:
         pass
 
-    # --- ROC + AUC (threshold-free view) ---
-    scores_np = np.array(sims, dtype=float)  # you already have `sims`
-    # `labels_np` already exists above (used for confusion matrix)
-    fpr, tpr, thr = _roc_curve(labels_np, scores_np)
-    auc = _auc(fpr, tpr)
+    # --- Human-friendly console markers (for the terminal only) ---
+    print("[RESULT]")  # one-line marker, no pretty dump
+    print(f"[SUMMARY] {result['summary']}")
 
-    # attach to the payload that the GUI reads
-    result["roc"] = {
-        "fpr": fpr.tolist(),
-        "tpr": tpr.tolist(),
-        # keep thresholds reasonable in size; plot only needs fpr/tpr anyway
-        "thresholds": [float(x) for x in thr[:2000]],
-        "auc": round(float(auc), 5),
-    }
-
-    # Human-readable pretty block for the console
-    print("[RESULT]", flush=True)
-    print(json.dumps(result, indent=2), flush=True)
-    print("", flush=True)  # blank line for readability
-
-    # Raw JSON (single-line) for GUI to parse
+    # FINAL single-line JSON for GUI to parse
     print(json.dumps(result), flush=True)
 
 
 # ----------------- CLI -----------------
-
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    # accept both long forms for robustness
+    parser.add_argument("--model_path", "--model", dest="model_path", required=True)
     parser.add_argument(
-        "--model_path",
-        type=str,
-        required=True,
-        help="Model key for connector.load_model (e.g., arcface, facenet, insightface)",
+        "--dataset_path", "--dataset", dest="dataset_path", required=True
     )
-    parser.add_argument(
-        "--dataset_path",
-        type=str,
-        required=True,
-        help="Path to LFW dataset or its parent (will auto-use lfw-deepfunneled)",
-    )
-    parser.add_argument(
-        "--iters", type=int, default=300, help="Number of pairs to evaluate"
-    )
-    parser.add_argument(
-        "--start-person",
-        type=str,
-        default=None,
-        help="Folder/person name to start from (exact match)",
-    )
-    parser.add_argument(
-        "--pos-ratio",
-        type=float,
-        default=0.5,
-        help="Fraction of positives in final set (0.0..1.0). 0.5 = balanced",
-    )
+    parser.add_argument("--iters", type=int, default=300)
+    parser.add_argument("--start-person", type=str, default=None)
+    parser.add_argument("--pos-ratio", type=float, default=0.5)
     args = parser.parse_args()
 
     run_logic(
