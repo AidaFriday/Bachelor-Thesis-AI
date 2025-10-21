@@ -685,8 +685,8 @@ class BenchmarkPage(QWidget):
             # ---- read fields from payload ----
             model = data.get("model", "Unknown")
             dataset = data.get("dataset", "Unknown")
-            acc_pct = float(data.get("accuracy", 0)) * 100.0  # %
-            threshold = float(data.get("threshold", 0))  # cosine-sim threshold
+            acc = float(data.get("accuracy", 0))  # 0..1
+            thr = float(data.get("threshold", 0))  # cosine-sim threshold actually used
             elapsed = float(data.get("elapsed_sec", 0))  # seconds
             num_pairs = int(data.get("num_pairs", 0))
             start_person = data.get("start_person") or "N/A"
@@ -696,99 +696,74 @@ class BenchmarkPage(QWidget):
             tn = int(data.get("tn", 0))
             fn = int(data.get("fn", 0))
 
-            # ---- title ----
+            # ---- ROC data ----
+            roc = data.get("roc", {})
+            fpr = np.array(roc.get("fpr", []), dtype=float)
+            tpr = np.array(roc.get("tpr", []), dtype=float)
+            auc = float(roc.get("auc", float("nan")))
+
             ax.set_title(
                 f"Model: {model} – Validation Accuracy (Image) – Start: {start_person}"
             )
 
-            # ---- histogram (categorical bars on X) ----
-            labels = ["Accuracy (%)", "Threshold", "Elapsed (s)"]
-            values = [acc_pct, threshold, elapsed]
-            bars = ax.bar(labels, values)
+            # ---- draw ROC as the main plot ----
+            ax.plot(fpr, tpr, linewidth=1.8)
+            ax.plot([0, 1], [0, 1], linestyle="--", linewidth=1.0)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.set_xlabel("FPR")
+            ax.set_ylabel("TPR")
+            ax.grid(True, alpha=0.25)
 
-            # annotate values on top of bars
-            for rect, val in zip(bars, values):
-                ax.text(
-                    rect.get_x() + rect.get_width() / 2.0,
-                    rect.get_height(),
-                    f"{val:.2f}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=9,
+            # Mark the current operating point implied by TP/FP/TN/FN
+            P = tp + fn
+            N = tn + fp
+            if P > 0 and N > 0:
+                op_tpr = tp / P
+                op_fpr = fp / N
+                ax.scatter([op_fpr], [op_tpr], s=28)
+                ax.annotate(
+                    "thr",
+                    (op_fpr, op_tpr),
+                    fontsize=8,
+                    xytext=(5, 5),
+                    textcoords="offset points",
                 )
 
-            ax.set_ylabel("Value")
-            ax.grid(axis="y", linestyle="--", alpha=0.3)
-
-            # ---- confusion box in upper-right ----
-            conf_text = (
-                "Confusion Matrix\n"
-                f"True Positive : {tp}\n"
-                f"False Positive: {fp}\n"
-                f"True Negative : {tn}\n"
-                f"False Negative: {fn}"
+            # ---- small metrics box on the top-right ----
+            metrics_text = (
+                f"AUC: {auc:.3f}\n"
+                f"Accuracy: {acc*100:.2f}%\n"
+                f"Threshold: {thr:.3f}\n"
+                f"Pairs: {num_pairs} | Time: {elapsed:.1f}s"
             )
             ax.text(
                 0.98,
-                0.98,
-                conf_text,
+                0.02,
+                metrics_text,
                 transform=ax.transAxes,
                 ha="right",
-                va="top",
+                va="bottom",
                 fontsize=9,
                 bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
             )
 
-            # small footer with run context (optional)
-            footer = f"Pairs: {num_pairs} | Dataset: {dataset} | Time: {elapsed:.1f}s | Thr: {threshold:.3f}"
+            # (Optional) tiny confusion matrix box; comment out if you don’t want it
+            conf_text = ("TP: {tp}   FP: {fp}\n" "TN: {tn}   FN: {fn}").format(
+                tp=tp, fp=fp, tn=tn, fn=fn
+            )
             ax.text(
-                0.5,
-                -0.18,
-                footer,
-                ha="center",
-                va="center",
+                0.02,
+                0.02,
+                conf_text,
                 transform=ax.transAxes,
+                ha="left",
+                va="bottom",
                 fontsize=9,
-                color="gray",
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
             )
 
-            # ---- Optional ROC overlay (separate axes on the right) ----
-            roc = data.get("roc")
-            if roc and isinstance(roc, dict) and "fpr" in roc and "tpr" in roc:
-                ax2 = ax.inset_axes([0.62, 0.12, 0.35, 0.35])  # x,y,w,h in axes coords
-                fpr = np.array(roc.get("fpr", []), dtype=float)
-                tpr = np.array(roc.get("tpr", []), dtype=float)
-                auc = float(roc.get("auc", float("nan")))
-                if fpr.size and tpr.size:
-                    ax2.plot(fpr, tpr, linewidth=1.8)
-                    ax2.plot([0, 1], [0, 1], linestyle="--", linewidth=1.0)
-                    ax2.set_xlim(0, 1)
-                    ax2.set_ylim(0, 1)
-                    ax2.set_title(f"ROC (AUC={auc:.3f})", fontsize=9)
-                    ax2.set_xlabel("FPR", fontsize=8)
-                    ax2.set_ylabel("TPR", fontsize=8)
-                    ax2.tick_params(axis="both", labelsize=8)
-
-                    # Optional: show your current operating point from TP/FP/TN/FN
-                    tp, fp = int(data.get("tp", 0)), int(data.get("fp", 0))
-                    tn, fn = int(data.get("tn", 0)), int(data.get("fn", 0))
-                    P = tp + fn
-                    N = tn + fp
-                    if P > 0 and N > 0:
-                        op_tpr = tp / P
-                        op_fpr = fp / N
-                        ax2.scatter([op_fpr], [op_tpr], s=20)
-                        ax2.annotate(
-                            "thr",
-                            (op_fpr, op_tpr),
-                            fontsize=8,
-                            xytext=(4, 4),
-                            textcoords="offset points",
-                        )
-
-            # do layout after adding inset
             fig.tight_layout()
-
             canvas.draw()
             return
 
