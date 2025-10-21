@@ -69,90 +69,86 @@ def build_pairs_deterministic(
     start_person=None,
     max_pairs=600,
     pos_ratio=0.5,
-    exclude_singletons=True,  # only folders with ≥2 images for pos & neg
-    max_pos_per_identity=10,  # cap positive pairs contributed by each identity
-    max_neg_per_identity=20,  # cap negative pairs involving each identity
-    max_pos_per_image=3,  # NEW: cap how many positive pairs each *image* can be in
-    max_neg_per_image=3,  # NEW: cap how many negative pairs each *image* can be in
+    exclude_singletons=True,
+    max_pos_per_identity=10,
+    max_neg_per_identity=20,
+    max_pos_per_image=3,
+    max_neg_per_image=3,
 ):
     """
-    Deterministic (reproducible) pair set with:
-      - Option B (no singletons)
-      - per-identity caps
-      - per-image caps (prevents one image from repeating a lot)
-      - order-insensitive pair de-duplication
-      - round-robin image selection to diversify pairs
+    Deterministic builder:
+      • starts at start_person and goes FORWARD ONLY (NO WRAP)
+      • skips identities with <2 images when exclude_singletons=True
+      • caps positive pairs per identity
+      • builds negatives only among the forward slice
+      • no randomness; stable across runs/models
     """
     pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
 
+    # ---- collect ordered people + images (alphabetical per folder) ----
     people_all = _collect_ordered_people_with_images(dataset_path)
     if not people_all:
         print("[ERROR] No images found in dataset")
         return []
 
-    people = (
-        [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
-        if exclude_singletons
-        else people_all[:]
-    )
+    people = [
+        (p, imgs)
+        for (p, imgs) in people_all
+        if (len(imgs) >= 2 or not exclude_singletons)
+    ]
     if not people:
         print("[ERROR] No identities with >=2 images were found; nothing to build")
         return []
 
-    all_names = [p for p, _ in people_all]
-    filt_names = [p for p, _ in people]
-
-    # start index resolution
-    if start_person:
-        if start_person in filt_names:
-            start_idx = filt_names.index(start_person)
-        else:
-            if start_person in all_names:
-                base = all_names.index(start_person)
-                chosen = None
-                for k in range(len(all_names)):
-                    cand = all_names[(base + k) % len(all_names)]
-                    if cand in filt_names:
-                        chosen = cand
-                        break
-                start_idx = filt_names.index(chosen) if chosen else 0
-                if chosen:
-                    print(
-                        f"[WARN] start_person '{start_person}' has <2 images; starting at next available '{chosen}'"
-                    )
-            else:
-                print(
-                    f"[WARN] start_person '{start_person}' not found; starting at '{filt_names[0]}'"
-                )
-                start_idx = 0
+    # ---- resolve start index inside the *filtered* list; no wrap ----
+    names = [p for p, _ in people]
+    if start_person and start_person in names:
+        start_idx = names.index(start_person)
     else:
-        start_idx = 0
+        # if given a person with <2 imgs or not found, choose the next available ≥2 images
+        if start_person:
+            all_names = [p for p, _ in people_all]
+            if start_person in all_names:
+                pos = all_names.index(start_person)
+                # find next with ≥2
+                start_idx = 0
+                for i, (p, imgs) in enumerate(people):
+                    if p >= start_person:  # alphabetically at or after
+                        start_idx = i
+                        break
+            else:
+                start_idx = 0
+        else:
+            start_idx = 0
 
-    # --- POSITIVES (diversified & capped per image + per identity) ---
-    pos_pool: list[tuple[str, str, int]] = []
-    pos_seen: set[tuple[str, str, int]] = set()
-    pos_count_id = {name: 0 for name, _ in people}
-    pos_use_img: dict[str, int] = {}
+    # ---- forward-only slice, no wrap ----
+    people_slice = people[start_idx:]
+    if not people_slice:
+        return []
 
-    for k in range(len(people)):  # walk from start with wrap-around
-        pi = _ring_index(start_idx + k, len(people))
-        name, imgs = people[pi]
+    # ---------- POSITIVES ----------
+    pos_pool = []
+    pos_seen = set()
+    pos_count_id = {name: 0 for name, _ in people_slice}
+    pos_use_img = {}
+
+    for name, imgs in people_slice:
+        if len(imgs) < 2:
+            continue
         if pos_count_id[name] >= max_pos_per_identity:
             continue
 
-        # Round-robin pairing inside the identity:
-        # shift=1 pairs (0,1), (1,2), ..., then shift=2 pairs (0,2), (1,3), ...
+        # round-robin inside the identity; deterministic (imgs already sorted)
         added_for_id = 0
         m = len(imgs)
         for shift in range(1, m):
             for i in range(m):
                 if added_for_id >= max_pos_per_identity:
                     break
-                j = (i + shift) % m
-                if i >= j:  # enforce i<j once, to avoid mirror duplicates
-                    continue
+                j = i + shift
+                if j >= m:
+                    break  # no wrap inside the identity either
                 a, b = imgs[i], imgs[j]
-                # per-image caps
                 if pos_use_img.get(a, 0) >= max_pos_per_image:
                     continue
                 if pos_use_img.get(b, 0) >= max_pos_per_image:
@@ -169,85 +165,77 @@ def build_pairs_deterministic(
             if added_for_id >= max_pos_per_identity:
                 break
 
-    # --- NEGATIVES (diversified & capped per image + per identity) ---
-    neg_pool: list[tuple[str, str, int]] = []
-    neg_seen: set[tuple[str, str, int]] = set()
-    neg_count_id = {name: 0 for name, _ in people}
-    neg_use_img: dict[str, int] = {}
+    # ---------- NEGATIVES ----------
+    neg_pool = []
+    neg_seen = set()
+    neg_count_id = {name: 0 for name, _ in people_slice}
+    neg_use_img = {}
 
-    n = len(people)
-    if n >= 2:
-        # offset over identities (round-robin across different people)
-        for id_offset in range(1, n):
-            for a_idx in range(n):
-                b_idx = _ring_index(a_idx + id_offset, n)
-                name_a, imgs_a = people[a_idx]
-                name_b, imgs_b = people[b_idx]
-                if (
-                    neg_count_id[name_a] >= max_neg_per_identity
-                    and neg_count_id[name_b] >= max_neg_per_identity
-                ):
+    n = len(people_slice)
+    for a_idx in range(n):
+        name_a, imgs_a = people_slice[a_idx]
+        for b_idx in range(a_idx + 1, n):  # only forward identities; no wrap/back
+            name_b, imgs_b = people_slice[b_idx]
+            if (
+                neg_count_id[name_a] >= max_neg_per_identity
+                and neg_count_id[name_b] >= max_neg_per_identity
+            ):
+                continue
+            La, Lb = len(imgs_a), len(imgs_b)
+            L = min(La, Lb)
+            for k in range(L):  # deterministic pairing
+                a = imgs_a[k % La]
+                b = imgs_b[k % Lb]
+                if neg_count_id[name_a] >= max_neg_per_identity:
+                    break
+                if neg_count_id[name_b] >= max_neg_per_identity:
                     continue
+                if neg_use_img.get(a, 0) >= max_neg_per_image:
+                    continue
+                if neg_use_img.get(b, 0) >= max_neg_per_image:
+                    continue
+                key = _pair_key(a, b, 0)
+                if key in neg_seen:
+                    continue
+                neg_seen.add(key)
+                neg_pool.append((a, b, 0))
+                neg_use_img[a] = neg_use_img.get(a, 0) + 1
+                neg_use_img[b] = neg_use_img.get(b, 0) + 1
+                neg_count_id[name_a] += 1
+                neg_count_id[name_b] += 1
 
-                # diversify which image matches which: use an image offset too
-                La, Lb = len(imgs_a), len(imgs_b)
-                L = min(La, Lb)
-                for img_offset in range(L):
-                    a = imgs_a[img_offset % La]
-                    b = imgs_b[(img_offset + id_offset) % Lb]  # shift pairing
-
-                    if neg_count_id[name_a] >= max_neg_per_identity:
-                        continue
-                    if neg_count_id[name_b] >= max_neg_per_identity:
-                        continue
-                    if neg_use_img.get(a, 0) >= max_neg_per_image:
-                        continue
-                    if neg_use_img.get(b, 0) >= max_neg_per_image:
-                        continue
-
-                    key = _pair_key(a, b, 0)
-                    if key in neg_seen:
-                        continue
-                    neg_seen.add(key)
-                    neg_pool.append((a, b, 0))
-                    neg_use_img[a] = neg_use_img.get(a, 0) + 1
-                    neg_use_img[b] = neg_use_img.get(b, 0) + 1
-                    neg_count_id[name_a] += 1
-                    neg_count_id[name_b] += 1
-
-    # --- Allocate counts + top-up deterministically (still dedup) ---
+    # ---------- combine to exactly max_pairs with wanted ratio ----------
     want_pos = int(round(max_pairs * pos_ratio))
     want_neg = max_pairs - want_pos
 
-    combined: list[tuple[str, str, int]] = []
-    combined_seen: set[tuple[str, str, int]] = set()
+    combined = []
+    combined_seen = set()
 
-    def _try_add(pair):
-        key = _pair_key(pair[0], pair[1], pair[2])
-        if key in combined_seen:
+    def _add(pair):
+        k = _pair_key(pair[0], pair[1], pair[2])
+        if k in combined_seen:
             return False
         combined.append(pair)
-        combined_seen.add(key)
+        combined_seen.add(k)
         return True
 
-    for p in pos_pool[:want_pos]:
-        _try_add(p)
-    for q in neg_pool[:want_neg]:
-        _try_add(q)
+    for p in pos_pool:
+        if len([1 for *_, l in combined if l == 1]) >= want_pos:
+            break
+        _add(p)
 
-    if len(combined) < max_pairs:
-        for pool in (pos_pool[want_pos:], neg_pool[want_neg:]):
-            for item in pool:
-                if len(combined) >= max_pairs:
-                    break
-                _try_add(item)
+    for q in neg_pool:
+        if len([1 for *_, l in combined if l == 0]) >= want_neg:
+            break
+        _add(q)
 
-    print(
-        f"[INFO] Built {len(combined)} pairs "
-        f"({sum(1 for *_, l in combined if l==1)} pos / "
-        f"{sum(1 for *_, l in combined if l==0)} neg) "
-        f"starting at '{filt_names[start_idx]}'"
-    )
+    # top up if one pool was short
+    for pool in (pos_pool, neg_pool):
+        for item in pool:
+            if len(combined) >= max_pairs:
+                break
+            _add(item)
+
     return combined[:max_pairs]
 
 
@@ -265,6 +253,58 @@ def find_best_threshold(sims, labels):
         if acc > best_acc:
             best_acc, best_t = float(acc), float(t)
     return best_acc, best_t
+
+
+import numpy as np
+
+
+def _roc_curve(labels: np.ndarray, scores: np.ndarray):
+    """
+    Return FPR, TPR, thresholds for a binary classifier given positive=1 labels.
+    No sklearn dependency.
+    """
+    # Sort by descending score
+    order = np.argsort(-scores)
+    y = labels[order].astype(int)
+    s = scores[order]
+
+    P = np.sum(y == 1)
+    N = np.sum(y == 0)
+    if P == 0 or N == 0:
+        # Degenerate case: can't form ROC
+        return np.array([0.0, 1.0]), np.array([0.0, 1.0]), np.array([np.inf, -np.inf])
+
+    # Walk thresholds at score changes
+    tpr = [0.0]
+    fpr = [0.0]
+    thresholds = [np.inf]
+
+    tp = 0
+    fp = 0
+    last_score = np.inf
+    for yi, si in zip(y, s):
+        if si != last_score:
+            # record point before stepping to new threshold
+            tpr.append(tp / P)
+            fpr.append(fp / N)
+            thresholds.append(si)
+            last_score = si
+        if yi == 1:
+            tp += 1
+        else:
+            fp += 1
+
+    # final point (all positives/negatives predicted positive)
+    tpr.append(tp / P)
+    fpr.append(fp / N)
+    thresholds.append(-np.inf)
+
+    return np.asarray(fpr), np.asarray(tpr), np.asarray(thresholds)
+
+
+def _auc(x: np.ndarray, y: np.ndarray) -> float:
+    """Trapezoidal rule; assumes x increases."""
+    return float(np.trapz(y, x))
 
 
 # ----------------- Main logic -----------------
@@ -378,7 +418,7 @@ def run_logic(
         return
 
     # --- Use fixed threshold instead of searching for best ---
-    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))  # default 0.7 if not set
+    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.7"))  # default 0.7 if not set
     labels_np = np.array(labels, dtype=int)
     preds = (np.array(sims) > fixed_t).astype(int)
     acc = float(np.mean(preds == labels_np))
@@ -398,16 +438,24 @@ def run_logic(
     pos = int((labels_np == 1).sum())
     neg = int((labels_np == 0).sum())
 
-    # identities involved (folder names)
+    # Compute ROC + AUC once (labels_np already exists above)
+    scores_np = np.array(sims, dtype=float)
+    fpr, tpr, thr = _roc_curve(labels_np, scores_np)
+    auc = _auc(fpr, tpr)
+
+    # identities involved (folder names) — keep traversal order (no sorting)
     def _identity_from_path(p):
         return os.path.basename(os.path.dirname(p))
 
-    identities_used = sorted(
-        set(
-            [_identity_from_path(p1) for p1, _, _ in pairs]
-            + [_identity_from_path(p2) for _, p2, _ in pairs]
-        )
-    )
+    identities_used = []
+    _seen = set()
+    for a, b, _ in pairs:  # pairs are already in your forward-only order
+        for p in (a, b):
+            name = _identity_from_path(p)
+            if name not in _seen:
+                _seen.add(name)
+                identities_used.append(name)
+
     unique_identities = len(identities_used)
     identities_preview = identities_used[:8]
 
@@ -434,6 +482,13 @@ def run_logic(
         "max_neg_per_identity": max_neg_cap,
         "title": f"Model: {model_name} – Validation Accuracy (Image) – Start: {start_person or 'N/A'}",
         "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities} | caps(+:{max_pos_cap}, -:{max_neg_cap})",
+    }
+    # Attach ROC once (after it's computed)
+    result["roc"] = {
+        "fpr": fpr.tolist(),
+        "tpr": tpr.tolist(),
+        "thresholds": [float(x) for x in thr[:2000]],  # optional trim
+        "auc": round(float(auc), 5),
     }
 
     # ------- Export full run details to a separate JSON file -------
@@ -475,7 +530,7 @@ def run_logic(
             "neg_pairs": result["neg_pairs"],
             "unique_identities": result["unique_identities"],
         },
-        "identities": identities_used,  # full, sorted list
+        "identities": identities_used,  # order preserved from traversal
         "pairs": pairs_export,  # every evaluated pair (no duplicates)
     }
 
@@ -493,6 +548,21 @@ def run_logic(
         send_log(f"[export] wrote {export_path}")
     except NameError:
         pass
+
+    # --- ROC + AUC (threshold-free view) ---
+    scores_np = np.array(sims, dtype=float)  # you already have `sims`
+    # `labels_np` already exists above (used for confusion matrix)
+    fpr, tpr, thr = _roc_curve(labels_np, scores_np)
+    auc = _auc(fpr, tpr)
+
+    # attach to the payload that the GUI reads
+    result["roc"] = {
+        "fpr": fpr.tolist(),
+        "tpr": tpr.tolist(),
+        # keep thresholds reasonable in size; plot only needs fpr/tpr anyway
+        "thresholds": [float(x) for x in thr[:2000]],
+        "auc": round(float(auc), 5),
+    }
 
     # Human-readable pretty block for the console
     print("[RESULT]", flush=True)

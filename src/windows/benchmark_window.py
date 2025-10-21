@@ -680,6 +680,7 @@ class BenchmarkPage(QWidget):
             return
 
         # ===================== VALIDATION ACCURACY MODE =====================
+
         if kind == "accuracy_image":
             # ---- read fields from payload ----
             model = data.get("model", "Unknown")
@@ -751,7 +752,43 @@ class BenchmarkPage(QWidget):
                 color="gray",
             )
 
+            # ---- Optional ROC overlay (separate axes on the right) ----
+            roc = data.get("roc")
+            if roc and isinstance(roc, dict) and "fpr" in roc and "tpr" in roc:
+                ax2 = ax.inset_axes([0.62, 0.12, 0.35, 0.35])  # x,y,w,h in axes coords
+                fpr = np.array(roc.get("fpr", []), dtype=float)
+                tpr = np.array(roc.get("tpr", []), dtype=float)
+                auc = float(roc.get("auc", float("nan")))
+                if fpr.size and tpr.size:
+                    ax2.plot(fpr, tpr, linewidth=1.8)
+                    ax2.plot([0, 1], [0, 1], linestyle="--", linewidth=1.0)
+                    ax2.set_xlim(0, 1)
+                    ax2.set_ylim(0, 1)
+                    ax2.set_title(f"ROC (AUC={auc:.3f})", fontsize=9)
+                    ax2.set_xlabel("FPR", fontsize=8)
+                    ax2.set_ylabel("TPR", fontsize=8)
+                    ax2.tick_params(axis="both", labelsize=8)
+
+                    # Optional: show your current operating point from TP/FP/TN/FN
+                    tp, fp = int(data.get("tp", 0)), int(data.get("fp", 0))
+                    tn, fn = int(data.get("tn", 0)), int(data.get("fn", 0))
+                    P = tp + fn
+                    N = tn + fp
+                    if P > 0 and N > 0:
+                        op_tpr = tp / P
+                        op_fpr = fp / N
+                        ax2.scatter([op_fpr], [op_tpr], s=20)
+                        ax2.annotate(
+                            "thr",
+                            (op_fpr, op_tpr),
+                            fontsize=8,
+                            xytext=(4, 4),
+                            textcoords="offset points",
+                        )
+
+            # do layout after adding inset
             fig.tight_layout()
+
             canvas.draw()
             return
 
