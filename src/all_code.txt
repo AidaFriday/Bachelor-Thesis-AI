@@ -22,6 +22,7 @@
 .\models\wrap_arcface.py
 .\models\wrap_facenet.py
 .\models\wrap_insightface.py
+.\models\wrap_sphereface.py
 .\windows\benchmark_window.py
 .\windows\home_window.py
 
@@ -1099,16 +1100,20 @@ import os
 import cv2
 import json
 import time
-import random
 import numpy as np
 from tqdm import tqdm
-import sys, os
+import sys
 
 # Add the "src" directory to Python path dynamically
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
 from connector import load_model
+
+
+def send_log(msg: str, level: str = "info"):
+    """Emit a structured log line that the GUI will ignore (it only parses pure JSON objects)."""
+    print(json.dumps({"log": msg, "level": level}))
+    sys.stdout.flush()
 
 
 def cosine_similarity(a, b):
@@ -1121,69 +1126,257 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-def generate_pairs(dataset_path, max_pairs=600):
-    """Generate same/different image pairs from dataset folders."""
+# ----------------- Deterministic pair builder (pos + neg) -----------------
+
+
+def _collect_ordered_people_with_images(dataset_path):
     people = [
         p
         for p in os.listdir(dataset_path)
         if os.path.isdir(os.path.join(dataset_path, p))
     ]
-    all_pairs = []
-
-    # Positive pairs (keep only if at least 2 images)
-    valid_people = []
+    people.sort()
+    imgs_by_person = []
     for person in people:
         imgs = [
             os.path.join(dataset_path, person, f)
-            for f in os.listdir(os.path.join(dataset_path, person))
-            if f.lower().endswith((".jpg", ".png"))
+            for f in sorted(os.listdir(os.path.join(dataset_path, person)))
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
         ]
-        if len(imgs) >= 2:
-            valid_people.append(person)
-            for i in range(len(imgs)):
-                for j in range(i + 1, len(imgs)):
-                    all_pairs.append((imgs[i], imgs[j], 1))
+        if imgs:
+            imgs_by_person.append((person, imgs))
+    return imgs_by_person  # list of (person, [img paths])
 
-    # Fallback if no positive pairs (too many single-image folders)
-    if not all_pairs:
-        print("[WARN] No multi-image identities found; generating only negative pairs")
-        people_with_imgs = [
-            (
-                p,
-                [
-                    os.path.join(dataset_path, p, f)
-                    for f in os.listdir(os.path.join(dataset_path, p))
-                    if f.lower().endswith((".jpg", ".png"))
-                ],
-            )
-            for p in people
-        ]
-        people_with_imgs = [(p, imgs) for p, imgs in people_with_imgs if imgs]
-        while len(all_pairs) < max_pairs and len(people_with_imgs) >= 2:
-            p1, p2 = random.sample(people_with_imgs, 2)
-            img1 = random.choice(p1[1])
-            img2 = random.choice(p2[1])
-            all_pairs.append((img1, img2, 0))
 
-    random.shuffle(all_pairs)
-    print(f"[DEBUG] Generated {len(all_pairs)} pairs from {len(people)} identities")
-    return all_pairs[:max_pairs]
+def _ring_index(i, n):  # helper for wrap-around
+    return i % n if n else 0
+
+
+def _pair_key(a: str, b: str, lbl: int):
+    """Order-insensitive unique key for a pair."""
+    a = os.path.normpath(a)
+    b = os.path.normpath(b)
+    if a <= b:
+        return (a, b, int(lbl))
+    else:
+        return (b, a, int(lbl))
+
+
+def build_pairs_deterministic(
+    dataset_path,
+    start_person=None,
+    max_pairs=600,
+    pos_ratio=0.5,
+    exclude_singletons=True,  # only folders with ≥2 images for pos & neg
+    max_pos_per_identity=10,  # cap positive pairs contributed by each identity
+    max_neg_per_identity=20,  # cap negative pairs involving each identity
+    max_pos_per_image=3,  # NEW: cap how many positive pairs each *image* can be in
+    max_neg_per_image=3,  # NEW: cap how many negative pairs each *image* can be in
+):
+    """
+    Deterministic (reproducible) pair set with:
+      - Option B (no singletons)
+      - per-identity caps
+      - per-image caps (prevents one image from repeating a lot)
+      - order-insensitive pair de-duplication
+      - round-robin image selection to diversify pairs
+    """
+    pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
+
+    people_all = _collect_ordered_people_with_images(dataset_path)
+    if not people_all:
+        print("[ERROR] No images found in dataset")
+        return []
+
+    people = (
+        [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
+        if exclude_singletons
+        else people_all[:]
+    )
+    if not people:
+        print("[ERROR] No identities with >=2 images were found; nothing to build")
+        return []
+
+    all_names = [p for p, _ in people_all]
+    filt_names = [p for p, _ in people]
+
+    # start index resolution
+    if start_person:
+        if start_person in filt_names:
+            start_idx = filt_names.index(start_person)
+        else:
+            if start_person in all_names:
+                base = all_names.index(start_person)
+                chosen = None
+                for k in range(len(all_names)):
+                    cand = all_names[(base + k) % len(all_names)]
+                    if cand in filt_names:
+                        chosen = cand
+                        break
+                start_idx = filt_names.index(chosen) if chosen else 0
+                if chosen:
+                    print(
+                        f"[WARN] start_person '{start_person}' has <2 images; starting at next available '{chosen}'"
+                    )
+            else:
+                print(
+                    f"[WARN] start_person '{start_person}' not found; starting at '{filt_names[0]}'"
+                )
+                start_idx = 0
+    else:
+        start_idx = 0
+
+    # --- POSITIVES (diversified & capped per image + per identity) ---
+    pos_pool: list[tuple[str, str, int]] = []
+    pos_seen: set[tuple[str, str, int]] = set()
+    pos_count_id = {name: 0 for name, _ in people}
+    pos_use_img: dict[str, int] = {}
+
+    for k in range(len(people)):  # walk from start with wrap-around
+        pi = _ring_index(start_idx + k, len(people))
+        name, imgs = people[pi]
+        if pos_count_id[name] >= max_pos_per_identity:
+            continue
+
+        # Round-robin pairing inside the identity:
+        # shift=1 pairs (0,1), (1,2), ..., then shift=2 pairs (0,2), (1,3), ...
+        added_for_id = 0
+        m = len(imgs)
+        for shift in range(1, m):
+            for i in range(m):
+                if added_for_id >= max_pos_per_identity:
+                    break
+                j = (i + shift) % m
+                if i >= j:  # enforce i<j once, to avoid mirror duplicates
+                    continue
+                a, b = imgs[i], imgs[j]
+                # per-image caps
+                if pos_use_img.get(a, 0) >= max_pos_per_image:
+                    continue
+                if pos_use_img.get(b, 0) >= max_pos_per_image:
+                    continue
+                key = _pair_key(a, b, 1)
+                if key in pos_seen:
+                    continue
+                pos_seen.add(key)
+                pos_pool.append((a, b, 1))
+                pos_use_img[a] = pos_use_img.get(a, 0) + 1
+                pos_use_img[b] = pos_use_img.get(b, 0) + 1
+                pos_count_id[name] += 1
+                added_for_id += 1
+            if added_for_id >= max_pos_per_identity:
+                break
+
+    # --- NEGATIVES (diversified & capped per image + per identity) ---
+    neg_pool: list[tuple[str, str, int]] = []
+    neg_seen: set[tuple[str, str, int]] = set()
+    neg_count_id = {name: 0 for name, _ in people}
+    neg_use_img: dict[str, int] = {}
+
+    n = len(people)
+    if n >= 2:
+        # offset over identities (round-robin across different people)
+        for id_offset in range(1, n):
+            for a_idx in range(n):
+                b_idx = _ring_index(a_idx + id_offset, n)
+                name_a, imgs_a = people[a_idx]
+                name_b, imgs_b = people[b_idx]
+                if (
+                    neg_count_id[name_a] >= max_neg_per_identity
+                    and neg_count_id[name_b] >= max_neg_per_identity
+                ):
+                    continue
+
+                # diversify which image matches which: use an image offset too
+                La, Lb = len(imgs_a), len(imgs_b)
+                L = min(La, Lb)
+                for img_offset in range(L):
+                    a = imgs_a[img_offset % La]
+                    b = imgs_b[(img_offset + id_offset) % Lb]  # shift pairing
+
+                    if neg_count_id[name_a] >= max_neg_per_identity:
+                        continue
+                    if neg_count_id[name_b] >= max_neg_per_identity:
+                        continue
+                    if neg_use_img.get(a, 0) >= max_neg_per_image:
+                        continue
+                    if neg_use_img.get(b, 0) >= max_neg_per_image:
+                        continue
+
+                    key = _pair_key(a, b, 0)
+                    if key in neg_seen:
+                        continue
+                    neg_seen.add(key)
+                    neg_pool.append((a, b, 0))
+                    neg_use_img[a] = neg_use_img.get(a, 0) + 1
+                    neg_use_img[b] = neg_use_img.get(b, 0) + 1
+                    neg_count_id[name_a] += 1
+                    neg_count_id[name_b] += 1
+
+    # --- Allocate counts + top-up deterministically (still dedup) ---
+    want_pos = int(round(max_pairs * pos_ratio))
+    want_neg = max_pairs - want_pos
+
+    combined: list[tuple[str, str, int]] = []
+    combined_seen: set[tuple[str, str, int]] = set()
+
+    def _try_add(pair):
+        key = _pair_key(pair[0], pair[1], pair[2])
+        if key in combined_seen:
+            return False
+        combined.append(pair)
+        combined_seen.add(key)
+        return True
+
+    for p in pos_pool[:want_pos]:
+        _try_add(p)
+    for q in neg_pool[:want_neg]:
+        _try_add(q)
+
+    if len(combined) < max_pairs:
+        for pool in (pos_pool[want_pos:], neg_pool[want_neg:]):
+            for item in pool:
+                if len(combined) >= max_pairs:
+                    break
+                _try_add(item)
+
+    print(
+        f"[INFO] Built {len(combined)} pairs "
+        f"({sum(1 for *_, l in combined if l==1)} pos / "
+        f"{sum(1 for *_, l in combined if l==0)} neg) "
+        f"starting at '{filt_names[start_idx]}'"
+    )
+    return combined[:max_pairs]
+
+
+# ----------------- Eval utilities -----------------
 
 
 def find_best_threshold(sims, labels):
     thresholds = np.linspace(-1, 1, 200)
-    best_acc, best_t = 0, 0
+    best_acc, best_t = 0.0, 0.0
     labels = np.array(labels)
     sims = np.array(sims)
     for t in thresholds:
         preds = (sims > t).astype(int)
         acc = np.mean(preds == labels)
         if acc > best_acc:
-            best_acc, best_t = acc, t
+            best_acc, best_t = float(acc), float(t)
     return best_acc, best_t
 
 
-def run_logic(model_path, iters=300, frame_h=None, frame_w=None, dataset_path=None):
+# ----------------- Main logic -----------------
+
+
+def run_logic(
+    model_path,
+    iters=300,
+    frame_h=None,
+    frame_w=None,
+    dataset_path=None,
+    start_person=None,
+    pos_ratio=0.5,
+):
     if dataset_path is None:
         dataset_path = model_path
 
@@ -1194,58 +1387,262 @@ def run_logic(model_path, iters=300, frame_h=None, frame_w=None, dataset_path=No
     wrapper = load_model(model_path)
     model_name = getattr(wrapper, "name", os.path.basename(model_path))
 
-    print(f"[DEBUG] run_logic() called with iters={iters}, dataset_path={dataset_path}")
+    # allow env overrides (useful when called from GUI)
+    start_person = start_person or os.getenv("LFW_START_PERSON") or None
+    try:
+        pos_ratio = float(os.getenv("POS_RATIO", pos_ratio))
+    except Exception:
+        pass
+    pos_ratio = max(0.0, min(1.0, pos_ratio))
 
-    pairs = generate_pairs(dataset_path, max_pairs=iters)
+    # per-identity caps (allow env override if needed)
+    try:
+        max_pos_cap = int(os.getenv("MAX_POS_PER_ID", "10"))
+    except Exception:
+        max_pos_cap = 10
+    try:
+        max_neg_cap = int(os.getenv("MAX_NEG_PER_ID", "20"))
+    except Exception:
+        max_neg_cap = 20
+
+    print(
+        f"[DEBUG] run_logic() iters={iters}, dataset={dataset_path}, "
+        f"start_person={start_person}, pos_ratio={pos_ratio}, "
+        f"max_pos_per_identity={max_pos_cap}, max_neg_per_identity={max_neg_cap}"
+    )
+
+    # --- Build pairs deterministically ---
+    pairs = build_pairs_deterministic(
+        dataset_path,
+        start_person=start_person,
+        max_pairs=iters,
+        pos_ratio=pos_ratio,
+        exclude_singletons=True,
+        max_pos_per_identity=max_pos_cap,
+        max_neg_per_identity=max_neg_cap,
+    )
+
+    if not pairs:
+        print(
+            json.dumps(
+                {
+                    "kind": "accuracy_image",
+                    "dataset": os.path.basename(dataset_path),
+                    "model": model_name,
+                    "num_pairs": 0,
+                    "error": "No pairs could be built (check dataset path or start person)",
+                }
+            ),
+            flush=True,
+        )
+        return
+
+    # --- Evaluate pairs ---
     sims, labels = [], []
     start_time = time.time()
-
-    # debug print block
-    print(f"[INFO] Running validation on {len(pairs)} pairs from {dataset_path}")
-    print("Example pairs:")
-    for i in range(min(3, len(pairs))):
-        print(" ", pairs[i])
 
     for img1, img2, label in tqdm(pairs, desc="Validating", ncols=80):
         img1 = os.path.normpath(img1)
         img2 = os.path.normpath(img2)
-        img_a = cv2.imread(img1)
-        img_b = cv2.imread(img2)
-        if img_a is None or img_b is None:
+
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+        if a is None or b is None:
             print(f"[WARN] Skipping unreadable pair:\n  {img1}\n  {img2}")
             continue
 
-        emb1 = wrapper.embed(img_a)
-        emb2 = wrapper.embed(img_b)
-        sims.append(cosine_similarity(emb1, emb2))
-        labels.append(label)
+        emb1 = wrapper.embed(a)
+        emb2 = wrapper.embed(b)
+        if emb1 is None or emb2 is None:
+            print(f"[WARN] Skipping pair with missing embedding:\n  {img1}\n  {img2}")
+            continue
 
-    acc, best_t = find_best_threshold(sims, labels)
+        sims.append(cosine_similarity(emb1, emb2))
+        labels.append(int(label))
+
+    if not sims:
+        print(
+            json.dumps(
+                {
+                    "kind": "accuracy_image",
+                    "dataset": os.path.basename(dataset_path),
+                    "model": model_name,
+                    "num_pairs": 0,
+                    "error": "All pairs were unreadable or produced no embeddings",
+                }
+            ),
+            flush=True,
+        )
+        return
+
+    # --- Use fixed threshold instead of searching for best ---
+    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))  # default 0.7 if not set
+    labels_np = np.array(labels, dtype=int)
+    preds = (np.array(sims) > fixed_t).astype(int)
+    acc = float(np.mean(preds == labels_np))
+    best_t = fixed_t  # just for output consistency
+
     elapsed = time.time() - start_time
+
+    # --- Confusion counts at best threshold ---
+    labels_np = np.array(labels, dtype=int)
+    preds = (np.array(sims) > best_t).astype(int)
+
+    tp = int(((preds == 1) & (labels_np == 1)).sum())
+    tn = int(((preds == 0) & (labels_np == 0)).sum())
+    fp = int(((preds == 1) & (labels_np == 0)).sum())
+    fn = int(((preds == 0) & (labels_np == 1)).sum())
+
+    pos = int((labels_np == 1).sum())
+    neg = int((labels_np == 0).sum())
+
+    # identities involved (folder names)
+    def _identity_from_path(p):
+        return os.path.basename(os.path.dirname(p))
+
+    identities_used = sorted(
+        set(
+            [_identity_from_path(p1) for p1, _, _ in pairs]
+            + [_identity_from_path(p2) for _, p2, _ in pairs]
+        )
+    )
+    unique_identities = len(identities_used)
+    identities_preview = identities_used[:8]
 
     result = {
         "kind": "accuracy_image",
         "dataset": os.path.basename(dataset_path),
         "model": model_name,
-        "num_pairs": len(pairs),
+        "num_pairs": len(sims),  # effective evaluated pairs
+        "requested_pairs": len(pairs),  # before skipping any invalids
+        "pos_ratio": round(float(pos_ratio), 3),
         "accuracy": round(float(acc), 5),
         "threshold": round(float(best_t), 3),
         "elapsed_sec": round(float(elapsed), 2),
+        "start_person": start_person,
+        "tp": tp,
+        "fp": fp,
+        "tn": tn,
+        "fn": fn,
+        "pos_pairs": pos,
+        "neg_pairs": neg,
+        "unique_identities": unique_identities,
+        "identities_preview": identities_preview,
+        "max_pos_per_identity": max_pos_cap,
+        "max_neg_per_identity": max_neg_cap,
+        "title": f"Model: {model_name} – Validation Accuracy (Image) – Start: {start_person or 'N/A'}",
+        "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities} | caps(+:{max_pos_cap}, -:{max_neg_cap})",
     }
-    print(json.dumps(result, indent=2))
 
-    return result
+    # ------- Export full run details to a separate JSON file -------
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    dataset_name = os.path.basename(dataset_path.rstrip(os.sep))
+    test_name = "Validation Accuracy (Image)"
 
+    # Store pairs with paths relative to dataset for portability
+    pairs_export = []
+    for a, b, lbl in pairs:
+        pairs_export.append(
+            {
+                "a": os.path.relpath(os.path.normpath(a), dataset_path),
+                "b": os.path.relpath(os.path.normpath(b), dataset_path),
+                "label": "pos" if int(lbl) == 1 else "neg",
+            }
+        )
+
+    export_payload = {
+        "meta": {
+            "model": model_name,
+            "dataset": dataset_name,
+            "test_name": test_name,
+            "start_person": start_person,
+            "pos_ratio": pos_ratio,
+            "iters_requested": iters,
+            "pairs_evaluated": len(sims),
+            "timestamp": timestamp,
+        },
+        "stats": {
+            "accuracy": result["accuracy"],
+            "threshold": result["threshold"],
+            "elapsed_sec": result["elapsed_sec"],
+            "tp": result["tp"],
+            "fp": result["fp"],
+            "tn": result["tn"],
+            "fn": result["fn"],
+            "pos_pairs": result["pos_pairs"],
+            "neg_pairs": result["neg_pairs"],
+            "unique_identities": result["unique_identities"],
+        },
+        "identities": identities_used,  # full, sorted list
+        "pairs": pairs_export,  # every evaluated pair (no duplicates)
+    }
+
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    export_path = os.path.join(
+        export_dir, f"va_{dataset_name}_{model_name}_{timestamp}.json"
+    )
+    with open(export_path, "w", encoding="utf-8") as f:
+        json.dump(export_payload, f, indent=2)
+
+    # Optional info for console
+    result["export_path"] = export_path
+    try:
+        send_log(f"[export] wrote {export_path}")
+    except NameError:
+        pass
+
+    # Human-readable pretty block for the console
+    print("[RESULT]", flush=True)
+    print(json.dumps(result, indent=2), flush=True)
+    print("", flush=True)  # blank line for readability
+
+    # Raw JSON (single-line) for GUI to parse
+    print(json.dumps(result), flush=True)
+
+
+# ----------------- CLI -----------------
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--dataset_path", type=str, required=True)
-    parser.add_argument("--iters", type=int, default=300)
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        required=True,
+        help="Model key for connector.load_model (e.g., arcface, facenet, insightface)",
+    )
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        required=True,
+        help="Path to LFW dataset or its parent (will auto-use lfw-deepfunneled)",
+    )
+    parser.add_argument(
+        "--iters", type=int, default=300, help="Number of pairs to evaluate"
+    )
+    parser.add_argument(
+        "--start-person",
+        type=str,
+        default=None,
+        help="Folder/person name to start from (exact match)",
+    )
+    parser.add_argument(
+        "--pos-ratio",
+        type=float,
+        default=0.5,
+        help="Fraction of positives in final set (0.0..1.0). 0.5 = balanced",
+    )
     args = parser.parse_args()
-    run_logic(args.model_path, args.dataset_path, args.iters)
+
+    run_logic(
+        args.model_path,
+        iters=args.iters,
+        dataset_path=args.dataset_path,
+        start_person=args.start_person,
+        pos_ratio=args.pos_ratio,
+    )
 
 
 
@@ -2545,6 +2942,55 @@ class InsightFaceWrapper:
 
 
 
+# ==== .\models\wrap_sphereface.py ====
+
+import os
+import sys
+import torch
+import torch.nn.functional as F
+import numpy as np
+
+# Add the submodule path to Python import search path
+SPHEREFACE_PATH = os.path.join(
+    os.path.dirname(__file__), "../../external/sphereface_pytorch"
+)
+SPHEREFACE_PATH = os.path.abspath(SPHEREFACE_PATH)
+sys.path.append(SPHEREFACE_PATH)
+
+from net_sphere import sphere20a  # from the submodule
+
+
+def load_model(device="cuda" if torch.cuda.is_available() else "cpu"):
+    """
+    Loads the pre-trained SphereFace model and returns an inference wrapper.
+    """
+    model = sphere20a()
+    weights = os.path.join(SPHEREFACE_PATH, "model", "sphere20a_20171020.pth")
+
+    if not os.path.exists(weights):
+        raise FileNotFoundError(f"SphereFace weights not found at: {weights}")
+
+    ckpt = torch.load(weights, map_location=device)
+    model.load_state_dict(ckpt)
+    model.to(device)
+    model.eval()
+
+    @torch.no_grad()
+    def infer(batch: np.ndarray) -> np.ndarray:
+        """
+        Runs inference on a batch of RGB images.
+        Expects input as numpy array of shape (N, H, W, C) in [0, 255].
+        Returns normalized 512-dimensional embeddings.
+        """
+        x = torch.from_numpy(batch.transpose(0, 3, 1, 2)).float().div(255.0).to(device)
+        feats = model(x)
+        feats = F.normalize(feats)
+        return feats.cpu().numpy()
+
+    return infer
+
+
+
 # ==== .\windows\benchmark_window.py ====
 
 # ==== windows/benchmark_window.py ====
@@ -2628,7 +3074,13 @@ class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
     def __init__(
-        self, file_path, model_name, dataset_path=None, test_image=None, iters=50
+        self,
+        file_path,
+        model_name,
+        dataset_path=None,
+        test_image=None,
+        iters=50,
+        extra_args=None,
     ):
         super().__init__()
         self.file_path = file_path
@@ -2636,6 +3088,7 @@ class RunnerThread(QThread):
         self.dataset_path = dataset_path
         self.test_image = test_image
         self.iters = iters
+        self.extra_args = extra_args or []  # NEW
 
     def run(self):
         try:
@@ -2651,6 +3104,10 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
+            # NEW: append any extra CLI arguments (e.g., --start-person, --pos-ratio)
+            if self.extra_args:
+                cmd.extend(self.extra_args)
+
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -2658,13 +3115,10 @@ class RunnerThread(QThread):
                 text=True,
                 bufsize=1,
             )
-
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
-
             process.stdout.close()
             process.wait()
-
         except Exception as e:
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
@@ -2846,6 +3300,7 @@ class BenchmarkPage(QWidget):
 
         dataset_lower = (self.dataset_path or "").lower()
         iters = 0
+        extra_args = []
 
         # --- Detect dataset type ---
         is_video_dataset = any(
@@ -2890,18 +3345,36 @@ class BenchmarkPage(QWidget):
 
             # For validation accuracy, skip person selection — script handles pairs internally
             if "validation_accuracy" in os.path.basename(file_path).lower():
-                num_runs, ok = QInputDialog.getInt(
+                num_pairs, ok = QInputDialog.getInt(
                     self,
                     "Number of Pairs",
                     "How many pairs to test?",
-                    600,
-                    100,
-                    6000,
-                    100,
+                    600,  # default
+                    100,  # min
+                    6000,  # max
+                    100,  # step
                 )
                 if not ok:
                     return
-                os.environ["LFW_RUNS"] = str(num_runs)
+
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+                start_person = dlg.selected_subjects[0]
+
+                pos_ratio = 0.5  # or prompt later if you want
+
+                # pass via env (the VA script reads these)
+                os.environ["LFW_START_PERSON"] = start_person
+                os.environ["POS_RATIO"] = str(pos_ratio)
+
+                iters = num_pairs  # pairs count
+                # extra_args stays [] for VA
 
             else:
                 # Show person-selection dialog for latency, inference etc.
@@ -2955,7 +3428,12 @@ class BenchmarkPage(QWidget):
             self.current_thread.terminate()
 
         self.current_thread = RunnerThread(
-            file_path, model_name, self.dataset_path, self.test_image, iters=iters
+            file_path,
+            model_name,
+            self.dataset_path,
+            self.test_image,
+            iters=iters,
+            extra_args=extra_args,
         )
         self.current_thread.output_signal.connect(
             lambda msg: self.handle_output(msg, fig, canvas, progress)
@@ -2972,6 +3450,11 @@ class BenchmarkPage(QWidget):
         try:
             data = json.loads(msg)
         except Exception:
+            print(f"[SCRIPT LOG] {msg}")
+            return
+
+        if not isinstance(data, dict):
+            # Not a top-level JSON object (likely a line from the pretty block) → ignore
             print(f"[SCRIPT LOG] {msg}")
             return
 
@@ -3191,32 +3674,71 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-            # ===================== VALIDATION ACCURACY MODE =====================
+        # ===================== VALIDATION ACCURACY MODE =====================
         if kind == "accuracy_image":
+            # ---- read fields from payload ----
             model = data.get("model", "Unknown")
             dataset = data.get("dataset", "Unknown")
-            acc = float(data.get("accuracy", 0)) * 100.0
-            threshold = data.get("threshold", 0)
-            num_pairs = data.get("num_pairs", 0)
-            elapsed = data.get("elapsed_sec", 0)
+            acc_pct = float(data.get("accuracy", 0)) * 100.0  # %
+            threshold = float(data.get("threshold", 0))  # cosine-sim threshold
+            elapsed = float(data.get("elapsed_sec", 0))  # seconds
+            num_pairs = int(data.get("num_pairs", 0))
+            start_person = data.get("start_person") or "N/A"
 
-            # Clear and create a bar plot
-            ax.barh([model], [acc], color="#2980b9")
-            ax.set_xlim(0, 100)
-            ax.set_xlabel("Accuracy (%)")
-            ax.set_title(f"Validation Accuracy – {model} on {dataset}")
-            ax.grid(True, axis="x", linestyle="--", alpha=0.5)
+            tp = int(data.get("tp", 0))
+            fp = int(data.get("fp", 0))
+            tn = int(data.get("tn", 0))
+            fn = int(data.get("fn", 0))
 
-            # Annotate accuracy value next to bar
-            ax.text(
-                acc + 1, 0, f"{acc:.2f}%", va="center", color="black", fontweight="bold"
+            # ---- title ----
+            ax.set_title(
+                f"Model: {model} – Validation Accuracy (Image) – Start: {start_person}"
             )
 
-            # Add threshold and stats below plot
+            # ---- histogram (categorical bars on X) ----
+            labels = ["Accuracy (%)", "Threshold", "Elapsed (s)"]
+            values = [acc_pct, threshold, elapsed]
+            bars = ax.bar(labels, values)
+
+            # annotate values on top of bars
+            for rect, val in zip(bars, values):
+                ax.text(
+                    rect.get_x() + rect.get_width() / 2.0,
+                    rect.get_height(),
+                    f"{val:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                )
+
+            ax.set_ylabel("Value")
+            ax.grid(axis="y", linestyle="--", alpha=0.3)
+
+            # ---- confusion box in upper-right ----
+            conf_text = (
+                "Confusion Matrix\n"
+                f"True Positive : {tp}\n"
+                f"False Positive: {fp}\n"
+                f"True Negative : {tn}\n"
+                f"False Negative: {fn}"
+            )
+            ax.text(
+                0.98,
+                0.98,
+                conf_text,
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=9,
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
+            )
+
+            # small footer with run context (optional)
+            footer = f"Pairs: {num_pairs} | Dataset: {dataset} | Time: {elapsed:.1f}s | Thr: {threshold:.3f}"
             ax.text(
                 0.5,
-                -0.3,
-                f"Threshold: {threshold:.3f} | Pairs: {num_pairs} | Time: {elapsed:.1f}s",
+                -0.18,
+                footer,
                 ha="center",
                 va="center",
                 transform=ax.transAxes,
@@ -3224,6 +3746,7 @@ class BenchmarkPage(QWidget):
                 color="gray",
             )
 
+            fig.tight_layout()
             canvas.draw()
             return
 
