@@ -676,6 +676,27 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second – {model} ({dataset})")
             ax.grid(True)
+            # --- compute & annotate overall average FPS ---
+            if run_avgs:
+                avg_all = float(np.mean(run_avgs))
+                num_runs = len(run_avgs)
+                ax.text(
+                    1.18,
+                    0.35,  # 🔼 move up (closer under the legend box)
+                    f"Average FPS over {num_runs} run(s): {avg_all:.2f}",
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=10,
+                    color="black",
+                    bbox=dict(
+                        facecolor="white",
+                        edgecolor="gray",
+                        boxstyle="round,pad=0.3",
+                        alpha=0.7,
+                    ),
+                )
+
             canvas.draw()
             return
 
