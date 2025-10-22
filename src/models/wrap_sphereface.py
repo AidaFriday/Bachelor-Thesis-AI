@@ -34,7 +34,7 @@ class SphereFaceWrapper:
     def __init__(
         self,
         device: str = "cpu",
-        input_size=(112, 112),
+        input_size=(96, 112),
         weights_path: Optional[str] = None,
     ):
         # match FaceNetWrapper's device style
@@ -65,7 +65,7 @@ class SphereFaceWrapper:
             )
             raise FileNotFoundError(msg)
 
-        self.model = sphere20a().to(self.device).eval()
+        self.model = sphere20a(feature=True).to(self.device).eval()
         state = torch.load(ckpt_path, map_location=self.device)
         self.model.load_state_dict(
             state
@@ -81,7 +81,9 @@ class SphereFaceWrapper:
         Resize to self.input_size, convert BGR→RGB, and to torch tensor in [0,1].
         Keep preprocessing intentionally similar to FaceNetWrapper to match behavior.
         """
-        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(
+            cv2.resize(bgr, (self.input_size[1], self.input_size[0])), cv2.COLOR_BGR2RGB
+        )
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0  # C,H,W in [0,1]
         return t
 
@@ -94,7 +96,7 @@ class SphereFaceWrapper:
         """
         t = self._to_tensor(bgr).unsqueeze(0).to(self.device)  # 1,C,H,W
         with torch.inference_mode():
-            feat = self.model(t)  # (1, D)
+            feat = self.model(t)  # sphere20a(feature=True) returns only features
             feat = F.normalize(feat, dim=1)  # L2 normalize for cosine sims
         return feat[0].cpu().numpy().astype(np.float32)
 
