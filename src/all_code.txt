@@ -22,6 +22,7 @@
 .\models\wrap_arcface.py
 .\models\wrap_facenet.py
 .\models\wrap_insightface.py
+.\models\wrap_lightcnn.py
 .\models\wrap_sphereface.py
 .\windows\benchmark_window.py
 .\windows\home_window.py
@@ -2025,7 +2026,18 @@ class SettingsPage(QWidget):
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["arcface", "facenet", "insightface"])
+
+        # ✅ Load model list dynamically from model.config if available
+        model_config_path = os.path.join(BASE_DIR, "models", "model.config")
+        try:
+            with open(model_config_path, "r") as f:
+                model_config = json.load(f)
+                model_names = list(model_config.keys())
+        except Exception as e:
+            print(f"[WARN] Could not read model.config: {e}")
+            model_names = ["arcface", "facenet", "insightface"]
+
+        self.model_combo.addItems(model_names)
         idx = self.model_combo.findText(self.model_name)
         if idx >= 0:
             self.model_combo.setCurrentIndex(idx)
@@ -2085,13 +2097,6 @@ class SettingsPage(QWidget):
         self.dataset_name_label.setText(self.dataset_name.upper())
         self.dataset_path_label.setText(f"Path: {path}")
 
-        # Immediate friendly notice if LFW chosen (so you don't need to hit Save)
-        # if self.dataset_name == "lfw":
-        # QMessageBox.information(
-        # self,
-        # "Dataset Notice",
-        # "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",)
-
     # ===============================================================
     # 🔹 Model & Theme
     # ===============================================================
@@ -2124,18 +2129,6 @@ class SettingsPage(QWidget):
             f"Path: {self.dataset_path or 'N/A'}\n"
             f"Theme: {self.theme}"
         )
-
-        # Extra warning if user saved with LFW
-        # if self.dataset_name and self.dataset_name.lower() == "lfw":
-        # msg += (
-        # "\n\n⚠️ Note: LFW is an image dataset.\n"
-        # "FPS benchmark requires a video dataset like YTF."
-        # )
-        # QMessageBox.warning(
-        #  self,
-        #  "Dataset Notice",
-        #  "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
-        # )
 
         QMessageBox.information(self, "Settings", msg)
 
@@ -2942,52 +2935,95 @@ class InsightFaceWrapper:
 
 
 
-# ==== .\models\wrap_sphereface.py ====
+# ==== .\models\wrap_lightcnn.py ====
 
 import os
 import sys
 import torch
-import torch.nn.functional as F
 import numpy as np
+import torch.nn.functional as F
 
-# Add the submodule path to Python import search path
-SPHEREFACE_PATH = os.path.join(
-    os.path.dirname(__file__), "../../external/sphereface_pytorch"
+# --- add LightCNN to path ---
+LIGHTCNN_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../external/LightCNN")
 )
-SPHEREFACE_PATH = os.path.abspath(SPHEREFACE_PATH)
-sys.path.append(SPHEREFACE_PATH)
+sys.path.append(LIGHTCNN_PATH)
 
-from net_sphere import sphere20a  # from the submodule
+from light_cnn_v4 import LightCNN_29Layers_v2  # use most accurate version
 
 
-def load_model(device="cuda" if torch.cuda.is_available() else "cpu"):
-    """
-    Loads the pre-trained SphereFace model and returns an inference wrapper.
-    """
-    model = sphere20a()
-    weights = os.path.join(SPHEREFACE_PATH, "model", "sphere20a_20171020.pth")
+class LightCNNWrapper:
+    """Wrapper for pretrained LightCNN (v4 / 29v2)."""
 
-    if not os.path.exists(weights):
-        raise FileNotFoundError(f"SphereFace weights not found at: {weights}")
+    def __init__(self, model_variant="LightCNN-29v2", device=None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = LightCNN_29Layers_v2(num_classes=80013)
+        weights_path = os.path.join(LIGHTCNN_PATH, "models", f"{model_variant}.pth")
 
-    ckpt = torch.load(weights, map_location=device)
-    model.load_state_dict(ckpt)
-    model.to(device)
-    model.eval()
+        if not os.path.exists(weights_path):
+            raise FileNotFoundError(f"❌ Missing pretrained weights: {weights_path}")
+
+        state = torch.load(weights_path, map_location=self.device)
+        if "state_dict" in state:
+            state = state["state_dict"]
+
+        self.model.load_state_dict(state, strict=False)
+        self.model.to(self.device)
+        self.model.eval()
 
     @torch.no_grad()
-    def infer(batch: np.ndarray) -> np.ndarray:
-        """
-        Runs inference on a batch of RGB images.
-        Expects input as numpy array of shape (N, H, W, C) in [0, 255].
-        Returns normalized 512-dimensional embeddings.
-        """
-        x = torch.from_numpy(batch.transpose(0, 3, 1, 2)).float().div(255.0).to(device)
-        feats = model(x)
+    def infer(self, batch: np.ndarray) -> np.ndarray:
+        """Compute normalized LightCNN embeddings from input batch (N,H,W,C)."""
+        # Convert to grayscale if RGB
+        if batch.ndim == 4 and batch.shape[-1] == 3:
+            batch = np.mean(batch, axis=-1, keepdims=True)
+
+        x = (
+            torch.from_numpy(batch.transpose(0, 3, 1, 2))
+            .float()
+            .div(255.0)
+            .to(self.device)
+        )
+        feats, _ = self.model(x)
         feats = F.normalize(feats)
         return feats.cpu().numpy()
 
-    return infer
+
+
+# ==== .\models\wrap_sphereface.py ====
+
+import os, sys, torch, numpy as np, torch.nn.functional as F
+
+SPHEREFACE_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../external/sphereface_pytorch")
+)
+sys.path.append(SPHEREFACE_PATH)
+
+from net_sphere import sphere20a
+
+
+class SphereFaceWrapper:
+    """Interface identical to ArcFaceWrapper/FacenetWrapper"""
+
+    def __init__(self, device=None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = sphere20a()
+        weights = os.path.join(SPHEREFACE_PATH, "model", "sphere20a_20171020.pth")
+        ckpt = torch.load(weights, map_location=self.device)
+        self.model.load_state_dict(ckpt)
+        self.model.to(self.device).eval()
+
+    @torch.no_grad()
+    def infer(self, batch: np.ndarray) -> np.ndarray:
+        """Input (N,H,W,C) RGB → output (N,512) L2-normalized embeddings"""
+        x = (
+            torch.from_numpy(batch.transpose(0, 3, 1, 2))
+            .float()
+            .div(255.0)
+            .to(self.device)
+        )
+        feats = F.normalize(self.model(x))
+        return feats.cpu().numpy()
 
 
 

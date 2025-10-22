@@ -10,6 +10,8 @@ def load_model(model_name: str, config_path=None):
         "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
         "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
         "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
+        "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
+        "lightcnn":  ("models.wrap_lightcnn",  "LightCNNWrapper"),
     }
     if model_name not in wrappers:
         raise ValueError(f"Unknown model: {model_name}")
