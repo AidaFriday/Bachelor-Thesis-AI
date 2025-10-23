@@ -191,7 +191,7 @@ class BenchmarkPage(QWidget):
     def _button_color_for(self, fname):
         if "logic" in fname.lower():
             return "#8e44ad"
-        elif any(x in fname.lower() for x in ["latency", "fps", "inference"]):
+        elif any(x in fname.lower() for x in ["latency", "fps", "Inference"]):
             return "#27ae60"
         elif "validation" in fname.lower() or "accuracy" in fname.lower():
             return "#2980b9"
