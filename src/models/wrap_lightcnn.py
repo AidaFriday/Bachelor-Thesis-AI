@@ -7,6 +7,11 @@ import numpy as np
 import torch.nn.functional as F
 from typing import List, Dict
 
+# ---- Ensure LightCNN source is always visible ----
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../external/LightCNN"))
+)
+
 # ---- External LightCNN path ----
 LIGHTCNN_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../external/LightCNN")
@@ -14,6 +19,7 @@ LIGHTCNN_PATH = os.path.abspath(
 if LIGHTCNN_PATH not in sys.path:
     sys.path.append(LIGHTCNN_PATH)
 
+# ✅ This import now always works (even when launched from main.py)
 from light_cnn_v4 import LightCNN_V4 as LightCNN_29Layers_v2
 
 
