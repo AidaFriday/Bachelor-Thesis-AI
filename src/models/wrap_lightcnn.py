@@ -14,7 +14,8 @@ LIGHTCNN_PATH = os.path.abspath(
 if LIGHTCNN_PATH not in sys.path:
     sys.path.append(LIGHTCNN_PATH)
 
-from light_cnn_v4 import LightCNN_29Layers_v2  # most accurate version
+from light_cnn_v4 import LightCNN_V4 as LightCNN_29Layers_v2
+
 
 # ---- Detector for alignment (InsightFace RetinaFace) ----
 from insightface.app import FaceAnalysis
@@ -60,7 +61,8 @@ class LightCNNWrapper:
         self.input_size = tuple(input_size)
 
         # --- model ---
-        self.model = LightCNN_29Layers_v2(num_classes=80013)
+        self.model = LightCNN_29Layers_v2(None)
+
         weights_path = os.path.join(LIGHTCNN_PATH, "models", f"{model_variant}.pth")
         if not os.path.exists(weights_path):
             raise FileNotFoundError(f"❌ Missing pretrained weights: {weights_path}")
@@ -73,21 +75,17 @@ class LightCNNWrapper:
 
         # --- face detector (for raw images) ---
         ctx_id = 0 if str(self.device).startswith("cuda") else -1
-        self.det = FaceAnalysis(name="retinaface_r50", allowed_modules=["detection"])
+        self.det = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
         self.det.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
     @torch.no_grad()
     def _infer_batch(self, batch: np.ndarray) -> np.ndarray:
-        """
-        Compute normalized LightCNN embeddings from input batch (N,H,W,C).
-        Expects grayscale or RGB; we convert to grayscale.
-        """
         if batch.ndim != 4:
             raise ValueError("Expected batch with shape (N,H,W,C)")
 
-        # grayscale (LightCNN is grayscale)
-        if batch.shape[-1] == 3:
-            batch = np.mean(batch, axis=-1, keepdims=True)
+        # make sure we feed 3 channels (LightCNN v4 expects 3-channel BGR / 255)
+        if batch.shape[-1] == 1:
+            batch = np.repeat(batch, 3, axis=-1)
 
         x = (
             torch.from_numpy(batch.transpose(0, 3, 1, 2))
@@ -95,8 +93,10 @@ class LightCNNWrapper:
             .div(255.0)
             .to(self.device)
         )
-        feats, _ = self.model(x)
-        feats = F.normalize(feats)
+
+        out = self.model(x)  # v4 may return just features
+        feats = out[0] if isinstance(out, (tuple, list)) else out
+        feats = F.normalize(feats)  # L2-normalize
         return feats.cpu().numpy()
 
     # ---------- public API ----------
