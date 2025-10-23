@@ -721,21 +721,25 @@ class BenchmarkPage(QWidget):
                 f"Model: {model} – Validation Accuracy (Image) – Start: {start_person}"
             )
 
-            # ---- histogram (categorical bars on X) ----
-            labels = ["Accuracy (%)", "Threshold", "Elapsed (s)"]
-            values = [acc_pct, threshold, elapsed]
-            bars = ax.bar(labels, values)
-
-            # annotate values on top of bars
-            for rect, val in zip(bars, values):
-                ax.text(
-                    rect.get_x() + rect.get_width() / 2.0,
-                    rect.get_height(),
-                    f"{val:.2f}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=9,
-                )
+            # ---- disable histogram, show text summary instead ----
+            # draw the summary outside the main plot, on the right side in a box
+            ax.text(
+                1.05,
+                0.5,
+                f"Accuracy: {acc_pct:.2f}%\nThreshold: {threshold:.3f}\nElapsed: {elapsed:.2f}s",
+                transform=ax.transAxes,
+                ha="left",
+                va="center",
+                fontsize=11,
+                color="black",
+                bbox=dict(
+                    boxstyle="round,pad=0.5",
+                    fc="white",
+                    ec="0.75",
+                    alpha=0.9,
+                ),
+            )
+            fig.subplots_adjust(right=0.8)  # make space on the right side
 
             ax.set_ylabel("Value")
             ax.grid(axis="y", linestyle="--", alpha=0.3)
