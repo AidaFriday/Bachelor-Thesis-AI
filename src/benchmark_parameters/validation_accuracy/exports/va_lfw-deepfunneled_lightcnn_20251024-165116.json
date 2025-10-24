@@ -1,0 +1,863 @@
+{
+  "meta": {
+    "model": "lightcnn",
+    "dataset": "lfw-deepfunneled",
+    "test_name": "Validation Accuracy (Image)",
+    "start_person": "AJ_Cook",
+    "pos_ratio": 0.5,
+    "iters_requested": 100,
+    "pairs_evaluated": 100,
+    "timestamp": "20251024-165116"
+  },
+  "stats": {
+    "accuracy": 0.52,
+    "threshold": 0.9,
+    "elapsed_sec": 46.5,
+    "tp": 48,
+    "fp": 46,
+    "tn": 4,
+    "fn": 2,
+    "pos_pairs": 50,
+    "neg_pairs": 50,
+    "unique_identities": 22,
+    "auc": 0.567,
+    "eer": 0.48
+  },
+  "identities": [
+    "Aaron_Peirsol",
+    "Aaron_Sorkin",
+    "Abdel_Nasser_Assidi",
+    "Abdoulaye_Wade",
+    "Abdullah",
+    "Abdullah_Gul",
+    "Abdullah_al-Attiyah",
+    "Abdullatif_Sener",
+    "Abel_Pacheco",
+    "Abid_Hamid_Mahmud_Al-Tikriti",
+    "Adam_Sandler",
+    "Adam_Scott",
+    "Adel_Al-Jubeir",
+    "Adolfo_Aguilar_Zinser",
+    "Adolfo_Rodriguez_Saa",
+    "Adrian_McPherson",
+    "Adrian_Nastase",
+    "Adrien_Brody",
+    "Ahmad_Masood",
+    "Ahmed_Chalabi",
+    "Ahmet_Necdet_Sezer",
+    "Ai_Sugiyama"
+  ],
+  "pairs": [
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0001.jpg",
+      "b": "Aaron_Peirsol\\Aaron_Peirsol_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0002.jpg",
+      "b": "Aaron_Peirsol\\Aaron_Peirsol_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0003.jpg",
+      "b": "Aaron_Peirsol\\Aaron_Peirsol_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0001.jpg",
+      "b": "Aaron_Peirsol\\Aaron_Peirsol_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0002.jpg",
+      "b": "Aaron_Peirsol\\Aaron_Peirsol_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0001.jpg",
+      "b": "Aaron_Peirsol\\Aaron_Peirsol_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Sorkin\\Aaron_Sorkin_0001.jpg",
+      "b": "Aaron_Sorkin\\Aaron_Sorkin_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0001.jpg",
+      "b": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0001.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0001.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0001.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0001.jpg",
+      "b": "Abdullah\\Abdullah_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0002.jpg",
+      "b": "Abdullah\\Abdullah_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0003.jpg",
+      "b": "Abdullah\\Abdullah_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0001.jpg",
+      "b": "Abdullah\\Abdullah_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0002.jpg",
+      "b": "Abdullah\\Abdullah_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0001.jpg",
+      "b": "Abdullah\\Abdullah_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0001.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0002.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0003.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0004.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0005.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0006.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0006.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0007.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0007.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0008.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0008.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0009.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0009.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0010.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0010.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0011.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0001.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0002.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0001.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abdullatif_Sener\\Abdullatif_Sener_0001.jpg",
+      "b": "Abdullatif_Sener\\Abdullatif_Sener_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0001.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0001.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0001.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0001.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0002.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0001.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0001.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0003.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0001.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0001.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Adam_Scott\\Adam_Scott_0001.jpg",
+      "b": "Adam_Scott\\Adam_Scott_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0001.jpg",
+      "b": "Aaron_Sorkin\\Aaron_Sorkin_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0002.jpg",
+      "b": "Aaron_Sorkin\\Aaron_Sorkin_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aaron_Sorkin\\Aaron_Sorkin_0001.jpg",
+      "b": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aaron_Sorkin\\Aaron_Sorkin_0002.jpg",
+      "b": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0001.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0002.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0001.jpg",
+      "b": "Abdullah\\Abdullah_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "b": "Abdullah\\Abdullah_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "b": "Abdullah\\Abdullah_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0004.jpg",
+      "b": "Abdullah\\Abdullah_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0001.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0002.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0003.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0004.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0005.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0001.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0002.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0003.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0001.jpg",
+      "b": "Abdullatif_Sener\\Abdullatif_Sener_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0002.jpg",
+      "b": "Abdullatif_Sener\\Abdullatif_Sener_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullatif_Sener\\Abdullatif_Sener_0001.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullatif_Sener\\Abdullatif_Sener_0002.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0001.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0001.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0002.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0003.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0001.jpg",
+      "b": "Adam_Scott\\Adam_Scott_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "b": "Adam_Scott\\Adam_Scott_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Scott\\Adam_Scott_0001.jpg",
+      "b": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Scott\\Adam_Scott_0002.jpg",
+      "b": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0001.jpg",
+      "b": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0002.jpg",
+      "b": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0003.jpg",
+      "b": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0001.jpg",
+      "b": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0002.jpg",
+      "b": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0001.jpg",
+      "b": "Adrian_McPherson\\Adrian_McPherson_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0002.jpg",
+      "b": "Adrian_McPherson\\Adrian_McPherson_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_McPherson\\Adrian_McPherson_0001.jpg",
+      "b": "Adrian_Nastase\\Adrian_Nastase_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_McPherson\\Adrian_McPherson_0002.jpg",
+      "b": "Adrian_Nastase\\Adrian_Nastase_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_Nastase\\Adrian_Nastase_0001.jpg",
+      "b": "Adrien_Brody\\Adrien_Brody_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_Nastase\\Adrian_Nastase_0002.jpg",
+      "b": "Adrien_Brody\\Adrien_Brody_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrien_Brody\\Adrien_Brody_0001.jpg",
+      "b": "Ahmad_Masood\\Ahmad_Masood_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrien_Brody\\Adrien_Brody_0002.jpg",
+      "b": "Ahmad_Masood\\Ahmad_Masood_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmad_Masood\\Ahmad_Masood_0001.jpg",
+      "b": "Ahmed_Chalabi\\Ahmed_Chalabi_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmad_Masood\\Ahmad_Masood_0002.jpg",
+      "b": "Ahmed_Chalabi\\Ahmed_Chalabi_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmed_Chalabi\\Ahmed_Chalabi_0001.jpg",
+      "b": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmed_Chalabi\\Ahmed_Chalabi_0002.jpg",
+      "b": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0001.jpg",
+      "b": "Ai_Sugiyama\\Ai_Sugiyama_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0002.jpg",
+      "b": "Ai_Sugiyama\\Ai_Sugiyama_0003.jpg",
+      "label": "neg"
+    }
+  ],
+  "roc_curve": {
+    "fpr": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.02,
+      0.04,
+      0.04,
+      0.06,
+      0.06,
+      0.06,
+      0.06,
+      0.08,
+      0.1,
+      0.12,
+      0.12,
+      0.14,
+      0.16,
+      0.16,
+      0.16,
+      0.18,
+      0.2,
+      0.22,
+      0.22,
+      0.22,
+      0.22,
+      0.22,
+      0.24,
+      0.24,
+      0.26,
+      0.26,
+      0.28,
+      0.3,
+      0.3,
+      0.3,
+      0.32,
+      0.32,
+      0.32,
+      0.34,
+      0.34,
+      0.34,
+      0.36,
+      0.36,
+      0.38,
+      0.4,
+      0.42,
+      0.42,
+      0.44,
+      0.46,
+      0.48,
+      0.5,
+      0.5,
+      0.52,
+      0.52,
+      0.54,
+      0.54,
+      0.54,
+      0.54,
+      0.56,
+      0.56,
+      0.56,
+      0.56,
+      0.56,
+      0.56,
+      0.56,
+      0.58,
+      0.6,
+      0.6,
+      0.62,
+      0.64,
+      0.66,
+      0.68,
+      0.7,
+      0.72,
+      0.74,
+      0.76,
+      0.76,
+      0.76,
+      0.78,
+      0.8,
+      0.8,
+      0.82,
+      0.84,
+      0.86,
+      0.86,
+      0.86,
+      0.86,
+      0.88,
+      0.88,
+      0.88,
+      0.88,
+      0.88,
+      0.9,
+      0.92,
+      0.94,
+      0.94,
+      0.96,
+      0.98,
+      0.98,
+      1.0
+    ],
+    "tpr": [
+      0.0,
+      0.02,
+      0.04,
+      0.06,
+      0.08,
+      0.1,
+      0.1,
+      0.1,
+      0.12,
+      0.12,
+      0.14,
+      0.16,
+      0.18,
+      0.18,
+      0.18,
+      0.18,
+      0.2,
+      0.2,
+      0.2,
+      0.22,
+      0.24,
+      0.24,
+      0.24,
+      0.24,
+      0.26,
+      0.28,
+      0.3,
+      0.32,
+      0.32,
+      0.34,
+      0.34,
+      0.36,
+      0.36,
+      0.36,
+      0.38,
+      0.4,
+      0.4,
+      0.42,
+      0.44,
+      0.44,
+      0.46,
+      0.48,
+      0.48,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.52,
+      0.52,
+      0.52,
+      0.52,
+      0.52,
+      0.54,
+      0.54,
+      0.56,
+      0.56,
+      0.58,
+      0.6,
+      0.62,
+      0.62,
+      0.64,
+      0.66,
+      0.68,
+      0.7,
+      0.72,
+      0.74,
+      0.74,
+      0.74,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.78,
+      0.8,
+      0.8,
+      0.8,
+      0.82,
+      0.82,
+      0.82,
+      0.82,
+      0.84,
+      0.86,
+      0.88,
+      0.88,
+      0.9,
+      0.92,
+      0.94,
+      0.96,
+      0.96,
+      0.96,
+      0.96,
+      0.98,
+      0.98,
+      0.98,
+      1.0,
+      1.0
+    ],
+    "thresholds": [
+      0.9953365193138123,
+      0.9953355193138123,
+      0.9938754439353943,
+      0.9927859306335449,
+      0.9919675588607788,
+      0.9919262528419495,
+      0.9910505414009094,
+      0.9900956153869629,
+      0.9896116256713867,
+      0.9848129153251648,
+      0.9840677380561829,
+      0.9829786419868469,
+      0.9827396869659424,
+      0.9818739891052246,
+      0.9811957478523254,
+      0.9811286926269531,
+      0.9805028438568115,
+      0.9802519679069519,
+      0.9801676869392395,
+      0.9799903035163879,
+      0.9796659350395203,
+      0.9785418510437012,
+      0.9784568548202515,
+      0.9766368865966797,
+      0.9747931957244873,
+      0.9744727611541748,
+      0.9744104146957397,
+      0.9740541577339172,
+      0.973849356174469,
+      0.9737740755081177,
+      0.9734824895858765,
+      0.9731734395027161,
+      0.9727185964584351,
+      0.9715818762779236,
+      0.9710555076599121,
+      0.9694852232933044,
+      0.9692738056182861,
+      0.9687924981117249,
+      0.9687339663505554,
+      0.968431830406189,
+      0.9676531553268433,
+      0.9674218893051147,
+      0.9666515588760376,
+      0.9657407999038696,
+      0.9657142758369446,
+      0.9650405049324036,
+      0.9637758731842041,
+      0.9637598991394043,
+      0.9635307788848877,
+      0.9633494019508362,
+      0.9629843831062317,
+      0.962798535823822,
+      0.9627889394760132,
+      0.9625546336174011,
+      0.9620124101638794,
+      0.9615690112113953,
+      0.9608038663864136,
+      0.9597108960151672,
+      0.9585924744606018,
+      0.9584630727767944,
+      0.9583353400230408,
+      0.9581842422485352,
+      0.9571607708930969,
+      0.9554942846298218,
+      0.9553750157356262,
+      0.9538924098014832,
+      0.9533600807189941,
+      0.9516294002532959,
+      0.9505033493041992,
+      0.949612557888031,
+      0.9494248032569885,
+      0.9476161003112793,
+      0.9466321468353271,
+      0.9440931677818298,
+      0.9432975053787231,
+      0.9429563283920288,
+      0.9429448843002319,
+      0.9414106607437134,
+      0.9396418333053589,
+      0.9384660720825195,
+      0.9383929967880249,
+      0.9381095170974731,
+      0.9376711249351501,
+      0.9346408247947693,
+      0.9285628199577332,
+      0.92787766456604,
+      0.9255335927009583,
+      0.9229281544685364,
+      0.9228228330612183,
+      0.9139626622200012,
+      0.9133100509643555,
+      0.9085224866867065,
+      0.9068398475646973,
+      0.9042935371398926,
+      0.9027371406555176,
+      0.899554431438446,
+      0.8957629799842834,
+      0.8915388584136963,
+      0.8912801742553711,
+      0.868369996547699,
+      0.8612021803855896
+    ]
+  }
+}

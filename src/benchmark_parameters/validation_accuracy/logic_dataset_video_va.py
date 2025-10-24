@@ -1,35 +1,37 @@
-import json, sys, time, numpy as np, os, cv2
+# ==== logic_dataset_video_va.py ====
+import os, sys, json, time, numpy as np, cv2
+from tqdm import tqdm
+
+# Allow "src" imports when run directly
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
 
-try:
-    import torch
 
-    _HAS_TORCH = True
-except Exception:
-    _HAS_TORCH = False
-
-
-def send_log(msg, level="info"):
+def send_log(msg: str, level: str = "info"):
     print(json.dumps({"log": msg, "level": level}))
     sys.stdout.flush()
 
 
-def _cuda_sync():
-    if _HAS_TORCH and torch.cuda.is_available():
-        torch.cuda.synchronize()
+def _cosine(a, b):
+    a = np.asarray(a, dtype=np.float32).ravel()
+    b = np.asarray(b, dtype=np.float32).ravel()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
 
 
-# ----------------- ROC helpers (copy from image VA) -----------------
-
-
+# ---------- ROC helpers (same math as image VA) ----------
 def _roc_from_scores_labels(scores: np.ndarray, labels: np.ndarray, thresholds=None):
     if thresholds is None:
         thresholds = np.unique(scores)
     thresholds = np.sort(thresholds)[::-1]
+
     P = int(np.sum(labels == 1))
     N = int(np.sum(labels == 0))
     if P == 0 or N == 0:
         raise ValueError("Need both positive and negative pairs to compute ROC.")
+
     tpr_list, fpr_list, thr_list = [], [], []
     for t in thresholds:
         preds = (scores >= t).astype(int)
@@ -38,6 +40,7 @@ def _roc_from_scores_labels(scores: np.ndarray, labels: np.ndarray, thresholds=N
         tpr_list.append(tp / P if P else 0.0)
         fpr_list.append(fp / N if N else 0.0)
         thr_list.append(float(t))
+
     if fpr_list[-1] != 1.0 or tpr_list[-1] != 1.0:
         fpr_list.append(1.0)
         tpr_list.append(1.0)
@@ -69,244 +72,318 @@ def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
     return float((fpr[i] + (1.0 - tpr[i])) / 2.0)
 
 
-def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png):
+def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    plt.figure(figsize=(5.2, 4.6))
-    plt.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.scatter([eer], [1 - eer], s=28, zorder=5, label=f"EER ≈ {eer*100:.2f}%")
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
-    plt.xlabel("False Positive Rate (FPR)")
-    plt.ylabel("True Positive Rate (TPR)")
-    plt.title(title)
-    plt.legend(loc="lower right")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(out_png, dpi=150)
-    plt.close()
+    fig = plt.figure(figsize=(5.2, 4.6), facecolor="white")
+    ax = fig.add_subplot(111)
+    ax.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
+    ax.plot([0, 1], [0, 1], linestyle="--")
+    ax.scatter([eer], [1 - eer], s=28, zorder=5, label=f"EER ≈ {eer*100:.2f}%")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("False Positive Rate (FPR)")
+    ax.set_ylabel("True Positive Rate (TPR)")
+    ax.set_title(title)
+    ax.legend(loc="lower right")
+    ax.grid(True, alpha=0.3)
+
+    # keep a right gutter and draw box in figure coords
+    fig.subplots_adjust(right=0.60)
+    if stats_box_text:
+        fig.text(
+            0.965,
+            0.84,
+            stats_box_text,
+            transform=fig.transFigure,
+            ha="right",
+            va="top",
+            fontsize=10,
+            bbox=dict(boxstyle="round,pad=0.45", fc="white", ec="0.75", alpha=0.95),
+            clip_on=False,
+            zorder=10,
+        )
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
 
 
-# ----------------- Pair building for YTF-like directory -----------------
+# ---------- Video dataset helpers ----------
+def _collect_frames_by_identity_ytf(
+    root_dir, max_frames_per_clip=5, extensions=(".jpg", ".jpeg", ".png")
+):
+    """
+    YTF layout: person/clip_name/frame.jpg
+    Return: list[(person, [frame_paths])]
+    """
+    people = []
+    for person in sorted(os.listdir(root_dir)):
+        pdir = os.path.join(root_dir, person)
+        if not os.path.isdir(pdir):
+            continue
+        frames = []
+        # walk clips under this person
+        for clip in sorted(os.listdir(pdir)):
+            cdir = os.path.join(pdir, clip)
+            if not os.path.isdir(cdir):
+                continue
+            imgs = [
+                os.path.join(cdir, f)
+                for f in sorted(os.listdir(cdir))
+                if f.lower().endswith(extensions)
+            ]
+            if imgs:
+                frames.extend(imgs[:max_frames_per_clip])
+        if frames:
+            people.append((person, frames))
+    return people
 
 
-def _gather_images_by_identity(root_dir):
-    """Return list of (identity_name, [image_paths]) under aligned_images_DB or given root."""
-    aligned = os.path.join(root_dir, "aligned_images_DB")
-    if os.path.exists(aligned):
-        root_dir = aligned
-    people = [
-        d
-        for d in sorted(os.listdir(root_dir))
-        if os.path.isdir(os.path.join(root_dir, d))
-    ]
-    groups = []
-    for person in people:
-        imgs = []
-        person_dir = os.path.join(root_dir, person)
-        for r, _, files in os.walk(person_dir):
-            for f in files:
-                if f.lower().endswith(".jpg"):
-                    imgs.append(os.path.join(r, f))
-        if imgs:
-            imgs.sort()
-            groups.append((person, imgs))
-    return groups, root_dir
+def _pair_key(a: str, b: str, lbl: int):
+    a = os.path.normpath(a)
+    b = os.path.normpath(b)
+    return (a, b, int(lbl)) if a <= b else (b, a, int(lbl))
 
 
-def _build_pairs_video(root_dir, max_pairs=600, pos_ratio=0.5, selected_subjects=None):
-    """Deterministic positive/negative pairs from video frame folders."""
-    groups, root_dir = _gather_images_by_identity(root_dir)
-    if selected_subjects:
-        selected = set(s.strip().lower() for s in selected_subjects)
-        groups = [(p, imgs) for (p, imgs) in groups if p.lower() in selected]
-    if not groups:
+def _build_pairs_video(
+    dataset_path,
+    iters=600,
+    pos_ratio=0.5,
+    max_pos_per_identity=10,
+    max_neg_per_identity=20,
+    max_pos_per_image=3,
+    max_neg_per_image=3,
+):
+    """
+    Deterministic-ish pair builder over YTF-like tree.
+    """
+    # allow parent path -> aligned_images_DB
+    if os.path.isdir(os.path.join(dataset_path, "aligned_images_DB")):
+        dataset_path = os.path.join(dataset_path, "aligned_images_DB")
+
+    people = _collect_frames_by_identity_ytf(dataset_path)
+    if not people:
         return []
 
-    # Filter identities with >=2 images for positives
-    pos_groups = [(p, imgs) for (p, imgs) in groups if len(imgs) >= 2]
-    if not pos_groups:
-        return []
+    pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
+    want_pos = int(round(iters * pos_ratio))
+    want_neg = iters - want_pos
 
-    want_pos = int(round(max_pairs * max(0.0, min(1.0, float(pos_ratio)))))
-    want_neg = max_pairs - want_pos
-
-    # Positives: round-robin inside each identity (diversified)
-    pos_pairs = []
-    for p, imgs in pos_groups:
-        m = len(imgs)
-        for shift in range(1, m):
-            for i in range(m):
-                j = (i + shift) % m
-                if i >= j:
+    # positives
+    pos_pool, pos_seen = [], set()
+    pos_count_id = {name: 0 for name, _ in people}
+    pos_use_img = {}
+    for name, frames in people:
+        if pos_count_id[name] >= max_pos_per_identity:
+            continue
+        m = len(frames)
+        added_for_id = 0
+        for i in range(m):
+            if added_for_id >= max_pos_per_identity:
+                break
+            for j in range(i + 1, m):
+                if pos_use_img.get(frames[i], 0) >= max_pos_per_image:
                     continue
-                pos_pairs.append((imgs[i], imgs[j], 1))
-                if len(pos_pairs) >= want_pos:
+                if pos_use_img.get(frames[j], 0) >= max_pos_per_image:
+                    continue
+                key = _pair_key(frames[i], frames[j], 1)
+                if key in pos_seen:
+                    continue
+                pos_seen.add(key)
+                pos_pool.append((frames[i], frames[j], 1))
+                pos_use_img[frames[i]] = pos_use_img.get(frames[i], 0) + 1
+                pos_use_img[frames[j]] = pos_use_img.get(frames[j], 0) + 1
+                pos_count_id[name] += 1
+                added_for_id += 1
+                if added_for_id >= max_pos_per_identity:
                     break
-            if len(pos_pairs) >= want_pos:
-                break
-        if len(pos_pairs) >= want_pos:
-            break
 
-    # Negatives: pair across identities with offsets
-    neg_pairs = []
-    n = len(groups)
-    for id_offset in range(1, n):
-        for a_idx in range(n):
-            b_idx = (a_idx + id_offset) % n
-            pa, ia = groups[a_idx]
-            pb, ib = groups[b_idx]
-            L = min(len(ia), len(ib))
+    # negatives
+    neg_pool, neg_seen = [], set()
+    neg_count_id = {name: 0 for name, _ in people}
+    neg_use_img = {}
+    n = len(people)
+    for a in range(n):
+        name_a, frames_a = people[a]
+        for b in range(a + 1, n):
+            name_b, frames_b = people[b]
+            if (
+                neg_count_id[name_a] >= max_neg_per_identity
+                and neg_count_id[name_b] >= max_neg_per_identity
+            ):
+                continue
+            L = min(len(frames_a), len(frames_b))
             for k in range(L):
-                a = ia[k]
-                b = ib[(k + id_offset) % len(ib)]
-                neg_pairs.append((a, b, 0))
-                if len(neg_pairs) >= want_neg:
+                fa = frames_a[k % len(frames_a)]
+                fb = frames_b[k % len(frames_b)]
+                if neg_count_id[name_a] >= max_neg_per_identity:
                     break
-            if len(neg_pairs) >= want_neg:
-                break
-        if len(neg_pairs) >= want_neg:
-            break
-
-    combined = pos_pairs + neg_pairs
-    if len(combined) < max_pairs:
-        # top up from remaining pools if needed
-        for pool in (pos_pairs[want_pos:], neg_pairs[want_neg:]):
-            for item in pool:
-                combined.append(item)
-                if len(combined) >= max_pairs:
+                if neg_count_id[name_b] >= max_neg_per_identity:
                     break
-            if len(combined) >= max_pairs:
+                if neg_use_img.get(fa, 0) >= max_neg_per_image:
+                    continue
+                if neg_use_img.get(fb, 0) >= max_neg_per_image:
+                    continue
+                key = _pair_key(fa, fb, 0)
+                if key in neg_seen:
+                    continue
+                neg_seen.add(key)
+                neg_pool.append((fa, fb, 0))
+                neg_use_img[fa] = neg_use_img.get(fa, 0) + 1
+                neg_use_img[fb] = neg_use_img.get(fb, 0) + 1
+                neg_count_id[name_a] += 1
+                neg_count_id[name_b] += 1
+
+    combined, seen = [], set()
+
+    def _add(p):
+        k = _pair_key(p[0], p[1], p[2])
+        if k in seen:
+            return False
+        seen.add(k)
+        combined.append(p)
+        return True
+
+    for p in pos_pool[:want_pos]:
+        _add(p)
+    for p in neg_pool[:want_neg]:
+        _add(p)
+    for pool in (pos_pool[want_pos:], neg_pool[want_neg:]):
+        for p in pool:
+            if len(combined) >= iters:
                 break
+            _add(p)
+    return combined[:iters]
 
-    return combined[:max_pairs]
 
+# ---------- Main entry (signature matches image VA call!) ----------
+def run_logic(
+    model_path,  # same param name as image logic
+    iters=300,
+    frame_h=None,
+    frame_w=None,
+    dataset_path=None,  # <-- IMPORTANT: accept dataset_path keyword
+    start_person=None,
+    pos_ratio=0.5,
+):
+    """
+    Validation accuracy on *video* datasets (e.g., YTF).
+    Collect frames per identity recursively and build pairs like image VA.
+    Returns 'kind': 'accuracy_video' and also writes a ROC PNG+JSON so the GUI
+    can render the full-bleed ROC image (already supported).
+    """
+    dataset_path = dataset_path or model_path
 
-def run_logic(model_name, iters, frame_h, frame_w, dataset):
-    wrapper = load_model(model_name)
+    # YTF convenience: if called on the parent, auto-use aligned_images_DB
+    if os.path.isdir(os.path.join(dataset_path, "aligned_images_DB")):
+        dataset_path = os.path.join(dataset_path, "aligned_images_DB")
 
-    # Subjects from GUI dialog (optional)
-    selected_env = os.getenv("YTF_SELECTED_SUBJECTS", "")
-    selected_subjects = [s.strip() for s in selected_env.split(",") if s.strip()]
-    pos_ratio = float(os.getenv("POS_RATIO", "0.5"))
+    wrapper = load_model(model_path)
+    model_name = getattr(wrapper, "name", os.path.basename(model_path))
 
-    send_log(
-        f"Subjects: {', '.join(selected_subjects) if selected_subjects else 'all'}"
-    )
-
-    # Build deterministic pairs from video frames
-    pairs = _build_pairs_video(
-        dataset,
-        max_pairs=iters,
-        pos_ratio=pos_ratio,
-        selected_subjects=selected_subjects,
-    )
-
+    # build pairs
+    pairs = _build_pairs_video(dataset_path, iters=iters, pos_ratio=pos_ratio)
     if not pairs:
         print(
             json.dumps(
                 {
-                    "source_file": os.path.basename(__file__),
                     "kind": "accuracy_video",
-                    "dataset": dataset,
-                    "num_runs": int(os.getenv("YTF_RUNS", "1")),
+                    "dataset": os.path.basename(dataset_path),
                     "model": model_name,
                     "num_pairs": 0,
-                    "error": "No pairs could be built (check dataset path/subjects).",
+                    "error": "No pairs could be built (check dataset path)",
                 }
-            )
+            ),
+            flush=True,
         )
-        sys.stdout.flush()
         return
 
-    # Warmup (unchanged logic spirit)
-    first_img = cv2.imread(pairs[0][0])
-    if first_img is None:
-        first_img = np.random.randint(
-            0, 255, (frame_h or 160, frame_w or 160, 3), np.uint8
-        )
-    warmup_iters = 5 if (_HAS_TORCH and torch.cuda.is_available()) else 1
-    device_name = "GPU" if (_HAS_TORCH and torch.cuda.is_available()) else "CPU"
-    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
-    for _ in range(warmup_iters):
-        _ = wrapper.embed(first_img)
-        _cuda_sync()
-
-    # Evaluate similarities
+    # evaluate
     sims, labels = [], []
-    start_time = time.time()
-    for i, (p1, p2, lbl) in enumerate(pairs, 1):
-        a = cv2.imread(p1)
-        b = cv2.imread(p2)
+    t0 = time.time()
+    for a_path, b_path, lbl in tqdm(pairs, desc="Validating (video)", ncols=80):
+        a = cv2.imread(a_path)
+        b = cv2.imread(b_path)
         if a is None or b is None:
             continue
         ea = wrapper.embed(a)
         eb = wrapper.embed(b)
         if ea is None or eb is None:
             continue
-        sims.append(float(np.dot(ea / np.linalg.norm(ea), eb / np.linalg.norm(eb))))
+        sims.append(_cosine(ea, eb))
         labels.append(int(lbl))
-        if (i % 25) == 0 or i == len(pairs):
-            print(
-                json.dumps({"_type": "progress", "progress": i, "total": len(pairs)}),
-                flush=True,
-            )
-
     if not sims:
         print(
             json.dumps(
                 {
-                    "source_file": os.path.basename(__file__),
                     "kind": "accuracy_video",
-                    "dataset": dataset,
-                    "num_runs": int(os.getenv("YTF_RUNS", "1")),
+                    "dataset": os.path.basename(dataset_path),
                     "model": model_name,
                     "num_pairs": 0,
-                    "error": "All pairs unreadable or embeddings missing.",
+                    "error": "All pairs unreadable or produced no embeddings",
                 }
-            )
+            ),
+            flush=True,
         )
-        sys.stdout.flush()
         return
 
-    scores = np.array(sims, dtype=np.float64)
-    lbls = np.array(labels, dtype=np.int32)
-
-    # ROC metrics
-    fpr, tpr, thr = _roc_from_scores_labels(scores, lbls)
-    auc = _auc_trapezoid(fpr, tpr)
-    eer = _eer(fpr, tpr)
-    elapsed = time.time() - start_time
-
-    # Fixed threshold accuracy (keep parity with image flow)
     fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))
-    preds = (scores > fixed_t).astype(int)
-    acc = float(np.mean(preds == lbls))
+    labels_np = np.array(labels, dtype=int)
+    preds = (np.array(sims) > fixed_t).astype(int)
+    acc = float(np.mean(preds == labels_np))
 
-    # Exports
-    export_dir = os.path.join(os.path.dirname(__file__), "exports")
-    os.makedirs(export_dir, exist_ok=True)
-    dataset_name = os.path.basename((dataset or "").rstrip(os.sep))
-    if os.path.isdir(os.path.join(dataset, "aligned_images_DB")):
-        dataset_name = "YTF_aligned"
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+    # confusion
+    tp = int(((preds == 1) & (labels_np == 1)).sum())
+    tn = int(((preds == 0) & (labels_np == 0)).sum())
+    fp = int(((preds == 1) & (labels_np == 0)).sum())
+    fn = int(((preds == 0) & (labels_np == 1)).sum())
+    P = max(1, int((labels_np == 1).sum()))
+    N = max(1, int((labels_np == 0).sum()))
+    tpr_fixed = tp / P
+    fpr_fixed = fp / N
 
-    roc_png = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{stamp}.png")
-    _plot_and_save_roc(
-        fpr, tpr, auc, eer, f"ROC – {model_name} on {dataset_name}", roc_png
+    stats_box = (
+        f"Threshold: {fixed_t:.3f}\n"
+        f"TP: {tp}  FP: {fp}\n"
+        f"TN: {tn}  FN: {fn}\n"
+        f"TPR: {tpr_fixed:.3f}  FPR: {fpr_fixed:.3f}"
     )
 
-    roc_json = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{stamp}.json")
+    # ROC/AUC/EER
+    fpr, tpr, thr = _roc_from_scores_labels(
+        np.array(sims, dtype=np.float64), np.array(labels, dtype=np.int32)
+    )
+    auc = _auc_trapezoid(fpr, tpr)
+    eer = _eer(fpr, tpr)
+
+    elapsed = time.time() - t0
+
+    # exports
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    dataset_name = os.path.basename(dataset_path.rstrip(os.sep))
+    ts = time.strftime("%Y%m%d-%H%M%S")
+
+    roc_png = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{ts}.png")
+    _plot_and_save_roc(
+        fpr,
+        tpr,
+        auc,
+        eer,
+        f"ROC – {model_name} on {dataset_name}",
+        roc_png,
+        stats_box_text=stats_box,
+    )
+
+    roc_json = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{ts}.json")
     with open(roc_json, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "model": model_name,
                 "dataset": dataset_name,
-                "timestamp": stamp,
+                "timestamp": ts,
                 "auc": round(float(auc), 6),
                 "eer": round(float(eer), 6),
                 "figure_path": roc_png,
@@ -318,21 +395,25 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
             indent=2,
         )
 
-    payload = {
-        "source_file": os.path.basename(__file__),
+    # GUI payload (matches windows/benchmark_window.py handlers)
+    result = {
         "kind": "accuracy_video",
-        "dataset": dataset,
-        "num_runs": int(os.getenv("YTF_RUNS", "1")),
+        "dataset": dataset_name,
         "model": model_name,
-        "subjects": selected_subjects,
-        "num_pairs": int(len(scores)),
-        "accuracy": acc,  # fixed-threshold accuracy (for parity)
-        "auc": round(float(auc), 6),  # NEW
-        "eer": round(float(eer), 6),  # NEW
+        "num_pairs": int(len(sims)),
+        "accuracy": round(acc, 5),
+        "threshold": round(fixed_t, 3),
         "elapsed_sec": round(float(elapsed), 2),
-        "roc_png": roc_png,  # NEW
-        "roc_json": roc_json,  # NEW
+        "tp": tp,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "auc": round(float(auc), 6),
+        "eer": round(float(eer), 6),
+        "roc_png": roc_png,
+        "roc_json": roc_json,
     }
-
-    print(json.dumps(payload))
-    sys.stdout.flush()
+    # Print once pretty (for humans) and once compact (for GUI)
+    print("[RESULT]", flush=True)
+    print(json.dumps(result, indent=2), flush=True)
+    print(json.dumps(result), flush=True)
