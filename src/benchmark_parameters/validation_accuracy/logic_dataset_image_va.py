@@ -89,7 +89,7 @@ def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
 def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
     import matplotlib
 
-    matplotlib.use("Agg")  # headless-safe
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     fig = plt.figure(figsize=(5.2, 4.6))
@@ -107,20 +107,25 @@ def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
     ax.legend(loc="lower right")
     ax.grid(True, alpha=0.3)
 
-    # top-right box
+    # Reserve a right gutter so we can draw text outside the axes area
+    fig.subplots_adjust(right=0.68)  # a bit wider than before
+
+    # Put the stats box OUTSIDE the axes (x>1), and disable clipping
     if stats_box_text:
         ax.text(
+            1.02,
             0.98,
-            0.98,
-            stats_box_text,
+            stats_box_text,  # just outside right/top
             transform=ax.transAxes,
-            ha="right",
+            ha="left",
             va="top",
             fontsize=10,
+            clip_on=False,
+            zorder=10,
             bbox=dict(boxstyle="round,pad=0.45", fc="white", ec="0.75", alpha=0.95),
         )
 
-    fig.tight_layout()
+    # IMPORTANT: don't call tight_layout()/constrained_layout here
     fig.savefig(out_png, dpi=150)
     plt.close(fig)
 
