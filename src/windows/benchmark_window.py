@@ -99,6 +99,7 @@ class RunnerThread(QThread):
         try:
             cmd = [
                 sys.executable,
+                "-u",  # <--- add this for unbuffered stdout/stderr
                 self.file_path,
                 "--model",
                 self.model_name,
