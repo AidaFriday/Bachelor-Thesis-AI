@@ -28,6 +28,79 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
+# ----------------- ROC helpers (pure additions) -----------------
+
+def _roc_from_scores_labels(scores: np.ndarray, labels: np.ndarray, thresholds=None):
+    """Return (fpr, tpr, thr) for descending thresholds."""
+    if thresholds is None:
+        thresholds = np.unique(scores)
+    thresholds = np.sort(thresholds)[::-1]
+
+    P = int(np.sum(labels == 1))
+    N = int(np.sum(labels == 0))
+    if P == 0 or N == 0:
+        raise ValueError("Need both positive and negative pairs to compute ROC.")
+
+    tpr_list, fpr_list, thr_list = [], [], []
+    for t in thresholds:
+        preds = (scores >= t).astype(int)
+        tp = int(np.sum((preds == 1) & (labels == 1)))
+        fp = int(np.sum((preds == 1) & (labels == 0)))
+        tpr = tp / P if P else 0.0
+        fpr = fp / N if N else 0.0
+        tpr_list.append(tpr)
+        fpr_list.append(fpr)
+        thr_list.append(float(t))
+
+    # Ensure endpoints for a clean curve
+    if fpr_list[-1] != 1.0 or tpr_list[-1] != 1.0:
+        fpr_list.append(1.0); tpr_list.append(1.0); thr_list.append(thr_list[-1] - 1e-6)
+    if fpr_list[0] != 0.0 or tpr_list[0] != 0.0:
+        fpr_list.insert(0, 0.0); tpr_list.insert(0, 0.0); thr_list.insert(0, thr_list[0] + 1e-6)
+
+    return np.asarray(fpr_list), np.asarray(tpr_list), np.asarray(thr_list)
+
+
+def _auc_trapezoid(fpr: np.ndarray, tpr: np.ndarray) -> float:
+    order = np.argsort(fpr)
+    return float(np.trapz(tpr[order], fpr[order]))
+
+
+def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
+    diff = np.abs(fpr - (1.0 - tpr))
+    i = int(np.argmin(diff))
+    if 0 < i < len(fpr):
+        x1, y1 = fpr[i-1], 1.0 - tpr[i-1]
+        x2, y2 = fpr[i],   1.0 - tpr[i]
+        denom = (x2 - x1) - (y2 - y1)
+        if abs(denom) > 1e-12:
+            s = (y1 - x1) / denom
+            s = min(max(s, 0.0), 1.0)
+            x = x1 + s * (x2 - x1)
+            return float(x)
+    return float((fpr[i] + (1.0 - tpr[i])) / 2.0)
+
+
+def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png):
+    import matplotlib
+    matplotlib.use("Agg")  # headless-safe
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(5.2, 4.6))
+    plt.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
+    plt.plot([0, 1], [0, 1], linestyle="--")
+    plt.scatter([eer], [1 - eer], s=28, zorder=5, label=f"EER ≈ {eer*100:.2f}%")
+    plt.xlim(0, 1); plt.ylim(0, 1)
+    plt.xlabel("False Positive Rate (FPR)")
+    plt.ylabel("True Positive Rate (TPR)")
+    plt.title(title)
+    plt.legend(loc="lower right")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(out_png, dpi=150)
+    plt.close()
+
+
 # ----------------- Deterministic pair builder (pos + neg) -----------------
 
 
@@ -140,8 +213,6 @@ def build_pairs_deterministic(
         if pos_count_id[name] >= max_pos_per_identity:
             continue
 
-        # Round-robin pairing inside the identity:
-        # shift=1 pairs (0,1), (1,2), ..., then shift=2 pairs (0,2), (1,3), ...
         added_for_id = 0
         m = len(imgs)
         for shift in range(1, m):
@@ -149,10 +220,9 @@ def build_pairs_deterministic(
                 if added_for_id >= max_pos_per_identity:
                     break
                 j = (i + shift) % m
-                if i >= j:  # enforce i<j once, to avoid mirror duplicates
+                if i >= j:
                     continue
                 a, b = imgs[i], imgs[j]
-                # per-image caps
                 if pos_use_img.get(a, 0) >= max_pos_per_image:
                     continue
                 if pos_use_img.get(b, 0) >= max_pos_per_image:
@@ -177,7 +247,6 @@ def build_pairs_deterministic(
 
     n = len(people)
     if n >= 2:
-        # offset over identities (round-robin across different people)
         for id_offset in range(1, n):
             for a_idx in range(n):
                 b_idx = _ring_index(a_idx + id_offset, n)
@@ -188,14 +257,11 @@ def build_pairs_deterministic(
                     and neg_count_id[name_b] >= max_neg_per_identity
                 ):
                     continue
-
-                # diversify which image matches which: use an image offset too
                 La, Lb = len(imgs_a), len(imgs_b)
                 L = min(La, Lb)
                 for img_offset in range(L):
                     a = imgs_a[img_offset % La]
-                    b = imgs_b[(img_offset + id_offset) % Lb]  # shift pairing
-
+                    b = imgs_b[(img_offset + id_offset) % Lb]
                     if neg_count_id[name_a] >= max_neg_per_identity:
                         continue
                     if neg_count_id[name_b] >= max_neg_per_identity:
@@ -204,7 +270,6 @@ def build_pairs_deterministic(
                         continue
                     if neg_use_img.get(b, 0) >= max_neg_per_image:
                         continue
-
                     key = _pair_key(a, b, 0)
                     if key in neg_seen:
                         continue
@@ -215,7 +280,6 @@ def build_pairs_deterministic(
                     neg_count_id[name_a] += 1
                     neg_count_id[name_b] += 1
 
-    # --- Allocate counts + top-up deterministically (still dedup) ---
     want_pos = int(round(max_pairs * pos_ratio))
     want_neg = max_pairs - want_pos
 
@@ -377,16 +441,16 @@ def run_logic(
         )
         return
 
-    # --- Use fixed threshold instead of searching for best ---
-    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))  # default 0.7 if not set
+    # --- Fixed-threshold accuracy (kept exactly as before) ---
+    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))  # default 0.9 if not set
     labels_np = np.array(labels, dtype=int)
     preds = (np.array(sims) > fixed_t).astype(int)
     acc = float(np.mean(preds == labels_np))
-    best_t = fixed_t  # just for output consistency
+    best_t = fixed_t
 
     elapsed = time.time() - start_time
 
-    # --- Confusion counts at best threshold ---
+    # --- Confusion counts at fixed threshold ---
     labels_np = np.array(labels, dtype=int)
     preds = (np.array(sims) > best_t).astype(int)
 
@@ -397,6 +461,12 @@ def run_logic(
 
     pos = int((labels_np == 1).sum())
     neg = int((labels_np == 0).sum())
+
+    # --- ROC/AUC/EER (new; exports PNG+JSON) ---
+    fpr, tpr, thr = _roc_from_scores_labels(np.array(sims, dtype=np.float64),
+                                            np.array(labels, dtype=np.int32))
+    auc = _auc_trapezoid(fpr, tpr)
+    eer = _eer(fpr, tpr)
 
     # identities involved (folder names)
     def _identity_from_path(p):
@@ -432,8 +502,9 @@ def run_logic(
         "identities_preview": identities_preview,
         "max_pos_per_identity": max_pos_cap,
         "max_neg_per_identity": max_neg_cap,
-        "title": f"Model: {model_name} – Validation Accuracy (Image) – Start: {start_person or 'N/A'}",
-        "summary": f"TP:{tp} FP:{fp} TN:{tn} FN:{fn} | +:{pos} -:{neg} | IDs:{unique_identities} | caps(+:{max_pos_cap}, -:{max_neg_cap})",
+        # NEW:
+        "auc": round(float(auc), 6),
+        "eer": round(float(eer), 6),
     }
 
     # ------- Export full run details to a separate JSON file -------
@@ -451,6 +522,14 @@ def run_logic(
                 "label": "pos" if int(lbl) == 1 else "neg",
             }
         )
+
+    export_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+
+    # Existing VA export (unchanged)
+    export_path = os.path.join(
+        export_dir, f"va_{dataset_name}_{model_name}_{timestamp}.json"
+    )
 
     export_payload = {
         "meta": {
@@ -474,23 +553,49 @@ def run_logic(
             "pos_pairs": result["pos_pairs"],
             "neg_pairs": result["neg_pairs"],
             "unique_identities": result["unique_identities"],
+            # NEW:
+            "auc": result["auc"],
+            "eer": result["eer"],
         },
         "identities": identities_used,  # full, sorted list
         "pairs": pairs_export,  # every evaluated pair (no duplicates)
+        # NEW: include raw ROC curve for reproducibility
+        "roc_curve": {
+            "fpr": [float(x) for x in fpr.tolist()],
+            "tpr": [float(x) for x in tpr.tolist()],
+            "thresholds": [float(x) for x in thr.tolist()],
+        },
     }
 
-    export_dir = os.path.join(os.path.dirname(__file__), "exports")
-    os.makedirs(export_dir, exist_ok=True)
-    export_path = os.path.join(
-        export_dir, f"va_{dataset_name}_{model_name}_{timestamp}.json"
-    )
     with open(export_path, "w", encoding="utf-8") as f:
         json.dump(export_payload, f, indent=2)
 
+    # NEW: Save ROC figure & a compact ROC-only JSON
+    roc_png = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.png")
+    _plot_and_save_roc(fpr, tpr, auc, eer, f"ROC – {model_name} on {dataset_name}", roc_png)
+
+    roc_json = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.json")
+    with open(roc_json, "w", encoding="utf-8") as f:
+        json.dump({
+            "model": model_name,
+            "dataset": dataset_name,
+            "timestamp": timestamp,
+            "auc": round(float(auc), 6),
+            "eer": round(float(eer), 6),
+            "figure_path": roc_png,
+            "fpr": [float(x) for x in fpr.tolist()],
+            "tpr": [float(x) for x in tpr.tolist()],
+            "thresholds": [float(x) for x in thr.tolist()],
+        }, f, indent=2)
+
     # Optional info for console
     result["export_path"] = export_path
+    result["roc_png"] = roc_png                 # NEW
+    result["roc_json"] = roc_json               # NEW
     try:
         send_log(f"[export] wrote {export_path}")
+        send_log(f"[export] wrote {roc_png}")
+        send_log(f"[export] wrote {roc_json}")
     except NameError:
         pass
 

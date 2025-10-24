@@ -700,83 +700,103 @@ class BenchmarkPage(QWidget):
             canvas.draw()
             return
 
-        # ===================== VALIDATION ACCURACY MODE =====================
+        # ===================== VALIDATION ACCURACY (IMAGE) =====================
         if kind == "accuracy_image":
-            # ---- read fields from payload ----
             model = data.get("model", "Unknown")
             dataset = data.get("dataset", "Unknown")
-            acc_pct = float(data.get("accuracy", 0)) * 100.0  # %
-            threshold = float(data.get("threshold", 0))  # cosine-sim threshold
-            elapsed = float(data.get("elapsed_sec", 0))  # seconds
-            num_pairs = int(data.get("num_pairs", 0))
+            acc_pct = float(data.get("accuracy", 0)) * 100.0
+            threshold = float(data.get("threshold", 0))
+            elapsed = float(data.get("elapsed_sec", 0))
             start_person = data.get("start_person") or "N/A"
-
             tp = int(data.get("tp", 0))
             fp = int(data.get("fp", 0))
             tn = int(data.get("tn", 0))
             fn = int(data.get("fn", 0))
 
-            # ---- title ----
+            # 👉 If we have a ROC image, render it directly
+            roc_png = data.get("roc_png")
+            if roc_png and os.path.isfile(roc_png):
+                import matplotlib.image as mpimg
+
+                img = mpimg.imread(roc_png)
+                ax.imshow(img)
+                ax.axis("off")
+                fig.subplots_adjust(right=0.98, left=0.02, top=0.94, bottom=0.06)
+                canvas.draw()
+                return
+
+            # (fallback to existing text summary view)
             ax.set_title(
                 f"Model: {model} – Validation Accuracy (Image) – Start: {start_person}"
             )
-
-            # ---- disable histogram, show text summary instead ----
-            # draw the summary outside the main plot, on the right side in a box
             ax.text(
                 1.05,
-                0.5,
-                f"Accuracy: {acc_pct:.2f}%\nThreshold: {threshold:.3f}\nElapsed: {elapsed:.2f}s",
-                transform=ax.transAxes,
-                ha="left",
-                va="center",
-                fontsize=11,
-                color="black",
-                bbox=dict(
-                    boxstyle="round,pad=0.5",
-                    fc="white",
-                    ec="0.75",
-                    alpha=0.9,
-                ),
-            )
-            fig.subplots_adjust(right=0.8)  # make space on the right side
-
-            ax.set_ylabel("Value")
-            ax.grid(axis="y", linestyle="--", alpha=0.3)
-
-            # ---- confusion box in upper-right ----
-            conf_text = (
+                0.85,
                 "Confusion Matrix\n"
                 f"True Positive : {tp}\n"
                 f"False Positive: {fp}\n"
                 f"True Negative : {tn}\n"
-                f"False Negative: {fn}"
-            )
-            ax.text(
-                0.98,
-                0.98,
-                conf_text,
+                f"False Negative: {fn}",
                 transform=ax.transAxes,
-                ha="right",
+                ha="left",
                 va="top",
                 fontsize=9,
                 bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
             )
-
-            # small footer with run context (optional)
-            footer = f"Pairs: {num_pairs} | Dataset: {dataset} | Time: {elapsed:.1f}s | Thr: {threshold:.3f}"
             ax.text(
-                0.5,
-                -0.18,
-                footer,
-                ha="center",
-                va="center",
+                1.05,
+                0.55,
+                f"Accuracy: {acc_pct:.2f}%\nThreshold: {threshold:.3f}\nElapsed: {elapsed:.2f}s",
                 transform=ax.transAxes,
-                fontsize=9,
-                color="gray",
+                ha="left",
+                va="top",
+                fontsize=11,
+                color="black",
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="0.75", alpha=0.9),
             )
+            fig.subplots_adjust(right=0.78)
+            ax.set_ylabel("Value")
+            ax.grid(axis="y", linestyle="--", alpha=0.3)
+            canvas.draw()
+            return
 
-            fig.tight_layout()
+        # ===================== VALIDATION ACCURACY (VIDEO) =====================
+        elif kind == "accuracy_video":
+            # Try to display ROC if available
+            roc_png = data.get("roc_png")
+            if roc_png and os.path.isfile(roc_png):
+                import matplotlib.image as mpimg
+
+                img = mpimg.imread(roc_png)
+                ax.imshow(img)
+                ax.axis("off")
+                fig.subplots_adjust(right=0.98, left=0.02, top=0.94, bottom=0.06)
+                canvas.draw()
+                return
+
+            # Fallback: simple text if no ROC image is present
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc_pct = float(data.get("accuracy", 0)) * 100.0
+            auc = data.get("auc")
+            eer = data.get("eer")
+            ax.set_title(f"Model: {model} – Validation Accuracy (Video)")
+            lines = [f"Accuracy: {acc_pct:.2f}%"]
+            if auc is not None:
+                lines.append(f"AUC: {auc:.4f}")
+            if eer is not None:
+                lines.append(f"EER: {float(eer)*100:.2f}%")
+            ax.text(
+                0.02,
+                0.98,
+                "\n".join(lines),
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=11,
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="0.75", alpha=0.9),
+            )
+            ax.axis("off")
             canvas.draw()
             return
 
