@@ -169,7 +169,7 @@ class BenchmarkPage(QWidget):
             QFrame {
                 border: 2px solid #800080;
                 border-radius: 6px;
-                background-color: #fafafa;
+                background-color: #ffffff; /* was #fafafa -> pure white */
             }
         """
         )
@@ -267,8 +267,12 @@ class BenchmarkPage(QWidget):
             # Matplotlib page
             page = QWidget()
             layout = QVBoxLayout()
-            fig = Figure(figsize=(5, 4))
+
+            # >>> Pure white figure & canvas
+            fig = Figure(figsize=(5, 4), facecolor="white")
             canvas = FigureCanvas(fig)
+            canvas.setStyleSheet("background-color: white;")
+
             layout.addWidget(canvas)
             progress = QProgressBar()
             layout.addWidget(progress)
@@ -713,15 +717,21 @@ class BenchmarkPage(QWidget):
             tn = int(data.get("tn", 0))
             fn = int(data.get("fn", 0))
 
-            # 👉 If we have a ROC image, render it directly
+            # 👉 If we have a ROC image, render it directly (full-bleed, white)
             roc_png = data.get("roc_png")
             if roc_png and os.path.isfile(roc_png):
                 import matplotlib.image as mpimg
 
                 img = mpimg.imread(roc_png)
+
+                fig.clear()
+                fig.set_facecolor("white")
+                ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
                 ax.imshow(img)
-                ax.axis("off")
-                fig.subplots_adjust(right=0.98, left=0.02, top=0.94, bottom=0.06)
+                ax.set_axis_off()
+                for s in ax.spines.values():
+                    s.set_visible(False)
+                canvas.setStyleSheet("background-color: white;")
                 canvas.draw()
                 return
 
@@ -762,15 +772,21 @@ class BenchmarkPage(QWidget):
 
         # ===================== VALIDATION ACCURACY (VIDEO) =====================
         elif kind == "accuracy_video":
-            # Try to display ROC if available
+            # Try to display ROC if available (full-bleed, white)
             roc_png = data.get("roc_png")
             if roc_png and os.path.isfile(roc_png):
                 import matplotlib.image as mpimg
 
                 img = mpimg.imread(roc_png)
+
+                fig.clear()
+                fig.set_facecolor("white")
+                ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
                 ax.imshow(img)
-                ax.axis("off")
-                fig.subplots_adjust(right=0.98, left=0.02, top=0.94, bottom=0.06)
+                ax.set_axis_off()
+                for s in ax.spines.values():
+                    s.set_visible(False)
+                canvas.setStyleSheet("background-color: white;")
                 canvas.draw()
                 return
 
