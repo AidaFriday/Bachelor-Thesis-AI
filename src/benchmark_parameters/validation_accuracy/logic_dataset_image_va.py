@@ -30,6 +30,7 @@ def cosine_similarity(a, b):
 
 # ----------------- ROC helpers (pure additions) -----------------
 
+
 def _roc_from_scores_labels(scores: np.ndarray, labels: np.ndarray, thresholds=None):
     """Return (fpr, tpr, thr) for descending thresholds."""
     if thresholds is None:
@@ -54,9 +55,13 @@ def _roc_from_scores_labels(scores: np.ndarray, labels: np.ndarray, thresholds=N
 
     # Ensure endpoints for a clean curve
     if fpr_list[-1] != 1.0 or tpr_list[-1] != 1.0:
-        fpr_list.append(1.0); tpr_list.append(1.0); thr_list.append(thr_list[-1] - 1e-6)
+        fpr_list.append(1.0)
+        tpr_list.append(1.0)
+        thr_list.append(thr_list[-1] - 1e-6)
     if fpr_list[0] != 0.0 or tpr_list[0] != 0.0:
-        fpr_list.insert(0, 0.0); tpr_list.insert(0, 0.0); thr_list.insert(0, thr_list[0] + 1e-6)
+        fpr_list.insert(0, 0.0)
+        tpr_list.insert(0, 0.0)
+        thr_list.insert(0, thr_list[0] + 1e-6)
 
     return np.asarray(fpr_list), np.asarray(tpr_list), np.asarray(thr_list)
 
@@ -70,8 +75,8 @@ def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
     diff = np.abs(fpr - (1.0 - tpr))
     i = int(np.argmin(diff))
     if 0 < i < len(fpr):
-        x1, y1 = fpr[i-1], 1.0 - tpr[i-1]
-        x2, y2 = fpr[i],   1.0 - tpr[i]
+        x1, y1 = fpr[i - 1], 1.0 - tpr[i - 1]
+        x2, y2 = fpr[i], 1.0 - tpr[i]
         denom = (x2 - x1) - (y2 - y1)
         if abs(denom) > 1e-12:
             s = (y1 - x1) / denom
@@ -81,24 +86,43 @@ def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
     return float((fpr[i] + (1.0 - tpr[i])) / 2.0)
 
 
-def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png):
+def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
     import matplotlib
+
     matplotlib.use("Agg")  # headless-safe
     import matplotlib.pyplot as plt
 
-    plt.figure(figsize=(5.2, 4.6))
-    plt.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.scatter([eer], [1 - eer], s=28, zorder=5, label=f"EER ≈ {eer*100:.2f}%")
-    plt.xlim(0, 1); plt.ylim(0, 1)
-    plt.xlabel("False Positive Rate (FPR)")
-    plt.ylabel("True Positive Rate (TPR)")
-    plt.title(title)
-    plt.legend(loc="lower right")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(out_png, dpi=150)
-    plt.close()
+    fig = plt.figure(figsize=(5.2, 4.6))
+    ax = fig.add_subplot(111)
+
+    ax.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
+    ax.plot([0, 1], [0, 1], linestyle="--")
+    ax.scatter([eer], [1 - eer], s=28, zorder=5, label=f"EER ≈ {eer*100:.2f}%")
+
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("False Positive Rate (FPR)")
+    ax.set_ylabel("True Positive Rate (TPR)")
+    ax.set_title(title)
+    ax.legend(loc="lower right")
+    ax.grid(True, alpha=0.3)
+
+    # top-right box
+    if stats_box_text:
+        ax.text(
+            0.98,
+            0.98,
+            stats_box_text,
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=10,
+            bbox=dict(boxstyle="round,pad=0.45", fc="white", ec="0.75", alpha=0.95),
+        )
+
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
 
 
 # ----------------- Deterministic pair builder (pos + neg) -----------------
@@ -462,9 +486,21 @@ def run_logic(
     pos = int((labels_np == 1).sum())
     neg = int((labels_np == 0).sum())
 
+    P = max(1, pos)  # positives
+    N = max(1, neg)  # negatives
+    tpr_at_fixed = tp / P
+    fpr_at_fixed = fp / N
+    stats_box_text = (
+        f"Threshold: {best_t:.3f}\n"
+        f"TP: {tp}  FP: {fp}\n"
+        f"TN: {tn}  FN: {fn}\n"
+        f"TPR: {tpr_at_fixed:.3f}  FPR: {fpr_at_fixed:.3f}"
+    )
+
     # --- ROC/AUC/EER (new; exports PNG+JSON) ---
-    fpr, tpr, thr = _roc_from_scores_labels(np.array(sims, dtype=np.float64),
-                                            np.array(labels, dtype=np.int32))
+    fpr, tpr, thr = _roc_from_scores_labels(
+        np.array(sims, dtype=np.float64), np.array(labels, dtype=np.int32)
+    )
     auc = _auc_trapezoid(fpr, tpr)
     eer = _eer(fpr, tpr)
 
@@ -502,7 +538,6 @@ def run_logic(
         "identities_preview": identities_preview,
         "max_pos_per_identity": max_pos_cap,
         "max_neg_per_identity": max_neg_cap,
-        # NEW:
         "auc": round(float(auc), 6),
         "eer": round(float(eer), 6),
     }
@@ -571,27 +606,43 @@ def run_logic(
         json.dump(export_payload, f, indent=2)
 
     # NEW: Save ROC figure & a compact ROC-only JSON
-    roc_png = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.png")
-    _plot_and_save_roc(fpr, tpr, auc, eer, f"ROC – {model_name} on {dataset_name}", roc_png)
+    roc_png = os.path.join(
+        export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.png"
+    )
+    _plot_and_save_roc(
+        fpr,
+        tpr,
+        auc,
+        eer,
+        f"ROC – {model_name} on {dataset_name}",
+        roc_png,
+        stats_box_text=stats_box_text,  # <<< added
+    )
 
-    roc_json = os.path.join(export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.json")
+    roc_json = os.path.join(
+        export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.json"
+    )
     with open(roc_json, "w", encoding="utf-8") as f:
-        json.dump({
-            "model": model_name,
-            "dataset": dataset_name,
-            "timestamp": timestamp,
-            "auc": round(float(auc), 6),
-            "eer": round(float(eer), 6),
-            "figure_path": roc_png,
-            "fpr": [float(x) for x in fpr.tolist()],
-            "tpr": [float(x) for x in tpr.tolist()],
-            "thresholds": [float(x) for x in thr.tolist()],
-        }, f, indent=2)
+        json.dump(
+            {
+                "model": model_name,
+                "dataset": dataset_name,
+                "timestamp": timestamp,
+                "auc": round(float(auc), 6),
+                "eer": round(float(eer), 6),
+                "figure_path": roc_png,
+                "fpr": [float(x) for x in fpr.tolist()],
+                "tpr": [float(x) for x in tpr.tolist()],
+                "thresholds": [float(x) for x in thr.tolist()],
+            },
+            f,
+            indent=2,
+        )
 
     # Optional info for console
     result["export_path"] = export_path
-    result["roc_png"] = roc_png                 # NEW
-    result["roc_json"] = roc_json               # NEW
+    result["roc_png"] = roc_png  # NEW
+    result["roc_json"] = roc_json  # NEW
     try:
         send_log(f"[export] wrote {export_path}")
         send_log(f"[export] wrote {roc_png}")
