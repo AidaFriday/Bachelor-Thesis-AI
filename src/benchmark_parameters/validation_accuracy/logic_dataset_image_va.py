@@ -91,6 +91,7 @@ def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    import os  # <-- make sure os is available here
 
     fig = plt.figure(figsize=(5.2, 4.6))
     ax = fig.add_subplot(111)
@@ -107,25 +108,26 @@ def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
     ax.legend(loc="lower right")
     ax.grid(True, alpha=0.3)
 
-    # Reserve a right gutter so we can draw text outside the axes area
-    fig.subplots_adjust(right=0.68)  # a bit wider than before
+    # Reserve right gutter (smaller "right" => wider gutter)
+    gutter_right = float(os.getenv("ROC_RIGHT_GUTTER", "0.60"))  # was 0.74 or 0.62
+    fig.subplots_adjust(right=gutter_right)
 
-    # Put the stats box OUTSIDE the axes (x>1), and disable clipping
     if stats_box_text:
-        ax.text(
-            1.02,
-            0.98,
-            stats_box_text,  # just outside right/top
-            transform=ax.transAxes,
-            ha="left",
+        box_x = float(os.getenv("ROC_BOX_X", "0.965"))  # was 0.99
+        box_y = float(os.getenv("ROC_BOX_Y", "0.84"))
+        fig.text(
+            box_x,
+            box_y,
+            stats_box_text,
+            ha="right",
             va="top",
             fontsize=10,
-            clip_on=False,
-            zorder=10,
             bbox=dict(boxstyle="round,pad=0.45", fc="white", ec="0.75", alpha=0.95),
+            transform=fig.transFigure,
+            zorder=10,
+            clip_on=False,  # <- avoid clipping to containers
         )
 
-    # IMPORTANT: don't call tight_layout()/constrained_layout here
     fig.savefig(out_png, dpi=150)
     plt.close(fig)
 
