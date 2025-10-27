@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  27 OCT 2025 17:51
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  27 OCT 2025 21:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1061,7 +1061,7 @@ Package biblatex Info: Reference segment=0 on input line 28.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-<logo.png, id=88, 501.875pt x 282.05376pt>
+<logo.png, id=112, 501.875pt x 282.05376pt>
 File: logo.png Graphic file (type png)
 <use logo.png>
 Package pdftex.def Info: logo.png  used on input line 37.
@@ -1148,7 +1148,7 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 
 
 {c:/texlive/2023/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}]
-<figures/signature.png, id=109, 383.4325pt x 109.40875pt>
+<figures/signature.png, id=133, 383.4325pt x 109.40875pt>
 File: figures/signature.png Graphic file (type png)
 <use figures/signature.png>
 Package pdftex.def Info: figures/signature.png  used on input line 39.
@@ -1258,7 +1258,7 @@ Chapter 2.
 ]
 Chapter 3.
 (./chapters/method.tex
-<figures/duck.jpg, id=194, 1541.76pt x 1027.84pt>
+<figures/duck.jpg, id=224, 1541.76pt x 1027.84pt>
 File: figures/duck.jpg Graphic file (type jpg)
 <use figures/duck.jpg>
 Package pdftex.def Info: figures/duck.jpg  used on input line 19.
@@ -1271,17 +1271,21 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 
 ] [7 <./figures/duck.jpg>]
 Chapter 4.
+(./chapters/results.tex) [8
+
+]
+Chapter 5.
 (./chapters/conclusions.tex)
 
-LaTeX Warning: Empty bibliography on input line 81.
+LaTeX Warning: Empty bibliography on input line 86.
 
 
-Package biblatex Warning: Keyword 'game' not found on input line 84.
+Package biblatex Warning: Keyword 'game' not found on input line 89.
 
 
-LaTeX Warning: Empty bibliography on input line 84.
+LaTeX Warning: Empty bibliography on input line 89.
 
-[8
+[9
 
 ] (./main.aux)
  ***********
@@ -1293,7 +1297,7 @@ L3 programming layer <2023-11-09>
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 79F74B5D90553271A9C136A4E9B05994;2968.
+(rerunfilecheck)             Checksum: E2612CDFB7AFB9ECFDEC63B7028C4136;4140.
 
 Package biblatex Warning: Please (re)run Biber on the file:
 (biblatex)                main
@@ -1304,10 +1308,10 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 25634 strings out of 474267
- 464682 string characters out of 5751464
- 1934558 words of memory out of 5000000
- 47392 multiletter control sequences out of 15000+600000
+ 25653 strings out of 474267
+ 464962 string characters out of 5751464
+ 1936558 words of memory out of 5000000
+ 47401 multiletter control sequences out of 15000+600000
  633757 words of font info for 76 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  98i,12n,145p,1193b,2484s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1319,10 +1323,10 @@ r12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmr7.pfb><c:/texlive/
 s/type1/public/lm/lmri10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/
 lmri12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmtt12.pfb><c:/tex
 live/2023/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on main.pdf (16 pages, 1400735 bytes).
+Output written on main.pdf (17 pages, 1404146 bytes).
 PDF statistics:
- 270 PDF objects out of 1000 (max. 8388607)
- 223 compressed objects within 3 object streams
- 46 named destinations out of 1000 (max. 500000)
- 184 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 305 PDF objects out of 1000 (max. 8388607)
+ 257 compressed objects within 3 object streams
+ 53 named destinations out of 1000 (max. 500000)
+ 232 words of extra memory for PDF output out of 10000 (max. 10000000)
 
