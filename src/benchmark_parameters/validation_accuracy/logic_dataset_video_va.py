@@ -407,6 +407,12 @@ def run_logic(
                 "auc": round(float(auc), 6),
                 "eer": round(float(eer), 6),
                 "figure_path": roc_png,
+                # NEW: include fixed-threshold stats
+                "tpr_at_fixed": round(float(tpr_fixed), 6),
+                "fpr_at_fixed": round(float(fpr_fixed), 6),
+                # NEW: include stats overlay text for reproducibility
+                "stats_box_text": stats_box,
+                # existing arrays for full ROC reconstruction
                 "fpr": [float(x) for x in fpr.tolist()],
                 "tpr": [float(x) for x in tpr.tolist()],
                 "thresholds": [float(x) for x in thr.tolist()],

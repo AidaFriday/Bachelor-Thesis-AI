@@ -692,6 +692,12 @@ def run_logic(
                 "auc": round(float(auc), 6),
                 "eer": round(float(eer), 6),
                 "figure_path": roc_png,
+                # NEW: include fixed-threshold performance in ROC JSON
+                "tpr_at_fixed": round(float(tpr_at_fixed), 6),
+                "fpr_at_fixed": round(float(fpr_at_fixed), 6),
+                # NEW: optional overlay text (useful for reproducing plots)
+                "stats_box_text": stats_box_text,
+                # existing full arrays
                 "fpr": [float(x) for x in fpr.tolist()],
                 "tpr": [float(x) for x in tpr.tolist()],
                 "thresholds": [float(x) for x in thr.tolist()],
