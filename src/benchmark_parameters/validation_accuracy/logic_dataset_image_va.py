@@ -717,6 +717,7 @@ def run_logic(
     print("", flush=True)  # blank line for readability
 
     # Raw JSON (single-line) for GUI to parse
+
     print(json.dumps(result), flush=True)
 
 
