@@ -729,6 +729,28 @@ class BenchmarkPage(QWidget):
                 fig.set_facecolor("white")
                 ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
                 ax.imshow(img)
+                # overlay the fixed-threshold stats on top of the ROC PNG (bottom-right)
+                t_fixed = data.get("threshold")
+                tpr_fixed = data.get("tpr_at_fixed")
+                fpr_fixed = data.get("fpr_at_fixed")
+                if (
+                    t_fixed is not None
+                    and tpr_fixed is not None
+                    and fpr_fixed is not None
+                ):
+                    fig.text(
+                        0.98,
+                        0.04,
+                        f"TAR@fixed: {tpr_fixed:.3f}\nFAR@fixed: {fpr_fixed:.3f}\nτ: {t_fixed:.3f}",
+                        ha="right",
+                        va="bottom",
+                        fontsize=10,
+                        bbox=dict(
+                            boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                        ),
+                        zorder=20,
+                    )
+
                 ax.set_axis_off()
                 for s in ax.spines.values():
                     s.set_visible(False)
@@ -784,6 +806,28 @@ class BenchmarkPage(QWidget):
                 fig.set_facecolor("white")
                 ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
                 ax.imshow(img)
+                # overlay the fixed-threshold stats on top of the ROC PNG (bottom-right)
+                t_fixed = data.get("threshold")
+                tpr_fixed = data.get("tpr_at_fixed")
+                fpr_fixed = data.get("fpr_at_fixed")
+                if (
+                    t_fixed is not None
+                    and tpr_fixed is not None
+                    and fpr_fixed is not None
+                ):
+                    fig.text(
+                        0.98,
+                        0.04,
+                        f"TAR@fixed: {tpr_fixed:.3f}\nFAR@fixed: {fpr_fixed:.3f}\nτ: {t_fixed:.3f}",
+                        ha="right",
+                        va="bottom",
+                        fontsize=10,
+                        bbox=dict(
+                            boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                        ),
+                        zorder=20,
+                    )
+
                 ax.set_axis_off()
                 for s in ax.spines.values():
                     s.set_visible(False)

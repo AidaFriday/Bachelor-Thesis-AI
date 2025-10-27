@@ -626,7 +626,6 @@ def run_logic(
             "pos_pairs": result["pos_pairs"],
             "neg_pairs": result["neg_pairs"],
             "unique_identities": result["unique_identities"],
-            # NEW:
             "auc": result["auc"],
             "eer": result["eer"],
         },
