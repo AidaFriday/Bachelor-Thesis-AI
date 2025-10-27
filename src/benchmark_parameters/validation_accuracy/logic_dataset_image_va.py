@@ -123,7 +123,18 @@ def _eer_threshold(fpr: np.ndarray, tpr: np.ndarray, thr: np.ndarray) -> float:
     return float(thr[i])
 
 
-def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
+def _plot_and_save_roc(
+    fpr,
+    tpr,
+    auc,
+    eer,
+    tau_eer=None,
+    thr=None,
+    title=None,
+    out_png=None,
+    stats_box_text=None,
+):
+
     import matplotlib
 
     matplotlib.use("Agg")
@@ -135,7 +146,34 @@ def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
 
     ax.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
     ax.plot([0, 1], [0, 1], linestyle="--")
-    ax.scatter([eer], [1 - eer], s=28, zorder=5, label=f"EER ≈ {eer*100:.2f}%")
+
+    # --- Mark EER point ---
+    ax.scatter(
+        [eer], [1 - eer], s=35, color="blue", label=f"EER ≈ {eer*100:.2f}%", zorder=5
+    )
+
+    # --- Mark τ_EER (threshold at EER) ---
+    if tau_eer is not None and thr is not None:
+        try:
+            idx = int(np.argmin(np.abs(thr - tau_eer)))
+            # Red "×" marker without separate duplicate legend entry
+            ax.scatter([fpr[idx]], [tpr[idx]], s=70, marker="x", color="red", zorder=6)
+            # Add one legend label manually (so it doesn't duplicate)
+            ax.plot([], [], "x", color="red", label=f"τ_EER = {tau_eer:.3f}")
+
+            # Add annotation arrow
+            ax.annotate(
+                f"τ_EER\n{tau_eer:.3f}",
+                xy=(fpr[idx], tpr[idx]),
+                xytext=(-30, -20),
+                textcoords="offset points",
+                color="red",
+                fontsize=9,
+                fontweight="bold",
+                arrowprops=dict(arrowstyle="->", lw=0.8, color="red"),
+            )
+        except Exception:
+            pass
 
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
@@ -719,9 +757,11 @@ def run_logic(
         tpr,
         auc,
         eer,
-        f"ROC – {model_name} on {dataset_name}",
-        roc_png,
-        stats_box_text=stats_box_text,  # <<< added
+        tau_eer=tau_eer,
+        thr=thr,
+        title=f"ROC – {model_name} on {dataset_name}",
+        out_png=roc_png,
+        stats_box_text=stats_box_text,
     )
 
     roc_json = os.path.join(
