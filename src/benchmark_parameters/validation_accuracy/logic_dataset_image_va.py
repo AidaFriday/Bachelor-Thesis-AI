@@ -102,6 +102,27 @@ def _tar_at_far(fpr: np.ndarray, tpr: np.ndarray, far_target: float) -> float:
     return y1 + w * (y2 - y1)
 
 
+def _eer_threshold(fpr: np.ndarray, tpr: np.ndarray, thr: np.ndarray) -> float:
+    """
+    Return the score threshold at which FPR ~= 1 - TPR (EER point), using
+    linear interpolation between the two closest ROC samples.
+    Assumes 'thr' corresponds to the same points as fpr/tpr (descending).
+    """
+    d = fpr - (1.0 - tpr)  # zero when at EER
+    i = int(np.argmin(np.abs(d)))
+    # If we have neighbors, interpolate threshold between i-1 and i
+    if 0 < i < len(thr):
+        d1, d2 = float(d[i - 1]), float(d[i])
+        t1, t2 = float(thr[i - 1]), float(thr[i])
+        # If both diffs identical, just average thresholds
+        if abs(d2 - d1) < 1e-12:
+            return float(0.5 * (t1 + t2))
+        # weight toward the point closer to zero
+        w = abs(d1) / (abs(d1) + abs(d2))
+        return float(t1 * (1.0 - w) + t2 * w)
+    return float(thr[i])
+
+
 def _plot_and_save_roc(fpr, tpr, auc, eer, title, out_png, stats_box_text=None):
     import matplotlib
 
@@ -532,6 +553,17 @@ def run_logic(
     fp = int(((preds == 1) & (labels_np == 0)).sum())
     fn = int(((preds == 0) & (labels_np == 1)).sum())
 
+    # Precision / Recall / F1 at the fixed threshold
+    prec_den = tp + fp
+    rec_den = tp + fn
+    precision = float(tp / prec_den) if prec_den > 0 else 0.0
+    recall = float(tp / rec_den) if rec_den > 0 else 0.0  # == tpr_at_fixed
+    f1 = (
+        float(2 * precision * recall / (precision + recall))
+        if (precision + recall) > 0
+        else 0.0
+    )
+
     pos = int((labels_np == 1).sum())
     neg = int((labels_np == 0).sum())
 
@@ -552,6 +584,10 @@ def run_logic(
     )
     auc = _auc_trapezoid(fpr, tpr)
     eer = _eer(fpr, tpr)
+
+    # --- Threshold at EER (tau_EER) ---
+    eer_idx = int(np.argmin(np.abs(fpr - (1.0 - tpr))))
+    tau_eer = float(thr[eer_idx])
 
     # --- TAR at fixed FAR levels ---
     tar_at_1e2 = _tar_at_far(fpr, tpr, 1e-2)  # FAR = 0.01
@@ -602,6 +638,10 @@ def run_logic(
         "eer": round(float(eer), 6),
         "tar_at_far_1e2": round(float(tar_at_1e2), 6),
         "tar_at_far_1e3": round(float(tar_at_1e3), 6),
+        "precision": round(float(precision), 6),
+        "recall": round(float(recall), 6),
+        "f1": round(float(f1), 6),
+        "tau_eer": round(float(tau_eer), 6),
     }
 
     # ------- Export full run details to a separate JSON file -------
@@ -652,6 +692,10 @@ def run_logic(
             "unique_identities": result["unique_identities"],
             "auc": result["auc"],
             "eer": result["eer"],
+            "precision": round(float(precision), 6),
+            "recall": round(float(recall), 6),
+            "f1": round(float(f1), 6),
+            "tau_eer": round(float(tau_eer), 6),
         },
         "identities": identities_used,  # full, sorted list
         "pairs": pairs_export,  # every evaluated pair (no duplicates)
