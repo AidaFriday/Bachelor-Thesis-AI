@@ -408,6 +408,11 @@ def run_logic(
         "tn": tn,
         "fp": fp,
         "fn": fn,
+        "tpr_fixed": round(float(tpr_fixed), 6),  # == TAR/Recall at fixed threshold
+        "fpr_fixed": round(float(fpr_fixed), 6),  # == FAR at fixed threshold
+        # (optional but handy)
+        # "P": int(P),
+        # "N": int(N),
         "auc": round(float(auc), 6),
         "eer": round(float(eer), 6),
         "roc_png": roc_png,

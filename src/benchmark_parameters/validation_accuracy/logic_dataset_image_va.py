@@ -565,6 +565,11 @@ def run_logic(
         "fp": fp,
         "tn": tn,
         "fn": fn,
+        "tpr_at_fixed": round(float(tpr_at_fixed), 6),  # == TAR/Recall at fixed threshold
+        "fpr_at_fixed": round(float(fpr_at_fixed), 6),  # == FAR at fixed threshold
+        # (optional but handy)
+        # "P": int(P),
+        # "N": int(N),
         "pos_pairs": pos,
         "neg_pairs": neg,
         "unique_identities": unique_identities,
