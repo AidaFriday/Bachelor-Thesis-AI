@@ -1,4 +1,4 @@
-# Parameters to Benchmark FaceNet, ArcFace, and MagFace
+# Parameters to Benchmark FaceNet, Sphereface, and LightCNN
 
 ## Accuracy  Metrics
 - Verification Accuracy - Percentage of correctly verified pairs (same/different identity) on benchmark datasets like LFW, CFP-FP, AgeDB. It captures how well a model recognizes faces under normal conditions
