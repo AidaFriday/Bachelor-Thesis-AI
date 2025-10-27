@@ -57,6 +57,22 @@ def _auc_trapezoid(fpr: np.ndarray, tpr: np.ndarray) -> float:
     return float(np.trapz(tpr[order], fpr[order]))
 
 
+def _tar_at_far(fpr: np.ndarray, tpr: np.ndarray, far_target: float) -> float:
+    """Return TPR (aka TAR/Recall) at the requested FAR by linear interpolation."""
+    order = np.argsort(fpr)
+    fpr = fpr[order]
+    tpr = tpr[order]
+    if far_target <= fpr[0]:
+        return float(tpr[0])
+    if far_target >= fpr[-1]:
+        return float(tpr[-1])
+    i = int(np.searchsorted(fpr, far_target))
+    x1, x2 = float(fpr[i - 1]), float(fpr[i])
+    y1, y2 = float(tpr[i - 1]), float(tpr[i])
+    w = (far_target - x1) / (x2 - x1 + 1e-12)
+    return y1 + w * (y2 - y1)
+
+
 def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
     diff = np.abs(fpr - (1.0 - tpr))
     i = int(np.argmin(diff))
@@ -358,6 +374,10 @@ def run_logic(
     auc = _auc_trapezoid(fpr, tpr)
     eer = _eer(fpr, tpr)
 
+    # --- TAR at fixed FAR levels ---
+    tar_at_1e2 = _tar_at_far(fpr, tpr, 1e-2)  # FAR = 0.01
+    tar_at_1e3 = _tar_at_far(fpr, tpr, 1e-3)  # FAR = 0.001
+
     elapsed = time.time() - t0
 
     # exports
@@ -417,6 +437,8 @@ def run_logic(
         "eer": round(float(eer), 6),
         "roc_png": roc_png,
         "roc_json": roc_json,
+        "tar_at_far_1e2": round(float(tar_at_1e2), 6),
+        "tar_at_far_1e3": round(float(tar_at_1e3), 6),
     }
     # Print once pretty (for humans) and once compact (for GUI)
     print("[RESULT]", flush=True)
