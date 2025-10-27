@@ -733,6 +733,7 @@ class BenchmarkPage(QWidget):
                 t_fixed = data.get("threshold")
                 tpr_fixed = data.get("tpr_at_fixed")
                 fpr_fixed = data.get("fpr_at_fixed")
+
                 if (
                     t_fixed is not None
                     and tpr_fixed is not None
@@ -740,8 +741,9 @@ class BenchmarkPage(QWidget):
                 ):
                     fig.text(
                         0.98,
-                        0.04,
-                        f"TAR@fixed: {tpr_fixed:.3f}\nFAR@fixed: {fpr_fixed:.3f}\nτ: {t_fixed:.3f}",
+                        0.04,  # move if it overlaps your progress bar
+                        f"TAR@\u03c4={t_fixed:.3f}: {tpr_fixed:.3f}\n"
+                        f"FAR@\u03c4={t_fixed:.3f}: {fpr_fixed:.3f}",
                         ha="right",
                         va="bottom",
                         fontsize=10,
@@ -807,9 +809,11 @@ class BenchmarkPage(QWidget):
                 ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
                 ax.imshow(img)
                 # overlay the fixed-threshold stats on top of the ROC PNG (bottom-right)
+
                 t_fixed = data.get("threshold")
-                tpr_fixed = data.get("tpr_at_fixed")
-                fpr_fixed = data.get("fpr_at_fixed")
+                tpr_fixed = data.get("tpr_fixed", data.get("tpr_at_fixed"))
+                fpr_fixed = data.get("fpr_fixed", data.get("fpr_at_fixed"))
+
                 if (
                     t_fixed is not None
                     and tpr_fixed is not None
@@ -817,8 +821,9 @@ class BenchmarkPage(QWidget):
                 ):
                     fig.text(
                         0.98,
-                        0.04,
-                        f"TAR@fixed: {tpr_fixed:.3f}\nFAR@fixed: {fpr_fixed:.3f}\nτ: {t_fixed:.3f}",
+                        0.04,  # move if it overlaps your progress bar
+                        f"TAR@\u03c4={t_fixed:.3f}: {tpr_fixed:.3f}\n"
+                        f"FAR@\u03c4={t_fixed:.3f}: {fpr_fixed:.3f}",
                         ha="right",
                         va="bottom",
                         fontsize=10,
