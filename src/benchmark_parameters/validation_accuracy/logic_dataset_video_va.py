@@ -452,3 +452,39 @@ def run_logic(
     print("[RESULT]", flush=True)
     print(json.dumps(result, indent=2), flush=True)
     print(json.dumps(result), flush=True)
+
+    # --- optional detailed export (like image VA) ---
+    va_json = os.path.join(export_dir, f"va_{dataset_name}_{model_name}_{ts}.json")
+    with open(va_json, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "meta": {
+                    "model": model_name,
+                    "dataset": dataset_name,
+                    "test_name": "Validation Accuracy (Video)",
+                    "pos_ratio": pos_ratio,
+                    "iters_requested": iters,
+                    "pairs_evaluated": len(sims),
+                    "timestamp": ts,
+                },
+                "stats": {
+                    "accuracy": round(acc, 5),
+                    "threshold": round(fixed_t, 3),
+                    "elapsed_sec": round(float(elapsed), 2),
+                    "tp": tp,
+                    "fp": fp,
+                    "tn": tn,
+                    "fn": fn,
+                    "auc": round(float(auc), 6),
+                    "eer": round(float(eer), 6),
+                    "tpr_fixed": round(float(tpr_fixed), 6),
+                    "fpr_fixed": round(float(fpr_fixed), 6),
+                },
+                "pairs": [
+                    {"a": a, "b": b, "label": "pos" if l else "neg"}
+                    for a, b, l in pairs
+                ],
+            },
+            f,
+            indent=2,
+        )
