@@ -433,6 +433,8 @@ def run_logic(
         # (optional but handy)
         # "P": int(P),
         # "N": int(N),
+        "pos_pairs": int(np.sum(np.array(labels) == 1)),
+        "neg_pairs": int(np.sum(np.array(labels) == 0)),
         "auc": round(float(auc), 6),
         "eer": round(float(eer), 6),
         "roc_png": roc_png,
