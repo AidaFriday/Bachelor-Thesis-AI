@@ -440,7 +440,10 @@ def run_logic(
 
     total_pairs = len(pairs)
     # reset the bar to 0 first
-    print(json.dumps({"_type": "progress", "progress": 0, "total": total_pairs}), flush=True)
+    print(
+        json.dumps({"_type": "progress", "progress": 0, "total": total_pairs}),
+        flush=True,
+    )
 
     for i, (img1, img2, label) in enumerate(pairs):
         img1 = os.path.normpath(img1)
@@ -451,25 +454,30 @@ def run_logic(
         if a is None or b is None:
             print(f"[WARN] Skipping unreadable pair:\n  {img1}\n  {img2}")
             # still advance the visual progress so the bar moves
-            print(json.dumps({"_type": "progress", "progress": i + 1, "total": total_pairs}), flush=True)
+            print(
+                json.dumps(
+                    {"_type": "progress", "progress": i + 1, "total": total_pairs}
+                ),
+                flush=True,
+            )
             continue
 
         emb1 = wrapper.embed(a)
         emb2 = wrapper.embed(b)
         if emb1 is None or emb2 is None:
             print(f"[WARN] Skipping pair with missing embedding:\n  {img1}\n  {img2}")
-            print(json.dumps({"_type": "progress", "progress": i + 1, "total": total_pairs}), flush=True)
+            print(
+                json.dumps(
+                    {"_type": "progress", "progress": i + 1, "total": total_pairs}
+                ),
+                flush=True,
+            )
             continue
 
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(int(label))
 
         # ✅ emit after every pair so the bar moves smoothly
-        print(json.dumps({"_type": "progress", "progress": i + 1, "total": total_pairs}), flush=True)
-
-
-    # emit progress updates periodically (every 10 pairs) and at the end
-    if ((i + 1) % 10 == 0) or (i + 1 == total_pairs):
         print(
             json.dumps({"_type": "progress", "progress": i + 1, "total": total_pairs}),
             flush=True,
