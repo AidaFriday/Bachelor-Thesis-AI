@@ -1,0 +1,1529 @@
+{
+  "meta": {
+    "model": "facenet",
+    "dataset": "YTF",
+    "test_name": "Validation Accuracy (Video)",
+    "pos_ratio": 0.5,
+    "iters_requested": 300,
+    "pairs_evaluated": 300,
+    "timestamp": "20251028-175602"
+  },
+  "stats": {
+    "accuracy": 0.75333,
+    "threshold": 0.9,
+    "elapsed_sec": 25.74,
+    "tp": 76,
+    "fp": 0,
+    "tn": 150,
+    "fn": 74,
+    "auc": 0.956711,
+    "eer": 0.1,
+    "tpr_fixed": 0.506667,
+    "fpr_fixed": 0.0,
+    "precision": 1.0,
+    "recall": 0.506667,
+    "f1": 0.672566
+  },
+  "pairs": [
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.123.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.124.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.123.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.125.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.123.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.126.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.124.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.125.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.124.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.126.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.126.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.131.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.132.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.133.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.131.jpg",
+      "b": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.132.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.183.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.184.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.185.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.183.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.184.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.425.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.426.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.427.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.425.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.426.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.102.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.102.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.10.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.100.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.100.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.405.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.406.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.407.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.405.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.406.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.10.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.11.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.12.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.11.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.12.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.11.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.12.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.13.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.292.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.13.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.293.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.13.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.294.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.292.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.293.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.126.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.127.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.128.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.127.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.128.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.128.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2693.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2694.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2693.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2695.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2693.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2696.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2694.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2695.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2694.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2696.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2695.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2696.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1505.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1506.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1505.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1507.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1505.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1508.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1506.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1507.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1506.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1508.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1507.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1508.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1509.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1073.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1509.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1074.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1509.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1075.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1073.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1074.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1590.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1591.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1590.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1592.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1590.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1593.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1591.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1592.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1591.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1593.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1592.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1593.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.10.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.100.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.100.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1542.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1543.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1542.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1544.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1542.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1545.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1543.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1544.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1543.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1545.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1544.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1545.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1546.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.360.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1546.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.361.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1546.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.362.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.360.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.361.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.369.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.370.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.369.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.371.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.369.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.372.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.370.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.371.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.370.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.372.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.371.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.372.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.373.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.475.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.373.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.476.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.373.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.477.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.475.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.476.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.101.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.102.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.102.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.103.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2697.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2698.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2699.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2697.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2698.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.358.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.359.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.358.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.360.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.358.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.361.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.359.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abid_Hamid_Mahmud_Al-Tikriti\\0\\aligned_detect_0.360.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.123.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.124.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.131.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.183.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.132.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.184.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.133.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.185.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.134.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.186.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\2\\aligned_detect_2.135.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\1\\aligned_detect_1.187.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.123.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.124.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1845.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.123.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.124.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\AJ_Cook\\0\\aligned_detect_0.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1845.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Guiel\\5\\aligned_detect_5.1845.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.425.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.426.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.427.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.428.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1598.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Sorkin\\3\\aligned_detect_3.429.jpg",
+      "b": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1599.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.103.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.104.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.10.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1598.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\1\\aligned_detect_1.1599.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abba_Eban\\5\\aligned_detect_5.103.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1403.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.103.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1403.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.103.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abba_Eban\\0\\aligned_detect_0.104.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abbas_Kiarostami\\0\\aligned_detect_0.1403.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.1.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.10.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.11.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.12.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.13.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.405.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.292.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.406.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.293.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.407.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.294.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.408.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.295.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdel_Aziz_Al-Hakim\\1\\aligned_detect_1.409.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\1\\aligned_detect_1.296.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.125.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.126.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.11.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.127.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.12.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.128.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.13.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.129.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2693.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2694.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.11.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2695.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.12.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2696.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdoulaye_Wade\\0\\aligned_detect_0.13.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2697.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2693.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2694.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2695.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.128.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2696.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.129.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2697.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.125.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1505.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.126.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1506.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.127.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1507.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.128.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1508.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Majeed_Shobokshi\\1\\aligned_detect_1.129.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1509.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2693.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1505.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2694.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1506.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2695.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1507.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2696.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1508.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdul_Rahman\\1\\aligned_detect_1.2697.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1509.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1505.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1590.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1506.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1591.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1507.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1592.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1508.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1593.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\0\\aligned_detect_0.1509.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1594.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1073.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.360.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1074.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.361.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1075.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.362.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1076.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.363.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdulaziz_Kamilov\\4\\aligned_detect_4.1077.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\3\\aligned_detect_3.364.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1590.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.1.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1591.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.10.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1592.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1593.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1594.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1590.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1542.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1591.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1543.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1592.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1544.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1593.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1545.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah\\1\\aligned_detect_1.1594.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1546.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1542.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1543.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1544.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1545.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1546.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.1.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.369.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.10.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.370.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.100.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.371.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.101.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.372.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Ahmad_Badawi\\3\\aligned_detect_3.102.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.373.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1542.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.369.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1543.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.370.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1544.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.371.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1545.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.372.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullah_Gul\\1\\aligned_detect_1.1546.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.373.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.369.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.100.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.370.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.101.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.371.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.102.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.372.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.103.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\0\\aligned_detect_0.373.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\1\\aligned_detect_1.104.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.475.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2697.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.476.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2698.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.477.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2699.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.478.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2700.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "C:/programming/Datasets/YTF\\Abdullatif_Sener\\1\\aligned_detect_1.479.jpg",
+      "b": "C:/programming/Datasets/YTF\\Abel_Pacheco\\3\\aligned_detect_3.2701.jpg",
+      "label": "neg"
+    }
+  ]
+}

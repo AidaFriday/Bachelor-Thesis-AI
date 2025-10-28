@@ -360,6 +360,17 @@ def run_logic(
     tpr_fixed = tp / P
     fpr_fixed = fp / N
 
+    # --- Precision / Recall / F1 at the fixed threshold (video) ---
+    prec_den = tp + fp
+    rec_den = tp + fn
+    precision = float(tp / prec_den) if prec_den > 0 else 0.0
+    recall = float(tp / rec_den) if rec_den > 0 else 0.0
+    f1 = (
+        float(2 * precision * recall / (precision + recall))
+        if (precision + recall) > 0
+        else 0.0
+    )
+
     stats_box = (
         f"Threshold: {fixed_t:.3f}\n"
         f"TP: {tp}  FP: {fp}\n"
@@ -436,6 +447,9 @@ def run_logic(
         "fn": fn,
         "tpr_fixed": round(float(tpr_fixed), 6),  # == TAR/Recall at fixed threshold
         "fpr_fixed": round(float(fpr_fixed), 6),  # == FAR at fixed threshold
+        "precision": round(float(precision), 6),
+        "recall": round(float(recall), 6),
+        "f1": round(float(f1), 6),
         # (optional but handy)
         # "P": int(P),
         # "N": int(N),
@@ -479,6 +493,9 @@ def run_logic(
                     "eer": round(float(eer), 6),
                     "tpr_fixed": round(float(tpr_fixed), 6),
                     "fpr_fixed": round(float(fpr_fixed), 6),
+                    "precision": round(float(precision), 6),
+                    "recall": round(float(recall), 6),
+                    "f1": round(float(f1), 6),
                 },
                 "pairs": [
                     {"a": a, "b": b, "label": "pos" if l else "neg"}
