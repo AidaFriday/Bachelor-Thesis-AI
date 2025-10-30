@@ -41,6 +41,9 @@ class SphereFaceWrapper:
         self.device = torch.device(device)
         self.input_size = tuple(input_size)
 
+        # SphereFace default given as (H, W)=(96,112) ← make a single (W,H) for OpenCV calls
+        self._embed_wh = (int(self.input_size[1]), int(self.input_size[0]))  # (112, 96)
+
         # --- Load SphereFace model ---
         # allow explicit path via arg or environment variable
         explicit = weights_path or os.getenv("SPHEREFACE_WEIGHTS")
@@ -78,11 +81,11 @@ class SphereFaceWrapper:
     # ---------- helpers ----------
     def _to_tensor(self, bgr: np.ndarray) -> torch.Tensor:
         """
-        Resize to self.input_size, convert BGR→RGB, and to torch tensor in [0,1].
-        Keep preprocessing intentionally similar to FaceNetWrapper to match behavior.
+        Resize to self._embed_wh (W,H), convert BGR→RGB, and to torch tensor in [0,1].
         """
+        W, H = self._embed_wh
         rgb = cv2.cvtColor(
-            cv2.resize(bgr, (self.input_size[1], self.input_size[0])), cv2.COLOR_BGR2RGB
+            cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB
         )
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0  # C,H,W in [0,1]
         return t
