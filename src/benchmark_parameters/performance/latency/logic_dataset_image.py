@@ -42,6 +42,7 @@ from connector import load_model
 
 # global singleton
 _cached_wrapper = None
+_cached_model_name = None
 
 
 def run_logic(model_name, iters, frame_h, frame_w, dataset):
