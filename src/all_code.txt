@@ -334,18 +334,23 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     # --- Initialize data collectors ---
     all_run_fps = []
     all_run_series = []
+    used_filenames_all = []
 
     for run_idx in range(num_runs):
         send_log(f"--- Run {run_idx + 1}/{num_runs} ---")
         times_ms = []
         start = time.time()
 
+        used_filenames = []
+
         for i in range(iters):
-            frame = (
-                frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
-            )
+            frame_idx = i % len(frames) if frames else None
+            frame = frames[frame_idx] if frames else _random_frame(frame_h, frame_w)
             t = measure_once(wrapper, frame)
             times_ms.append(t)
+
+            if frames:
+                used_filenames.append(os.path.basename(images[frame_idx]))
 
             # ✅ Progress update every 10 frames or at end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
@@ -367,6 +372,7 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         mean_fps = float(np.mean(fps_series))
         all_run_fps.append(mean_fps)
         all_run_series.append(fps_series)
+        used_filenames_all.append(used_filenames)
 
         send_log(
             f"[Run {run_idx + 1}] {iters} frames → {mean_fps:.2f} FPS", level="result"
@@ -394,14 +400,25 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     for run_idx, fps_series in enumerate(all_run_series):
         min_idx = int(np.argmin(fps_series))
         max_idx = int(np.argmax(fps_series))
+
+        used = used_filenames_all[run_idx] if run_idx < len(used_filenames_all) else []
+
         report["runs"].append(
             {
                 "run": run_idx + 1,
                 "min_fps": round(float(fps_series[min_idx]), 2),
                 "max_fps": round(float(fps_series[max_idx]), 2),
                 "avg_fps": round(all_run_fps[run_idx], 2),
-                "min_file": image_map.get(min_idx + 1, f"frame_{min_idx + 1}"),
-                "max_file": image_map.get(max_idx + 1, f"frame_{max_idx + 1}"),
+                "min_file": (
+                    used[min_idx]
+                    if used and min_idx < len(used)
+                    else f"frame_{min_idx + 1}"
+                ),
+                "max_file": (
+                    used[max_idx]
+                    if used and max_idx < len(used)
+                    else f"frame_{max_idx + 1}"
+                ),
             }
         )
 
@@ -467,6 +484,41 @@ import numpy as np
 # ---------------------------------------------------------------------
 # 🔹 Load centralized project file index (instead of manual sys.path setup)
 # ---------------------------------------------------------------------
+
+
+# add near the top of logic_inference.py
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+
+def _cuda_sync():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def measure_embed_only(wrapper, iters=1, size=None):
+    import time, numpy as np, cv2
+
+    if size is None:
+        size = getattr(
+            wrapper, "_rec_input", getattr(wrapper, "input_size", (112, 112))
+        )
+    W, H = int(size[0]), int(size[1])
+    times = []
+    for _ in range(iters):
+        dummy = np.random.randint(0, 255, (H, W, 3), dtype=np.uint8)
+        _cuda_sync()
+        t0 = time.perf_counter()
+        _ = wrapper.embed(dummy)
+        _cuda_sync()
+        times.append((time.perf_counter() - t0) * 1000.0)
+    return times
+
+
 try:
     from components.utilities.file_indexer import load_file_index
 except ModuleNotFoundError:
@@ -490,7 +542,6 @@ for rel_path in index_data["files"]:
 # 🔹 Import project modules
 # ---------------------------------------------------------------------
 from connector import load_model
-from benchmark_parameters.performance.latency.latency import measure_embed_only
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
@@ -785,6 +836,7 @@ from connector import load_model
 
 # global singleton
 _cached_wrapper = None
+_cached_model_name = None
 
 
 def run_logic(model_name, iters, frame_h, frame_w, dataset):
@@ -3508,13 +3560,19 @@ class FaceNetWrapper:
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
         self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
 
-        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"  # ADDED
+        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"
+        # enforce a clear (W, H) tuple for OpenCV
+        self._embed_wh = (int(self.input_size[0]), int(self.input_size[1]))
 
     def embed(self, bgr: np.ndarray) -> np.ndarray:
         """
         Embedding-only on an already aligned/cropped face (no detection).
         """
-        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
+        W, H = self._embed_wh
+        rgb = cv2.cvtColor(
+            cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB
+        )
+
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
         t = (t - 0.5) / 0.5
         with torch.inference_mode():
@@ -3708,20 +3766,17 @@ import torch.nn.functional as F
 from typing import List, Dict
 
 # ---- Ensure LightCNN source is always visible ----
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../external/LightCNN"))
-)
-
-# ---- External LightCNN path ----
-LIGHTCNN_PATH = os.path.abspath(
+SYS_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../external/LightCNN")
 )
-if LIGHTCNN_PATH not in sys.path:
-    sys.path.append(LIGHTCNN_PATH)
+if SYS_ROOT not in sys.path:
+    sys.path.append(SYS_ROOT)
+
+# ---- External LightCNN path ----
+LIGHTCNN_PATH = SYS_ROOT
 
 # ✅ This import now always works (even when launched from main.py)
 from light_cnn_v4 import LightCNN_V4 as LightCNN_29Layers_v2
-
 
 # ---- Detector for alignment (InsightFace RetinaFace) ----
 from insightface.app import FaceAnalysis
@@ -3729,10 +3784,8 @@ from insightface.app import FaceAnalysis
 
 def _align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(128, 128)) -> np.ndarray:
     """
-    Simple 5-point similarity alignment to a square canvas,
-    keeps it robust and consistent across models.
+    Simple 5-point similarity alignment to a square canvas.
     """
-    # reference from ArcFace (scaled to target size)
     ref = np.float32(
         [
             [38.2946, 51.6963],
@@ -3744,7 +3797,7 @@ def _align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(128, 128)) -> np.
     )
     scale = out_size[0] / 112.0
     ref = ref * scale
-    M = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)[0]
+    M, _ = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)
     if M is None:
         return None
     return cv2.warpAffine(bgr, M, out_size, flags=cv2.INTER_LINEAR)
@@ -3763,8 +3816,12 @@ class LightCNNWrapper:
     def __init__(
         self, device=None, model_variant="LightCNN-29v2", input_size=(128, 128)
     ):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.input_size = tuple(input_size)
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        self.input_size = tuple(map(int, input_size))
+        # Single source of truth for OpenCV resize (W,H)
+        self._embed_wh = (int(self.input_size[0]), int(self.input_size[1]))
 
         # --- model ---
         self.model = LightCNN_29Layers_v2(None)
@@ -3780,16 +3837,19 @@ class LightCNNWrapper:
         self.model.to(self.device).eval()
 
         # --- face detector (for raw images) ---
-        ctx_id = 0 if str(self.device).startswith("cuda") else -1
+        ctx_id = 0 if self.device.type == "cuda" else -1
         self.det = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
         self.det.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
     @torch.no_grad()
     def _infer_batch(self, batch: np.ndarray) -> np.ndarray:
+        """
+        batch: (N,H,W,C), uint8 BGR
+        """
         if batch.ndim != 4:
             raise ValueError("Expected batch with shape (N,H,W,C)")
 
-        # make sure we feed 3 channels (LightCNN v4 expects 3-channel BGR / 255)
+        # ensure 3 channels
         if batch.shape[-1] == 1:
             batch = np.repeat(batch, 3, axis=-1)
 
@@ -3800,16 +3860,16 @@ class LightCNNWrapper:
             .to(self.device)
         )
 
-        out = self.model(x)  # v4 may return just features
+        out = self.model(x)  # LightCNN v4 returns features or (features, ...)
         feats = out[0] if isinstance(out, (tuple, list)) else out
-        feats = F.normalize(feats)  # L2-normalize
+        feats = F.normalize(feats, dim=1)  # explicit dim
         return feats.cpu().numpy()
 
     # ---------- public API ----------
     def embed(self, bgr: np.ndarray) -> np.ndarray:
         """
         Accepts either an aligned face crop or a full image.
-        If it looks unaligned, we run detection+alignment first.
+        If it looks unaligned/large, try detection+alignment first.
         """
         H, W = bgr.shape[:2]
         # Heuristic: if much bigger than target, try to detect & align
@@ -3818,16 +3878,25 @@ class LightCNNWrapper:
             if faces:
                 f = faces[0]
                 kps = np.array(f.kps, dtype=np.float32)
-                crop = _align_by_5pts(bgr, kps, out_size=self.input_size)
+                crop = _align_by_5pts(bgr, kps, out_size=self._embed_wh)
+                if crop is None:
+                    # fallback: center-crop square then resize
+                    s = min(H, W)
+                    y0 = (H - s) // 2
+                    x0 = (W - s) // 2
+                    crop = bgr[y0 : y0 + s, x0 : x0 + s]
+                    crop = cv2.resize(
+                        crop, self._embed_wh, interpolation=cv2.INTER_AREA
+                    )
             else:
                 # fallback: center crop square
                 s = min(H, W)
                 y0 = (H - s) // 2
                 x0 = (W - s) // 2
                 crop = bgr[y0 : y0 + s, x0 : x0 + s]
-                crop = cv2.resize(crop, self.input_size, interpolation=cv2.INTER_AREA)
+                crop = cv2.resize(crop, self._embed_wh, interpolation=cv2.INTER_AREA)
         else:
-            crop = cv2.resize(bgr, self.input_size, interpolation=cv2.INTER_AREA)
+            crop = cv2.resize(bgr, self._embed_wh, interpolation=cv2.INTER_AREA)
 
         crop = crop.astype(np.uint8)
         batch = crop[None, ...]  # (1,H,W,C)
@@ -3835,13 +3904,13 @@ class LightCNNWrapper:
 
     def detect_and_embed(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect faces, align, and return a list with bbox, kps, embedding.
+        Detect faces, align, and return list with bbox, kps, embedding.
         """
         faces = self.det.get(frame)
-        results = []
+        results: List[Dict] = []
         for f in faces:
             kps = np.array(f.kps, dtype=np.float32)
-            crop = _align_by_5pts(frame, kps, out_size=self.input_size)
+            crop = _align_by_5pts(frame, kps, out_size=self._embed_wh)
             if crop is None:
                 continue
             emb = self.embed(crop)  # uses fast path (already aligned)
@@ -3901,6 +3970,9 @@ class SphereFaceWrapper:
         self.device = torch.device(device)
         self.input_size = tuple(input_size)
 
+        # SphereFace default given as (H, W)=(96,112) ← make a single (W,H) for OpenCV calls
+        self._embed_wh = (int(self.input_size[1]), int(self.input_size[0]))  # (112, 96)
+
         # --- Load SphereFace model ---
         # allow explicit path via arg or environment variable
         explicit = weights_path or os.getenv("SPHEREFACE_WEIGHTS")
@@ -3938,11 +4010,11 @@ class SphereFaceWrapper:
     # ---------- helpers ----------
     def _to_tensor(self, bgr: np.ndarray) -> torch.Tensor:
         """
-        Resize to self.input_size, convert BGR→RGB, and to torch tensor in [0,1].
-        Keep preprocessing intentionally similar to FaceNetWrapper to match behavior.
+        Resize to self._embed_wh (W,H), convert BGR→RGB, and to torch tensor in [0,1].
         """
+        W, H = self._embed_wh
         rgb = cv2.cvtColor(
-            cv2.resize(bgr, (self.input_size[1], self.input_size[0])), cv2.COLOR_BGR2RGB
+            cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB
         )
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0  # C,H,W in [0,1]
         return t
