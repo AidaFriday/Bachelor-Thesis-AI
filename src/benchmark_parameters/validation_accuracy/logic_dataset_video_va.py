@@ -385,6 +385,10 @@ def run_logic(
     auc = _auc_trapezoid(fpr, tpr)
     eer = _eer(fpr, tpr)
 
+    # Threshold at EER (tau_eer) — pick the threshold where FPR ≈ 1-TPR
+    eer_idx = int(np.argmin(np.abs(fpr - (1.0 - tpr))))
+    tau_eer = float(thr[eer_idx])
+
     # --- TAR at fixed FAR levels ---
     tar_at_1e2 = _tar_at_far(fpr, tpr, 1e-2)  # FAR = 0.01
     tar_at_1e3 = _tar_at_far(fpr, tpr, 1e-3)  # FAR = 0.001
@@ -417,11 +421,12 @@ def run_logic(
                 "timestamp": ts,
                 "auc": round(float(auc), 6),
                 "eer": round(float(eer), 6),
+                "tau_eer": round(float(tau_eer), 6),
                 "figure_path": roc_png,
-                # NEW: include fixed-threshold stats
+                # include fixed-threshold stats
                 "tpr_at_fixed": round(float(tpr_fixed), 6),
                 "fpr_at_fixed": round(float(fpr_fixed), 6),
-                # NEW: include stats overlay text for reproducibility
+                # include stats overlay text for reproducibility
                 "stats_box_text": stats_box,
                 # existing arrays for full ROC reconstruction
                 "fpr": [float(x) for x in fpr.tolist()],
@@ -457,6 +462,7 @@ def run_logic(
         "neg_pairs": int(np.sum(np.array(labels) == 0)),
         "auc": round(float(auc), 6),
         "eer": round(float(eer), 6),
+        "tau_eer": round(float(tau_eer), 6),
         "roc_png": roc_png,
         "roc_json": roc_json,
         "tar_at_far_1e2": round(float(tar_at_1e2), 6),
@@ -491,6 +497,7 @@ def run_logic(
                     "fn": fn,
                     "auc": round(float(auc), 6),
                     "eer": round(float(eer), 6),
+                    "tau_eer": round(float(tau_eer), 6),
                     "tpr_fixed": round(float(tpr_fixed), 6),
                     "fpr_fixed": round(float(fpr_fixed), 6),
                     "precision": round(float(precision), 6),
