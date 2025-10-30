@@ -22,13 +22,19 @@ class FaceNetWrapper:
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
         self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
 
-        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"  # ADDED
+        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"
+        # enforce a clear (W, H) tuple for OpenCV
+        self._embed_wh = (int(self.input_size[0]), int(self.input_size[1]))
 
     def embed(self, bgr: np.ndarray) -> np.ndarray:
         """
         Embedding-only on an already aligned/cropped face (no detection).
         """
-        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
+        W, H = self._embed_wh
+        rgb = cv2.cvtColor(
+            cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB
+        )
+
         t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
         t = (t - 0.5) / 0.5
         with torch.inference_mode():
