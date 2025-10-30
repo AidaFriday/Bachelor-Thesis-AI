@@ -6,12 +6,12 @@
     "pos_ratio": 0.5,
     "iters_requested": 300,
     "pairs_evaluated": 300,
-    "timestamp": "20251028-170051"
+    "timestamp": "20251030-101325"
   },
   "stats": {
     "accuracy": 0.75333,
     "threshold": 0.9,
-    "elapsed_sec": 30.02,
+    "elapsed_sec": 27.58,
     "tp": 76,
     "fp": 0,
     "tn": 150,
@@ -19,7 +19,10 @@
     "auc": 0.956711,
     "eer": 0.1,
     "tpr_fixed": 0.506667,
-    "fpr_fixed": 0.0
+    "fpr_fixed": 0.0,
+    "precision": 1.0,
+    "recall": 0.506667,
+    "f1": 0.672566
   },
   "pairs": [
     {
