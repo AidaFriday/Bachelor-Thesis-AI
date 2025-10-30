@@ -500,14 +500,30 @@ def _cuda_sync():
         torch.cuda.synchronize()
 
 
+def _get_embed_wh(wrapper):
+    # Prefer explicit (W,H) if wrapper exposes it
+    wh = getattr(wrapper, "_embed_wh", None)
+    if wh and len(wh) == 2:
+        return int(wh[0]), int(wh[1])
+    # Otherwise try _rec_input (varies by libs) and normalize to (W,H)
+    rec = getattr(wrapper, "_rec_input", None)
+    if rec and len(rec) == 2:
+        H, W = int(rec[0]), int(rec[1])  # many libs expose (H, W)
+        return (W, H)
+    # Finally fall back to input_size; treat as (H,W) by convention
+    sz = getattr(wrapper, "input_size", (112, 112))
+    H, W = int(sz[0]), int(sz[1])
+    return (W, H)
+
+
 def measure_embed_only(wrapper, iters=1, size=None):
     import time, numpy as np, cv2
 
     if size is None:
-        size = getattr(
-            wrapper, "_rec_input", getattr(wrapper, "input_size", (112, 112))
-        )
-    W, H = int(size[0]), int(size[1])
+        W, H = _get_embed_wh(wrapper)  # always normalized to (W,H)
+    else:
+        W, H = int(size[0]), int(size[1])
+
     times = []
     for _ in range(iters):
         dummy = np.random.randint(0, 255, (H, W, 3), dtype=np.uint8)

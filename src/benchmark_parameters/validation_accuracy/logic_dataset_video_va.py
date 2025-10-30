@@ -2,6 +2,15 @@
 import os, sys, json, time, numpy as np, cv2
 from tqdm import tqdm
 
+
+# Loading Json File Content
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "test_config.json")
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    _CFG = json.load(f)
+
+DEFAULT_THRESHOLD = float(_CFG.get("threshold", 0.9))  # fallback if missing
+
+
 # Allow "src" imports when run directly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
@@ -345,7 +354,7 @@ def run_logic(
         )
         return
 
-    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))
+    fixed_t = DEFAULT_THRESHOLD
     labels_np = np.array(labels, dtype=int)
     preds = (np.array(sims) > fixed_t).astype(int)
     acc = float(np.mean(preds == labels_np))

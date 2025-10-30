@@ -6,6 +6,15 @@ import numpy as np
 from tqdm import tqdm
 import sys
 
+
+# Loading Json File Content
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "test_config.json")
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    _CFG = json.load(f)
+
+DEFAULT_THRESHOLD = float(_CFG.get("threshold", 0.9))  # fallback if missing
+
+
 # Add the "src" directory to Python path dynamically
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
@@ -574,7 +583,7 @@ def run_logic(
         return
 
     # --- Fixed-threshold accuracy (kept exactly as before) ---
-    fixed_t = float(os.getenv("FIXED_THRESHOLD", "0.9"))  # default 0.9 if not set
+    fixed_t = DEFAULT_THRESHOLD
     labels_np = np.array(labels, dtype=int)
     preds = (np.array(sims) > fixed_t).astype(int)
     acc = float(np.mean(preds == labels_np))
