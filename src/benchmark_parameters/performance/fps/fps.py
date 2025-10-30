@@ -164,18 +164,23 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     # --- Initialize data collectors ---
     all_run_fps = []
     all_run_series = []
+    used_filenames_all = []
 
     for run_idx in range(num_runs):
         send_log(f"--- Run {run_idx + 1}/{num_runs} ---")
         times_ms = []
         start = time.time()
 
+        used_filenames = []
+
         for i in range(iters):
-            frame = (
-                frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
-            )
+            frame_idx = i % len(frames) if frames else None
+            frame = frames[frame_idx] if frames else _random_frame(frame_h, frame_w)
             t = measure_once(wrapper, frame)
             times_ms.append(t)
+
+            if frames:
+                used_filenames.append(os.path.basename(images[frame_idx]))
 
             # ✅ Progress update every 10 frames or at end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
@@ -197,6 +202,7 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         mean_fps = float(np.mean(fps_series))
         all_run_fps.append(mean_fps)
         all_run_series.append(fps_series)
+        used_filenames_all.append(used_filenames)
 
         send_log(
             f"[Run {run_idx + 1}] {iters} frames → {mean_fps:.2f} FPS", level="result"
@@ -224,14 +230,25 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     for run_idx, fps_series in enumerate(all_run_series):
         min_idx = int(np.argmin(fps_series))
         max_idx = int(np.argmax(fps_series))
+
+        used = used_filenames_all[run_idx] if run_idx < len(used_filenames_all) else []
+
         report["runs"].append(
             {
                 "run": run_idx + 1,
                 "min_fps": round(float(fps_series[min_idx]), 2),
                 "max_fps": round(float(fps_series[max_idx]), 2),
                 "avg_fps": round(all_run_fps[run_idx], 2),
-                "min_file": image_map.get(min_idx + 1, f"frame_{min_idx + 1}"),
-                "max_file": image_map.get(max_idx + 1, f"frame_{max_idx + 1}"),
+                "min_file": (
+                    used[min_idx]
+                    if used and min_idx < len(used)
+                    else f"frame_{min_idx + 1}"
+                ),
+                "max_file": (
+                    used[max_idx]
+                    if used and max_idx < len(used)
+                    else f"frame_{max_idx + 1}"
+                ),
             }
         )
 
