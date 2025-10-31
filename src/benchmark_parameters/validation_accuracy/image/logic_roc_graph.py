@@ -7,8 +7,7 @@ import sys
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 
-# ✅ Correct path: go up two folders to reach src/
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
 
 

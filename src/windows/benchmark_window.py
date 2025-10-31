@@ -397,17 +397,22 @@ class BenchmarkPage(QWidget):
                     QMessageBox.Yes,
                 )
 
-                # ✅ Select script
                 if resp == QMessageBox.Yes:
                     file_path = os.path.join(
-                        self.benchmark_dir, "validation_accuracy", "logic_roc_graph.py"
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "image",
+                        "logic_roc_graph.py",
                     )
                 else:
                     file_path = os.path.join(
                         self.benchmark_dir,
                         "validation_accuracy",
+                        "image",
                         "logic_confusion_matrix.py",
                     )
+
+                # extra_args stays [] for VA
 
                 ds_for_dialog = self.dataset_path
                 if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):

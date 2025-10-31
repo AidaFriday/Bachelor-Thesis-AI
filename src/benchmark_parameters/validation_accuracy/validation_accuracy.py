@@ -57,7 +57,7 @@ def run(model_name, iters, frame_h, frame_w, dataset=None):
 
     # ✅ VIDEO DATASET
     elif "ytf" in dl or "aligned_images_db" in dl or "video" in dl:
-        from benchmark_parameters.validation_accuracy.logic_dataset_video_va import (
+        from benchmark_parameters.validation_accuracy.video.logic_dataset_video_va import (
             run_logic as logic_run,
         )
 

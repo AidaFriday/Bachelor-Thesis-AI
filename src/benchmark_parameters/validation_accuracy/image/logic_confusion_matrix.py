@@ -6,11 +6,8 @@ import sys
 import json
 from sklearn.metrics import confusion_matrix
 
-import sys, os
-
-# ✅ Correct path: go up 2 directories (to reach src/)
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
+# ✅ Correct path: go up 3 directories (image → validation_accuracy → benchmark_parameters → src)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
 
 
