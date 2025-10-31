@@ -1,0 +1,1710 @@
+{
+  "meta": {
+    "model": "sphereface",
+    "dataset": "lfw-deepfunneled",
+    "test_name": "Validation Accuracy (Image)",
+    "start_person": "Raaf_Schefter",
+    "pos_ratio": 0.5,
+    "iters_requested": 200,
+    "pairs_evaluated": 200,
+    "timestamp": "20251030-173357"
+  },
+  "stats": {
+    "accuracy": 0.6,
+    "threshold": 0.7,
+    "elapsed_sec": 10.86,
+    "tp": 37,
+    "fp": 17,
+    "tn": 83,
+    "fn": 63,
+    "pos_pairs": 100,
+    "neg_pairs": 100,
+    "unique_identities": 65,
+    "auc": 0.6422,
+    "eer": 0.39,
+    "precision": 0.685185,
+    "recall": 0.37,
+    "f1": 0.480519,
+    "tau_eer": 0.659543
+  },
+  "identities": [
+    "Aaron_Peirsol",
+    "Aaron_Sorkin",
+    "Abdel_Nasser_Assidi",
+    "Abdoulaye_Wade",
+    "Abdullah",
+    "Abdullah_Gul",
+    "Abdullah_al-Attiyah",
+    "Abdullatif_Sener",
+    "Abel_Pacheco",
+    "Abid_Hamid_Mahmud_Al-Tikriti",
+    "Adam_Sandler",
+    "Adam_Scott",
+    "Adel_Al-Jubeir",
+    "Adolfo_Aguilar_Zinser",
+    "Adolfo_Rodriguez_Saa",
+    "Adrian_McPherson",
+    "Adrian_Nastase",
+    "Adrien_Brody",
+    "Ahmad_Masood",
+    "Ahmed_Chalabi",
+    "Ahmet_Necdet_Sezer",
+    "Ai_Sugiyama",
+    "Aicha_El_Ouafi",
+    "Aitor_Gonzalez",
+    "Akbar_Hashemi_Rafsanjani",
+    "Akhmed_Zakayev",
+    "Al_Davis",
+    "Al_Gore",
+    "Al_Pacino",
+    "Al_Sharpton",
+    "Alan_Ball",
+    "Alan_Greenspan",
+    "Alan_Mulally",
+    "Alastair_Campbell",
+    "Albert_Costa",
+    "Alberto_Fujimori",
+    "Alberto_Ruiz_Gallardon",
+    "Albrecht_Mentz",
+    "Aldo_Paredes",
+    "Alec_Baldwin",
+    "Alejandro_Atchugarry",
+    "Alejandro_Avila",
+    "Alejandro_Toledo",
+    "Rachel_Griffiths",
+    "Rachel_Hunter",
+    "Rafael_Ramirez",
+    "Raghad_Saddam_Hussein",
+    "Rainer_Schuettler",
+    "Ralf_Schumacher",
+    "Ralph_Firman",
+    "Ralph_Klein",
+    "Ralph_Lauren",
+    "Ranil_Wickremasinghe",
+    "Raoul_Ruiz",
+    "Raquel_Welch",
+    "Ray_Allen",
+    "Ray_Nagin",
+    "Ray_Romano",
+    "Raymond_Odierno",
+    "Rebecca_Romijn-Stamos",
+    "Rebekah_Chantay_Revels",
+    "Recep_Tayyip_Erdogan",
+    "Reese_Witherspoon",
+    "Reggie_Miller",
+    "Renee_Zellweger"
+  ],
+  "pairs": [
+    {
+      "a": "Rachel_Griffiths\\Rachel_Griffiths_0001.jpg",
+      "b": "Rachel_Griffiths\\Rachel_Griffiths_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Griffiths\\Rachel_Griffiths_0002.jpg",
+      "b": "Rachel_Griffiths\\Rachel_Griffiths_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Griffiths\\Rachel_Griffiths_0001.jpg",
+      "b": "Rachel_Griffiths\\Rachel_Griffiths_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Hunter\\Rachel_Hunter_0001.jpg",
+      "b": "Rachel_Hunter\\Rachel_Hunter_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Hunter\\Rachel_Hunter_0002.jpg",
+      "b": "Rachel_Hunter\\Rachel_Hunter_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Hunter\\Rachel_Hunter_0003.jpg",
+      "b": "Rachel_Hunter\\Rachel_Hunter_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Hunter\\Rachel_Hunter_0001.jpg",
+      "b": "Rachel_Hunter\\Rachel_Hunter_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Hunter\\Rachel_Hunter_0002.jpg",
+      "b": "Rachel_Hunter\\Rachel_Hunter_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rachel_Hunter\\Rachel_Hunter_0001.jpg",
+      "b": "Rachel_Hunter\\Rachel_Hunter_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rafael_Ramirez\\Rafael_Ramirez_0001.jpg",
+      "b": "Rafael_Ramirez\\Rafael_Ramirez_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rafael_Ramirez\\Rafael_Ramirez_0002.jpg",
+      "b": "Rafael_Ramirez\\Rafael_Ramirez_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rafael_Ramirez\\Rafael_Ramirez_0003.jpg",
+      "b": "Rafael_Ramirez\\Rafael_Ramirez_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rafael_Ramirez\\Rafael_Ramirez_0001.jpg",
+      "b": "Rafael_Ramirez\\Rafael_Ramirez_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rafael_Ramirez\\Rafael_Ramirez_0002.jpg",
+      "b": "Rafael_Ramirez\\Rafael_Ramirez_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rafael_Ramirez\\Rafael_Ramirez_0001.jpg",
+      "b": "Rafael_Ramirez\\Rafael_Ramirez_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raghad_Saddam_Hussein\\Raghad_Saddam_Hussein_0001.jpg",
+      "b": "Raghad_Saddam_Hussein\\Raghad_Saddam_Hussein_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0001.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0002.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0003.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0004.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0001.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0002.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rainer_Schuettler\\Rainer_Schuettler_0001.jpg",
+      "b": "Rainer_Schuettler\\Rainer_Schuettler_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0001.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0002.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0003.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0004.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0005.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0006.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0006.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0007.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0007.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0008.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0001.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0002.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralf_Schumacher\\Ralf_Schumacher_0005.jpg",
+      "b": "Ralf_Schumacher\\Ralf_Schumacher_0007.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralph_Firman\\Ralph_Firman_0001.jpg",
+      "b": "Ralph_Firman\\Ralph_Firman_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralph_Klein\\Ralph_Klein_0001.jpg",
+      "b": "Ralph_Klein\\Ralph_Klein_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ralph_Lauren\\Ralph_Lauren_0001.jpg",
+      "b": "Ralph_Lauren\\Ralph_Lauren_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ranil_Wickremasinghe\\Ranil_Wickremasinghe_0001.jpg",
+      "b": "Ranil_Wickremasinghe\\Ranil_Wickremasinghe_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ranil_Wickremasinghe\\Ranil_Wickremasinghe_0002.jpg",
+      "b": "Ranil_Wickremasinghe\\Ranil_Wickremasinghe_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ranil_Wickremasinghe\\Ranil_Wickremasinghe_0001.jpg",
+      "b": "Ranil_Wickremasinghe\\Ranil_Wickremasinghe_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raoul_Ruiz\\Raoul_Ruiz_0001.jpg",
+      "b": "Raoul_Ruiz\\Raoul_Ruiz_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raoul_Ruiz\\Raoul_Ruiz_0002.jpg",
+      "b": "Raoul_Ruiz\\Raoul_Ruiz_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raoul_Ruiz\\Raoul_Ruiz_0003.jpg",
+      "b": "Raoul_Ruiz\\Raoul_Ruiz_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raoul_Ruiz\\Raoul_Ruiz_0001.jpg",
+      "b": "Raoul_Ruiz\\Raoul_Ruiz_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raoul_Ruiz\\Raoul_Ruiz_0002.jpg",
+      "b": "Raoul_Ruiz\\Raoul_Ruiz_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raoul_Ruiz\\Raoul_Ruiz_0001.jpg",
+      "b": "Raoul_Ruiz\\Raoul_Ruiz_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raquel_Welch\\Raquel_Welch_0001.jpg",
+      "b": "Raquel_Welch\\Raquel_Welch_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Allen\\Ray_Allen_0001.jpg",
+      "b": "Ray_Allen\\Ray_Allen_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Allen\\Ray_Allen_0002.jpg",
+      "b": "Ray_Allen\\Ray_Allen_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Allen\\Ray_Allen_0001.jpg",
+      "b": "Ray_Allen\\Ray_Allen_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Nagin\\Ray_Nagin_0001.jpg",
+      "b": "Ray_Nagin\\Ray_Nagin_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0001.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0002.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0003.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0004.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0005.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0006.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0006.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0007.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0007.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0008.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0008.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0009.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0001.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Ray_Romano\\Ray_Romano_0002.jpg",
+      "b": "Ray_Romano\\Ray_Romano_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Raymond_Odierno\\Raymond_Odierno_0001.jpg",
+      "b": "Raymond_Odierno\\Raymond_Odierno_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0001.jpg",
+      "b": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0002.jpg",
+      "b": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0003.jpg",
+      "b": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0001.jpg",
+      "b": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0002.jpg",
+      "b": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0001.jpg",
+      "b": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0001.jpg",
+      "b": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0002.jpg",
+      "b": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0003.jpg",
+      "b": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0001.jpg",
+      "b": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0002.jpg",
+      "b": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0001.jpg",
+      "b": "Rebekah_Chantay_Revels\\Rebekah_Chantay_Revels_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0001.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0002.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0003.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0004.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0005.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0006.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0006.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0007.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0007.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0008.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0008.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0009.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0009.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0010.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0010.jpg",
+      "b": "Recep_Tayyip_Erdogan\\Recep_Tayyip_Erdogan_0011.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reese_Witherspoon\\Reese_Witherspoon_0001.jpg",
+      "b": "Reese_Witherspoon\\Reese_Witherspoon_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reese_Witherspoon\\Reese_Witherspoon_0002.jpg",
+      "b": "Reese_Witherspoon\\Reese_Witherspoon_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reese_Witherspoon\\Reese_Witherspoon_0003.jpg",
+      "b": "Reese_Witherspoon\\Reese_Witherspoon_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reese_Witherspoon\\Reese_Witherspoon_0001.jpg",
+      "b": "Reese_Witherspoon\\Reese_Witherspoon_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reese_Witherspoon\\Reese_Witherspoon_0002.jpg",
+      "b": "Reese_Witherspoon\\Reese_Witherspoon_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reese_Witherspoon\\Reese_Witherspoon_0001.jpg",
+      "b": "Reese_Witherspoon\\Reese_Witherspoon_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Reggie_Miller\\Reggie_Miller_0001.jpg",
+      "b": "Reggie_Miller\\Reggie_Miller_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0001.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0002.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0002.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0003.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0003.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0004.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0004.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0005.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0005.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0006.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0006.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0007.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0007.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0008.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0008.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0009.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0009.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0010.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Renee_Zellweger\\Renee_Zellweger_0010.jpg",
+      "b": "Renee_Zellweger\\Renee_Zellweger_0011.jpg",
+      "label": "pos"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0001.jpg",
+      "b": "Aaron_Sorkin\\Aaron_Sorkin_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aaron_Peirsol\\Aaron_Peirsol_0002.jpg",
+      "b": "Aaron_Sorkin\\Aaron_Sorkin_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aaron_Sorkin\\Aaron_Sorkin_0001.jpg",
+      "b": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aaron_Sorkin\\Aaron_Sorkin_0002.jpg",
+      "b": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0001.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdel_Nasser_Assidi\\Abdel_Nasser_Assidi_0002.jpg",
+      "b": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0001.jpg",
+      "b": "Abdullah\\Abdullah_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0002.jpg",
+      "b": "Abdullah\\Abdullah_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0003.jpg",
+      "b": "Abdullah\\Abdullah_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdoulaye_Wade\\Abdoulaye_Wade_0004.jpg",
+      "b": "Abdullah\\Abdullah_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0001.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0002.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0003.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah\\Abdullah_0004.jpg",
+      "b": "Abdullah_Gul\\Abdullah_Gul_0005.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0001.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0002.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_Gul\\Abdullah_Gul_0003.jpg",
+      "b": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0001.jpg",
+      "b": "Abdullatif_Sener\\Abdullatif_Sener_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullah_al-Attiyah\\Abdullah_al-Attiyah_0002.jpg",
+      "b": "Abdullatif_Sener\\Abdullatif_Sener_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullatif_Sener\\Abdullatif_Sener_0001.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abdullatif_Sener\\Abdullatif_Sener_0002.jpg",
+      "b": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0001.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0002.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abel_Pacheco\\Abel_Pacheco_0003.jpg",
+      "b": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0001.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0002.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Abid_Hamid_Mahmud_Al-Tikriti\\Abid_Hamid_Mahmud_Al-Tikriti_0003.jpg",
+      "b": "Adam_Sandler\\Adam_Sandler_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0001.jpg",
+      "b": "Adam_Scott\\Adam_Scott_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Sandler\\Adam_Sandler_0002.jpg",
+      "b": "Adam_Scott\\Adam_Scott_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Scott\\Adam_Scott_0001.jpg",
+      "b": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adam_Scott\\Adam_Scott_0002.jpg",
+      "b": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0001.jpg",
+      "b": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0002.jpg",
+      "b": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0003.jpg",
+      "b": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0001.jpg",
+      "b": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0002.jpg",
+      "b": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0001.jpg",
+      "b": "Adrian_McPherson\\Adrian_McPherson_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adolfo_Rodriguez_Saa\\Adolfo_Rodriguez_Saa_0002.jpg",
+      "b": "Adrian_McPherson\\Adrian_McPherson_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_McPherson\\Adrian_McPherson_0001.jpg",
+      "b": "Adrian_Nastase\\Adrian_Nastase_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_McPherson\\Adrian_McPherson_0002.jpg",
+      "b": "Adrian_Nastase\\Adrian_Nastase_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_Nastase\\Adrian_Nastase_0001.jpg",
+      "b": "Adrien_Brody\\Adrien_Brody_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrian_Nastase\\Adrian_Nastase_0002.jpg",
+      "b": "Adrien_Brody\\Adrien_Brody_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrien_Brody\\Adrien_Brody_0001.jpg",
+      "b": "Ahmad_Masood\\Ahmad_Masood_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Adrien_Brody\\Adrien_Brody_0002.jpg",
+      "b": "Ahmad_Masood\\Ahmad_Masood_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmad_Masood\\Ahmad_Masood_0001.jpg",
+      "b": "Ahmed_Chalabi\\Ahmed_Chalabi_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmad_Masood\\Ahmad_Masood_0002.jpg",
+      "b": "Ahmed_Chalabi\\Ahmed_Chalabi_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmed_Chalabi\\Ahmed_Chalabi_0001.jpg",
+      "b": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmed_Chalabi\\Ahmed_Chalabi_0002.jpg",
+      "b": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0001.jpg",
+      "b": "Ai_Sugiyama\\Ai_Sugiyama_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ahmet_Necdet_Sezer\\Ahmet_Necdet_Sezer_0002.jpg",
+      "b": "Ai_Sugiyama\\Ai_Sugiyama_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ai_Sugiyama\\Ai_Sugiyama_0001.jpg",
+      "b": "Aicha_El_Ouafi\\Aicha_El_Ouafi_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ai_Sugiyama\\Ai_Sugiyama_0002.jpg",
+      "b": "Aicha_El_Ouafi\\Aicha_El_Ouafi_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Ai_Sugiyama\\Ai_Sugiyama_0003.jpg",
+      "b": "Aicha_El_Ouafi\\Aicha_El_Ouafi_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aicha_El_Ouafi\\Aicha_El_Ouafi_0001.jpg",
+      "b": "Aitor_Gonzalez\\Aitor_Gonzalez_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aicha_El_Ouafi\\Aicha_El_Ouafi_0002.jpg",
+      "b": "Aitor_Gonzalez\\Aitor_Gonzalez_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aitor_Gonzalez\\Aitor_Gonzalez_0001.jpg",
+      "b": "Akbar_Hashemi_Rafsanjani\\Akbar_Hashemi_Rafsanjani_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aitor_Gonzalez\\Aitor_Gonzalez_0002.jpg",
+      "b": "Akbar_Hashemi_Rafsanjani\\Akbar_Hashemi_Rafsanjani_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Akbar_Hashemi_Rafsanjani\\Akbar_Hashemi_Rafsanjani_0001.jpg",
+      "b": "Akhmed_Zakayev\\Akhmed_Zakayev_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Akbar_Hashemi_Rafsanjani\\Akbar_Hashemi_Rafsanjani_0002.jpg",
+      "b": "Akhmed_Zakayev\\Akhmed_Zakayev_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Akbar_Hashemi_Rafsanjani\\Akbar_Hashemi_Rafsanjani_0003.jpg",
+      "b": "Akhmed_Zakayev\\Akhmed_Zakayev_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Akhmed_Zakayev\\Akhmed_Zakayev_0001.jpg",
+      "b": "Al_Davis\\Al_Davis_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Akhmed_Zakayev\\Akhmed_Zakayev_0002.jpg",
+      "b": "Al_Davis\\Al_Davis_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Davis\\Al_Davis_0001.jpg",
+      "b": "Al_Gore\\Al_Gore_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Davis\\Al_Davis_0002.jpg",
+      "b": "Al_Gore\\Al_Gore_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Gore\\Al_Gore_0001.jpg",
+      "b": "Al_Pacino\\Al_Pacino_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Gore\\Al_Gore_0002.jpg",
+      "b": "Al_Pacino\\Al_Pacino_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Gore\\Al_Gore_0003.jpg",
+      "b": "Al_Pacino\\Al_Pacino_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Pacino\\Al_Pacino_0001.jpg",
+      "b": "Al_Sharpton\\Al_Sharpton_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Pacino\\Al_Pacino_0002.jpg",
+      "b": "Al_Sharpton\\Al_Sharpton_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Pacino\\Al_Pacino_0003.jpg",
+      "b": "Al_Sharpton\\Al_Sharpton_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Sharpton\\Al_Sharpton_0001.jpg",
+      "b": "Alan_Ball\\Alan_Ball_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Al_Sharpton\\Al_Sharpton_0002.jpg",
+      "b": "Alan_Ball\\Alan_Ball_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alan_Ball\\Alan_Ball_0001.jpg",
+      "b": "Alan_Greenspan\\Alan_Greenspan_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alan_Ball\\Alan_Ball_0002.jpg",
+      "b": "Alan_Greenspan\\Alan_Greenspan_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alan_Greenspan\\Alan_Greenspan_0001.jpg",
+      "b": "Alan_Mulally\\Alan_Mulally_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alan_Greenspan\\Alan_Greenspan_0002.jpg",
+      "b": "Alan_Mulally\\Alan_Mulally_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alan_Mulally\\Alan_Mulally_0001.jpg",
+      "b": "Alastair_Campbell\\Alastair_Campbell_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alan_Mulally\\Alan_Mulally_0002.jpg",
+      "b": "Alastair_Campbell\\Alastair_Campbell_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alastair_Campbell\\Alastair_Campbell_0001.jpg",
+      "b": "Albert_Costa\\Albert_Costa_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alastair_Campbell\\Alastair_Campbell_0002.jpg",
+      "b": "Albert_Costa\\Albert_Costa_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alastair_Campbell\\Alastair_Campbell_0003.jpg",
+      "b": "Albert_Costa\\Albert_Costa_0004.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alastair_Campbell\\Alastair_Campbell_0004.jpg",
+      "b": "Albert_Costa\\Albert_Costa_0005.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alastair_Campbell\\Alastair_Campbell_0005.jpg",
+      "b": "Albert_Costa\\Albert_Costa_0006.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Albert_Costa\\Albert_Costa_0001.jpg",
+      "b": "Alberto_Fujimori\\Alberto_Fujimori_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Albert_Costa\\Albert_Costa_0002.jpg",
+      "b": "Alberto_Fujimori\\Alberto_Fujimori_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alberto_Fujimori\\Alberto_Fujimori_0001.jpg",
+      "b": "Alberto_Ruiz_Gallardon\\Alberto_Ruiz_Gallardon_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alberto_Fujimori\\Alberto_Fujimori_0002.jpg",
+      "b": "Alberto_Ruiz_Gallardon\\Alberto_Ruiz_Gallardon_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alberto_Ruiz_Gallardon\\Alberto_Ruiz_Gallardon_0001.jpg",
+      "b": "Albrecht_Mentz\\Albrecht_Mentz_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alberto_Ruiz_Gallardon\\Alberto_Ruiz_Gallardon_0002.jpg",
+      "b": "Albrecht_Mentz\\Albrecht_Mentz_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Albrecht_Mentz\\Albrecht_Mentz_0001.jpg",
+      "b": "Aldo_Paredes\\Aldo_Paredes_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Albrecht_Mentz\\Albrecht_Mentz_0002.jpg",
+      "b": "Aldo_Paredes\\Aldo_Paredes_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aldo_Paredes\\Aldo_Paredes_0001.jpg",
+      "b": "Alec_Baldwin\\Alec_Baldwin_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Aldo_Paredes\\Aldo_Paredes_0002.jpg",
+      "b": "Alec_Baldwin\\Alec_Baldwin_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alec_Baldwin\\Alec_Baldwin_0001.jpg",
+      "b": "Alejandro_Atchugarry\\Alejandro_Atchugarry_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alec_Baldwin\\Alec_Baldwin_0002.jpg",
+      "b": "Alejandro_Atchugarry\\Alejandro_Atchugarry_0001.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alejandro_Atchugarry\\Alejandro_Atchugarry_0001.jpg",
+      "b": "Alejandro_Avila\\Alejandro_Avila_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alejandro_Atchugarry\\Alejandro_Atchugarry_0002.jpg",
+      "b": "Alejandro_Avila\\Alejandro_Avila_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alejandro_Avila\\Alejandro_Avila_0001.jpg",
+      "b": "Alejandro_Toledo\\Alejandro_Toledo_0002.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alejandro_Avila\\Alejandro_Avila_0002.jpg",
+      "b": "Alejandro_Toledo\\Alejandro_Toledo_0003.jpg",
+      "label": "neg"
+    },
+    {
+      "a": "Alejandro_Avila\\Alejandro_Avila_0003.jpg",
+      "b": "Alejandro_Toledo\\Alejandro_Toledo_0004.jpg",
+      "label": "neg"
+    }
+  ],
+  "roc_curve": {
+    "fpr": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.01,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.02,
+      0.03,
+      0.04,
+      0.05,
+      0.06,
+      0.06,
+      0.06,
+      0.06,
+      0.06,
+      0.07,
+      0.08,
+      0.08,
+      0.08,
+      0.09,
+      0.09,
+      0.1,
+      0.11,
+      0.11,
+      0.11,
+      0.11,
+      0.11,
+      0.12,
+      0.12,
+      0.12,
+      0.12,
+      0.12,
+      0.13,
+      0.13,
+      0.14,
+      0.15,
+      0.16,
+      0.16,
+      0.17,
+      0.17,
+      0.17,
+      0.17,
+      0.17,
+      0.18,
+      0.18,
+      0.18,
+      0.18,
+      0.18,
+      0.19,
+      0.19,
+      0.2,
+      0.2,
+      0.2,
+      0.2,
+      0.2,
+      0.21,
+      0.21,
+      0.21,
+      0.22,
+      0.22,
+      0.22,
+      0.22,
+      0.22,
+      0.23,
+      0.23,
+      0.24,
+      0.25,
+      0.25,
+      0.26,
+      0.26,
+      0.27,
+      0.27,
+      0.28,
+      0.29,
+      0.29,
+      0.29,
+      0.3,
+      0.3,
+      0.31,
+      0.32,
+      0.32,
+      0.33,
+      0.34,
+      0.35,
+      0.35,
+      0.36,
+      0.37,
+      0.38,
+      0.39,
+      0.39,
+      0.4,
+      0.41,
+      0.42,
+      0.42,
+      0.43,
+      0.43,
+      0.44,
+      0.44,
+      0.45,
+      0.45,
+      0.46,
+      0.47,
+      0.48,
+      0.49,
+      0.49,
+      0.49,
+      0.49,
+      0.5,
+      0.51,
+      0.52,
+      0.52,
+      0.52,
+      0.52,
+      0.52,
+      0.53,
+      0.53,
+      0.54,
+      0.55,
+      0.56,
+      0.57,
+      0.58,
+      0.59,
+      0.6,
+      0.61,
+      0.62,
+      0.62,
+      0.63,
+      0.64,
+      0.64,
+      0.65,
+      0.66,
+      0.67,
+      0.67,
+      0.68,
+      0.69,
+      0.69,
+      0.7,
+      0.71,
+      0.72,
+      0.73,
+      0.74,
+      0.74,
+      0.75,
+      0.75,
+      0.75,
+      0.76,
+      0.77,
+      0.77,
+      0.77,
+      0.77,
+      0.77,
+      0.78,
+      0.79,
+      0.8,
+      0.81,
+      0.81,
+      0.82,
+      0.83,
+      0.84,
+      0.85,
+      0.85,
+      0.86,
+      0.87,
+      0.87,
+      0.87,
+      0.87,
+      0.87,
+      0.88,
+      0.89,
+      0.89,
+      0.89,
+      0.9,
+      0.9,
+      0.91,
+      0.92,
+      0.93,
+      0.93,
+      0.93,
+      0.93,
+      0.93,
+      0.94,
+      0.95,
+      0.96,
+      0.97,
+      0.98,
+      0.99,
+      0.99,
+      1.0,
+      1.0
+    ],
+    "tpr": [
+      0.0,
+      0.01,
+      0.02,
+      0.03,
+      0.04,
+      0.04,
+      0.04,
+      0.05,
+      0.06,
+      0.07,
+      0.08,
+      0.09,
+      0.1,
+      0.11,
+      0.12,
+      0.13,
+      0.14,
+      0.15,
+      0.16,
+      0.16,
+      0.16,
+      0.16,
+      0.16,
+      0.17,
+      0.18,
+      0.19,
+      0.2,
+      0.2,
+      0.2,
+      0.21,
+      0.22,
+      0.22,
+      0.23,
+      0.23,
+      0.23,
+      0.24,
+      0.25,
+      0.26,
+      0.27,
+      0.27,
+      0.28,
+      0.29,
+      0.3,
+      0.31,
+      0.31,
+      0.32,
+      0.32,
+      0.32,
+      0.32,
+      0.33,
+      0.33,
+      0.34,
+      0.35,
+      0.36,
+      0.37,
+      0.37,
+      0.38,
+      0.39,
+      0.4,
+      0.41,
+      0.41,
+      0.42,
+      0.42,
+      0.43,
+      0.44,
+      0.45,
+      0.46,
+      0.46,
+      0.47,
+      0.48,
+      0.48,
+      0.49,
+      0.5,
+      0.51,
+      0.52,
+      0.52,
+      0.53,
+      0.53,
+      0.53,
+      0.54,
+      0.54,
+      0.55,
+      0.55,
+      0.56,
+      0.56,
+      0.56,
+      0.57,
+      0.58,
+      0.58,
+      0.59,
+      0.59,
+      0.59,
+      0.6,
+      0.6,
+      0.6,
+      0.6,
+      0.61,
+      0.61,
+      0.61,
+      0.61,
+      0.61,
+      0.62,
+      0.62,
+      0.62,
+      0.62,
+      0.63,
+      0.63,
+      0.64,
+      0.64,
+      0.65,
+      0.65,
+      0.66,
+      0.66,
+      0.66,
+      0.66,
+      0.66,
+      0.67,
+      0.68,
+      0.69,
+      0.69,
+      0.69,
+      0.69,
+      0.7,
+      0.71,
+      0.72,
+      0.73,
+      0.73,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.74,
+      0.75,
+      0.75,
+      0.75,
+      0.76,
+      0.76,
+      0.76,
+      0.76,
+      0.77,
+      0.77,
+      0.77,
+      0.78,
+      0.78,
+      0.78,
+      0.78,
+      0.78,
+      0.78,
+      0.79,
+      0.79,
+      0.8,
+      0.81,
+      0.81,
+      0.81,
+      0.82,
+      0.83,
+      0.84,
+      0.85,
+      0.85,
+      0.85,
+      0.85,
+      0.85,
+      0.86,
+      0.86,
+      0.86,
+      0.86,
+      0.86,
+      0.87,
+      0.87,
+      0.87,
+      0.88,
+      0.89,
+      0.9,
+      0.91,
+      0.91,
+      0.91,
+      0.92,
+      0.93,
+      0.93,
+      0.94,
+      0.94,
+      0.94,
+      0.94,
+      0.95,
+      0.96,
+      0.97,
+      0.98,
+      0.98,
+      0.98,
+      0.98,
+      0.98,
+      0.98,
+      0.98,
+      0.99,
+      0.99,
+      1.0
+    ],
+    "thresholds": [
+      0.8395429716835022,
+      0.8395419716835022,
+      0.826093316078186,
+      0.8123245239257812,
+      0.8067288994789124,
+      0.7943795919418335,
+      0.7938697338104248,
+      0.7837109565734863,
+      0.7796574831008911,
+      0.7746338844299316,
+      0.7720900177955627,
+      0.7656877040863037,
+      0.7654476165771484,
+      0.760638952255249,
+      0.7605412602424622,
+      0.7546889185905457,
+      0.751470148563385,
+      0.7514572143554688,
+      0.7482507824897766,
+      0.7473539710044861,
+      0.743667483329773,
+      0.7376921772956848,
+      0.735402524471283,
+      0.7347663044929504,
+      0.7346728444099426,
+      0.7325538992881775,
+      0.7312843203544617,
+      0.7283743619918823,
+      0.7283016443252563,
+      0.7278735637664795,
+      0.7262564301490784,
+      0.7220572233200073,
+      0.7200490236282349,
+      0.7196317911148071,
+      0.717612087726593,
+      0.7168929576873779,
+      0.7148744463920593,
+      0.7123604416847229,
+      0.7106243371963501,
+      0.7104564309120178,
+      0.7098270058631897,
+      0.7088083624839783,
+      0.7081032395362854,
+      0.7080428004264832,
+      0.707572340965271,
+      0.7068091034889221,
+      0.7059841752052307,
+      0.7052198052406311,
+      0.7043787240982056,
+      0.7030936479568481,
+      0.7028980255126953,
+      0.7026466131210327,
+      0.7026185989379883,
+      0.7025737762451172,
+      0.7000500559806824,
+      0.6991645693778992,
+      0.6983078718185425,
+      0.6964173316955566,
+      0.6963101625442505,
+      0.6939390301704407,
+      0.693372368812561,
+      0.6916922330856323,
+      0.6912473440170288,
+      0.6909960508346558,
+      0.688616156578064,
+      0.6883264183998108,
+      0.6881391406059265,
+      0.6867096424102783,
+      0.6861315369606018,
+      0.6855946183204651,
+      0.6838443875312805,
+      0.6836724281311035,
+      0.6818864941596985,
+      0.6807814240455627,
+      0.6806308031082153,
+      0.6793056130409241,
+      0.6771225333213806,
+      0.6767328977584839,
+      0.6763691902160645,
+      0.6762732267379761,
+      0.6738503575325012,
+      0.6724454760551453,
+      0.6712512373924255,
+      0.6700670719146729,
+      0.6693618893623352,
+      0.6676142811775208,
+      0.6659502387046814,
+      0.6656776070594788,
+      0.6653670072555542,
+      0.6651771664619446,
+      0.6646467447280884,
+      0.6644578576087952,
+      0.6642678380012512,
+      0.6628851890563965,
+      0.6627328395843506,
+      0.662334144115448,
+      0.6616057753562927,
+      0.6610073447227478,
+      0.6608338356018066,
+      0.6606524586677551,
+      0.659542977809906,
+      0.658603310585022,
+      0.658505380153656,
+      0.6577606797218323,
+      0.6565130352973938,
+      0.656288743019104,
+      0.6560200452804565,
+      0.654765784740448,
+      0.6545118689537048,
+      0.6543664932250977,
+      0.6528043746948242,
+      0.652606725692749,
+      0.6520788073539734,
+      0.651887834072113,
+      0.6504920125007629,
+      0.6501295566558838,
+      0.6500759720802307,
+      0.6480503678321838,
+      0.6476210355758667,
+      0.6473735570907593,
+      0.6445119380950928,
+      0.6440068483352661,
+      0.6437311768531799,
+      0.6433368921279907,
+      0.6422739624977112,
+      0.6389840245246887,
+      0.6383075714111328,
+      0.6374491453170776,
+      0.636737585067749,
+      0.6359226107597351,
+      0.6343729496002197,
+      0.6341748833656311,
+      0.6317040324211121,
+      0.6312074065208435,
+      0.6302997469902039,
+      0.6300269365310669,
+      0.6296402812004089,
+      0.6268349885940552,
+      0.6246356964111328,
+      0.6243209838867188,
+      0.6237517595291138,
+      0.6233804821968079,
+      0.6225766539573669,
+      0.6205496191978455,
+      0.6197543740272522,
+      0.619171679019928,
+      0.617792546749115,
+      0.6174882650375366,
+      0.6170516014099121,
+      0.6164335608482361,
+      0.6161269545555115,
+      0.6157985329627991,
+      0.611549437046051,
+      0.6095335483551025,
+      0.609143853187561,
+      0.609046220779419,
+      0.6080698370933533,
+      0.6059964299201965,
+      0.6057249307632446,
+      0.6023896336555481,
+      0.5951383709907532,
+      0.5933182239532471,
+      0.5923025012016296,
+      0.5876953601837158,
+      0.5871182084083557,
+      0.5856746435165405,
+      0.580841064453125,
+      0.5800023078918457,
+      0.579027533531189,
+      0.5766291618347168,
+      0.57639479637146,
+      0.5762171149253845,
+      0.5755360126495361,
+      0.575408935546875,
+      0.5737864375114441,
+      0.5682123899459839,
+      0.561182975769043,
+      0.5597372055053711,
+      0.5593056678771973,
+      0.5575295686721802,
+      0.5564920902252197,
+      0.5553989410400391,
+      0.5552275776863098,
+      0.5531313419342041,
+      0.5490546822547913,
+      0.5440880656242371,
+      0.5418587923049927,
+      0.5393325686454773,
+      0.5370982885360718,
+      0.52837735414505,
+      0.5268179774284363,
+      0.5259402394294739,
+      0.5254015922546387,
+      0.508495032787323,
+      0.5078608989715576,
+      0.4929662346839905,
+      0.47219613194465637,
+      0.46910688281059265,
+      0.4581623077392578,
+      0.4479675590991974,
+      0.41882893443107605
+    ]
+  }
+}
