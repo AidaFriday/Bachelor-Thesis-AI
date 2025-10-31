@@ -4,11 +4,14 @@ import numpy as np
 from tqdm import tqdm
 import sys
 import json
-from sklearn.metrics import confusion_matrix
 
 # ✅ Correct path: go up 3 directories (image → validation_accuracy → benchmark_parameters → src)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
+
+
+# ✅ <<< HARD-CODE YOUR THRESHOLD HERE >>>
+FIXED_THRESHOLD = 0.60
 
 
 def cosine_similarity(a, b):
@@ -33,7 +36,6 @@ def collect_pairs(dataset_path, max_pairs=300):
     pos_pairs = []
     neg_pairs = []
 
-    # Positive pairs (same identity, first two images)
     for person in people:
         imgs = sorted(
             [
@@ -45,7 +47,6 @@ def collect_pairs(dataset_path, max_pairs=300):
         if len(imgs) >= 2:
             pos_pairs.append((imgs[0], imgs[1], 1))
 
-    # Negative pairs (adjacent identity folders)
     for i in range(len(people) - 1):
         p1 = people[i]
         p2 = people[i + 1]
@@ -75,50 +76,16 @@ def collect_pairs(dataset_path, max_pairs=300):
             )
 
     half = max_pairs // 2
-    pairs = pos_pairs[:half] + neg_pairs[:half]
-    return pairs[:max_pairs]
-
-
-def compute_confusion_from_scores(scores, labels):
-    """Pick best threshold & compute confusion matrix."""
-    scores = np.array(scores)
-    labels = np.array(labels)
-
-    thresholds = np.unique(scores)
-    best_acc = -1
-    best_t = 0.5
-
-    for t in thresholds:
-        preds = (scores >= t).astype(int)
-        acc = (preds == labels).mean()
-        if acc > best_acc:
-            best_acc = acc
-            best_t = t
-
-    preds = (scores >= best_t).astype(int)
-
-    tp = int(((preds == 1) & (labels == 1)).sum())
-    tn = int(((preds == 0) & (labels == 0)).sum())
-    fp = int(((preds == 1) & (labels == 0)).sum())
-    fn = int(((preds == 0) & (labels == 1)).sum())
-
-    return {
-        "tp": tp,
-        "tn": tn,
-        "fp": fp,
-        "fn": fn,
-        "accuracy": float(best_acc),
-        "threshold": float(best_t),
-    }
+    return (pos_pairs[:half] + neg_pairs[:half])[:max_pairs]
 
 
 def run_confusion(model_name, dataset_path, iters=300):
     print(f"[CM] Model: {model_name}")
     print(f"[CM] Dataset: {dataset_path}")
+    print(f"[CM] Using FIXED THRESHOLD = {FIXED_THRESHOLD}")
 
     wrapper = load_model(model_name)
 
-    # Support "lfw-deepfunneled" auto-pathing
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
@@ -141,9 +108,25 @@ def run_confusion(model_name, dataset_path, iters=300):
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(label)
 
-    result = compute_confusion_from_scores(sims, labels)
+    scores = np.array(sims)
+    labels = np.array(labels)
 
-    # GUI-ready JSON output
+    preds = (scores >= FIXED_THRESHOLD).astype(int)
+
+    tp = int(((preds == 1) & (labels == 1)).sum())
+    tn = int(((preds == 0) & (labels == 0)).sum())
+    fp = int(((preds == 1) & (labels == 0)).sum())
+    fn = int(((preds == 0) & (labels == 1)).sum())
+
+    result = {
+        "tp": tp,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "accuracy": float((preds == labels).mean()),
+        "threshold": float(FIXED_THRESHOLD),
+    }
+
     print(
         json.dumps(
             {
@@ -164,6 +147,6 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--iters", type=int, default=300)
-    args = parser.parse_args()
 
+    args = parser.parse_args()
     run_confusion(args.model, args.dataset, args.iters)
