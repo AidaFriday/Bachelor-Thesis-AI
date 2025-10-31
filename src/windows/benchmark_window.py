@@ -355,17 +355,59 @@ class BenchmarkPage(QWidget):
 
             # For validation accuracy, skip person selection — script handles pairs internally
             if "validation_accuracy" in os.path.basename(file_path).lower():
+
+                # Step 1: Ask how many pairs to test
                 num_pairs, ok = QInputDialog.getInt(
                     self,
                     "Number of Pairs",
                     "How many pairs to test?",
-                    600,  # default
-                    100,  # min
-                    6000,  # max
-                    100,  # step
+                    600,
+                    100,
+                    6000,
+                    100,
                 )
                 if not ok:
                     return
+
+                # Step 2: Pick a starting identity (single selection)
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+
+                start_person = dlg.selected_subjects[0]
+
+                os.environ["LFW_START_PERSON"] = start_person
+                os.environ["POS_RATIO"] = "0.5"
+                iters = num_pairs
+
+                # ✅ Step 3: Ask which metric to run
+                resp = QMessageBox.question(
+                    self,
+                    "Select Evaluation Method",
+                    "Which evaluation metric would you like to compute?\n\n"
+                    "Yes = ROC Curve (AUC, EER, TAR@FAR=1e-3)\n"
+                    "No = Confusion Matrix (TP/TN/FP/FN, Accuracy, Threshold)",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes,
+                )
+
+                # ✅ Select script
+                if resp == QMessageBox.Yes:
+                    file_path = os.path.join(
+                        self.benchmark_dir, "validation_accuracy", "logic_roc_graph.py"
+                    )
+                else:
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "logic_confusion_matrix.py",
+                    )
 
                 ds_for_dialog = self.dataset_path
                 if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
@@ -520,6 +562,47 @@ class BenchmarkPage(QWidget):
         kind = data.get("kind", "")
         fig.clear()
         ax = fig.add_subplot(111)
+
+        # ===================== CONFUSION MATRIX =====================
+        if data.get("kind") == "confusion_matrix":
+            tp = data["tp"]
+            tn = data["tn"]
+            fp = data["fp"]
+            fn = data["fn"]
+            threshold = data["threshold"]
+            acc = data["accuracy"] * 100.0
+            model = data.get("model", "")
+            dataset = data.get("dataset", "")
+
+            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            im = ax.imshow(cm, cmap="Blues")
+
+            ax.set_xticks([0, 1])
+            ax.set_yticks([0, 1])
+            ax.set_xticklabels(["Pred POS", "Pred NEG"])
+            ax.set_yticklabels(["Actual POS", "Actual NEG"])
+
+            for i in range(2):
+                for j in range(2):
+                    ax.text(
+                        j,
+                        i,
+                        int(cm[i, j]),
+                        ha="center",
+                        va="center",
+                        color="black",
+                        fontsize=12,
+                    )
+
+            ax.set_title(
+                f"Confusion Matrix – {model} on {dataset}\nAcc={acc:.2f}%, Thr={threshold:.4f}"
+            )
+            fig.colorbar(im, ax=ax)
+            canvas.draw()
+            return
 
         # ===================== LATENCY MODE =====================
 
