@@ -110,7 +110,7 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            #append any extra CLI arguments (e.g., --start-person, --pos-ratio)
+            # append any extra CLI arguments (e.g., --start-person, --pos-ratio)
             if self.extra_args:
                 cmd.extend(self.extra_args)
 
@@ -701,6 +701,56 @@ class BenchmarkPage(QWidget):
                         alpha=0.7,
                     ),
                 )
+
+            canvas.draw()
+            return
+
+        # ===================== ROC IMAGE RESULT =====================
+        if data.get("kind") == "roc_image":
+            img_path = data.get("path")
+            if not os.path.exists(img_path):
+                print(f"[WARN] ROC image not found at {img_path}")
+                return
+
+            import matplotlib.image as mpimg
+
+            fig.clear()
+            img = mpimg.imread(img_path)
+            ax = fig.add_subplot(111)
+            ax.imshow(img)
+            ax.axis("off")
+            canvas.draw()
+            return
+
+            # ===================== SIMPLE IMAGE ACCURACY =====================
+        if data.get("kind") == "accuracy_image_simple":
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc = float(data.get("accuracy", 0)) * 100.0
+            threshold = float(data.get("threshold", 0))
+            pairs = int(data.get("pairs_tested", 0))
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.axis("off")
+
+            text = (
+                f"Model: {model}\n"
+                f"Dataset: {dataset}\n\n"
+                f"Accuracy: {acc:.2f}%\n"
+                f"Best Threshold: {threshold:.4f}\n"
+                f"Pairs Tested: {pairs}"
+            )
+
+            ax.text(
+                0.5,
+                0.5,
+                text,
+                ha="center",
+                va="center",
+                fontsize=12,
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="black", alpha=0.8),
+            )
 
             canvas.draw()
             return

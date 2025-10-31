@@ -1,14 +1,14 @@
-# logic_dataset_image_va.py
 import os
 import cv2
+import json
 import numpy as np
 from tqdm import tqdm
 import sys
-import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
-import json
+import matplotlib.pyplot as plt
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+# ✅ Correct path: go up two folders to reach src/
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from connector import load_model
 
 
@@ -45,8 +45,7 @@ def collect_pairs(dataset_path, max_pairs=300):
             pos_pairs.append((imgs[0], imgs[1], 1))
 
     for i in range(len(people) - 1):
-        p1 = people[i]
-        p2 = people[i + 1]
+        p1, p2 = people[i], people[i + 1]
 
         imgs1 = sorted(
             [
@@ -62,24 +61,23 @@ def collect_pairs(dataset_path, max_pairs=300):
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
-        if not imgs1 or not imgs2:
-            continue
-
-        neg_pairs.append(
-            (
-                os.path.join(dataset_path, p1, imgs1[0]),
-                os.path.join(dataset_path, p2, imgs2[0]),
-                0,
+        if imgs1 and imgs2:
+            neg_pairs.append(
+                (
+                    os.path.join(dataset_path, p1, imgs1[0]),
+                    os.path.join(dataset_path, p2, imgs2[0]),
+                    0,
+                )
             )
-        )
 
     pairs = pos_pairs[: max_pairs // 2] + neg_pairs[: max_pairs // 2]
     return pairs[:max_pairs]
 
 
-def run_logic(model_name, iters=300, frame_h=None, frame_w=None, dataset_path=None):
+def run_roc(model_name, dataset_path, iters=300):
     print(f"[ROC] Model: {model_name}")
     print(f"[ROC] Dataset: {dataset_path}")
+    print(f"[ROC] Pairs: {iters}")
 
     wrapper = load_model(model_name)
 
@@ -100,37 +98,50 @@ def run_logic(model_name, iters=300, frame_h=None, frame_w=None, dataset_path=No
         emb2 = wrapper.embed(b)
         if emb1 is None or emb2 is None:
             continue
+
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(label)
 
     sims = np.array(sims)
     labels = np.array(labels)
 
+    # Compute ROC curve
     fpr, tpr, _ = roc_curve(labels, sims)
-    auc_val = auc(fpr, tpr)
+    roc_auc = auc(fpr, tpr)
 
-    export_path = os.path.join(os.path.dirname(__file__), "last_roc.png")
-
-    plt.figure(figsize=(5, 5))
-    plt.plot(fpr, tpr, label=f"ROC (AUC={auc_val:.4f})")
-    plt.plot([0, 1], [0, 1], "k--")
+    # Save plot
+    save_path = os.path.join(os.path.dirname(__file__), "roc_result.png")
+    plt.figure(figsize=(6, 5))
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title(f"ROC: {model_name} on LFW")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(export_path)
+    plt.title(f"ROC Curve – {model_name}")
+    plt.legend(loc="lower right")
+    plt.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close()
 
-    print(f"[ROC] Saved to: {export_path}")
+    # Output JSON for GUI
+    print(
+        json.dumps(
+            {
+                "kind": "roc_simple",
+                "model": model_name,
+                "dataset": os.path.basename(dataset_path),
+                "auc": float(roc_auc),
+                "roc_png": save_path,
+            }
+        )
+    )
 
-    result = {
-        "kind": "roc_image",
-        "path": export_path,
-        "auc": float(auc_val),
-        "pairs_tested": len(labels),
-        "model": model_name,
-        "dataset": os.path.basename(dataset_path),
-    }
 
-    print(json.dumps(result))
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--iters", type=int, default=300)
+    args = parser.parse_args()
+
+    run_roc(args.model, args.dataset, args.iters)

@@ -43,25 +43,34 @@ def run(model_name, iters, frame_h, frame_w, dataset=None):
     dataset = dataset or ""
     dl = dataset.lower()
 
+    # ✅ IMAGE DATASET (LFW, Celeb, etc.)
     if "lfw" in dl:
         from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
             run_logic as logic_run,
         )
 
-        send_log(f"[accuracy] Using IMAGE dataset logic for {dataset}")
+        send_log(f"[accuracy] Using SIMPLE IMAGE cosine test for {dataset}")
+
+        # IMPORTANT: run_logic(model, iters, frame_h, frame_w, dataset_path=...)
+        logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
+        return
+
+    # ✅ VIDEO DATASET
     elif "ytf" in dl or "aligned_images_db" in dl or "video" in dl:
         from benchmark_parameters.validation_accuracy.logic_dataset_video_va import (
             run_logic as logic_run,
         )
 
         send_log(f"[accuracy] Using VIDEO dataset logic for {dataset}")
-    else:
-        from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
-            run_logic as logic_run,
-        )
+        logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
+        return
 
-        send_log(f"[accuracy] Defaulting to IMAGE dataset logic (no match)")
+    # ✅ DEFAULT → treat as IMAGE dataset
+    from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
+        run_logic as logic_run,
+    )
 
+    send_log(f"[accuracy] Defaulting to SIMPLE IMAGE cosine test")
     logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
 
 
