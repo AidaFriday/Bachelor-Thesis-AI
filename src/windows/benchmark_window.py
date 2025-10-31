@@ -715,10 +715,48 @@ class BenchmarkPage(QWidget):
             import matplotlib.image as mpimg
 
             fig.clear()
+            fig.set_facecolor("white")
+            ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
             img = mpimg.imread(img_path)
-            ax = fig.add_subplot(111)
             ax.imshow(img)
-            ax.axis("off")
+            ax.set_axis_off()
+
+            # ---- NEW METRIC OVERLAY ----
+            auc_val = data.get("auc")
+            eer = data.get("eer")
+            tar = data.get("tar_far_1e3")
+            pairs = data.get("pairs_tested")
+            model = data.get("model")
+            dataset = data.get("dataset")
+
+            # Build annotation text
+            lines = []
+            if model and dataset:
+                lines.append(f"{model} on {dataset}")
+            if auc_val is not None:
+                lines.append(f"AUC: {float(auc_val):.4f}")
+            if eer is not None:
+                lines.append(f"EER: {float(eer)*100:.2f}%")
+            if tar is not None:
+                lines.append(f"TAR@FAR=1e-3: {float(tar)*100:.2f}%")
+            if pairs:
+                lines.append(f"Pairs: {int(pairs)}")
+
+            # Draw overlay (bottom-right)
+            if lines:
+                fig.text(
+                    0.98,
+                    0.04,
+                    "\n".join(lines),
+                    ha="right",
+                    va="bottom",
+                    fontsize=10,
+                    bbox=dict(
+                        boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                    ),
+                )
+
+            canvas.setStyleSheet("background-color: white;")
             canvas.draw()
             return
 

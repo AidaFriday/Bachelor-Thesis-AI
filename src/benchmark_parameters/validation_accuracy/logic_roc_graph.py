@@ -98,7 +98,6 @@ def run_roc(model_name, dataset_path, iters=300):
         emb2 = wrapper.embed(b)
         if emb1 is None or emb2 is None:
             continue
-
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(label)
 
@@ -106,10 +105,23 @@ def run_roc(model_name, dataset_path, iters=300):
     labels = np.array(labels)
 
     # Compute ROC curve
-    fpr, tpr, _ = roc_curve(labels, sims)
+    fpr, tpr, thresholds = roc_curve(labels, sims)
     roc_auc = auc(fpr, tpr)
 
-    # Save plot
+    # --------- ✅ Compute EER ---------
+    fnr = 1 - tpr
+    eer_index = np.nanargmin(np.abs(fnr - fpr))
+    eer = (fpr[eer_index] + fnr[eer_index]) / 2.0
+
+    # --------- ✅ Compute TAR @ FAR = 1e-3 ---------
+    target_far = 1e-3
+    idx = np.searchsorted(fpr, target_far, side="right") - 1
+    if 0 <= idx < len(tpr):
+        tar_at_far = tpr[idx]
+    else:
+        tar_at_far = float("nan")
+
+    # Save ROC PNG
     save_path = os.path.join(os.path.dirname(__file__), "roc_result.png")
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
@@ -121,15 +133,18 @@ def run_roc(model_name, dataset_path, iters=300):
     plt.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close()
 
-    # Output JSON for GUI
+    # --------- ✅ Output JSON to GUI ---------
     print(
         json.dumps(
             {
-                "kind": "roc_simple",
+                "kind": "roc_image",
+                "path": save_path,
+                "auc": float(roc_auc),
+                "eer": float(eer),
+                "tar_far_1e3": float(tar_at_far),
+                "pairs_tested": int(len(labels)),
                 "model": model_name,
                 "dataset": os.path.basename(dataset_path),
-                "auc": float(roc_auc),
-                "roc_png": save_path,
             }
         )
     )

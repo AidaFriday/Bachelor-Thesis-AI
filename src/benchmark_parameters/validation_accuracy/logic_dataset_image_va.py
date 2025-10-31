@@ -109,6 +109,16 @@ def run_logic(model_name, iters=300, frame_h=None, frame_w=None, dataset_path=No
     fpr, tpr, _ = roc_curve(labels, sims)
     auc_val = auc(fpr, tpr)
 
+    # --- EER (point where FAR == FRR) ---
+    fnr = 1.0 - tpr
+    eer_idx = np.nanargmin(np.abs(fnr - fpr))
+    eer = float((fnr[eer_idx] + fpr[eer_idx]) / 2.0)
+
+    # --- TAR @ FAR = 1e-3 ---
+    target_far = 1e-3
+    # fpr is monotonic from roc_curve, so interpolation is OK
+    tar_at_far = float(np.interp(target_far, fpr, tpr, left=tpr[0], right=tpr[-1]))
+
     export_path = os.path.join(os.path.dirname(__file__), "last_roc.png")
 
     plt.figure(figsize=(5, 5))
@@ -128,6 +138,8 @@ def run_logic(model_name, iters=300, frame_h=None, frame_w=None, dataset_path=No
         "kind": "roc_image",
         "path": export_path,
         "auc": float(auc_val),
+        "eer": float(eer),  # <--- NEW
+        "tar_far_1e3": float(tar_at_far),  # <--- NEW
         "pairs_tested": len(labels),
         "model": model_name,
         "dataset": os.path.basename(dataset_path),
