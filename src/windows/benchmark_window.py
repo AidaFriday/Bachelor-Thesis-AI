@@ -110,7 +110,7 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # NEW: append any extra CLI arguments (e.g., --start-person, --pos-ratio)
+            #append any extra CLI arguments (e.g., --start-person, --pos-ratio)
             if self.extra_args:
                 cmd.extend(self.extra_args)
 
