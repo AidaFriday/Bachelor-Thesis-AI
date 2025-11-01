@@ -1,8 +1,9 @@
 {
-    "generated_at": "2025-10-31T17:48:43",
+    "generated_at": "2025-11-01T16:49:32",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
-    "count": 29,
+    "count": 32,
     "files": [
+        "arcface_test.py",
         "benchmark_parameters/performance/fps/fps.py",
         "benchmark_parameters/performance/inference/logic_inference.py",
         "benchmark_parameters/performance/latency/latency.py",
@@ -26,6 +27,8 @@
         "extractor.py",
         "main.py",
         "models/wrap_arcface.py",
+        "models/wrap_deepface.py",
+        "models/wrap_facedetection.py",
         "models/wrap_facenet.py",
         "models/wrap_insightface.py",
         "models/wrap_lightcnn.py",

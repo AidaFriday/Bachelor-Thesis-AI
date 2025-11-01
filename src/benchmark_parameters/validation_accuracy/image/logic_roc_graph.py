@@ -7,6 +7,7 @@ import sys
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 
+# make project root importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
 
@@ -45,7 +46,6 @@ def collect_pairs(dataset_path, max_pairs=300):
 
     for i in range(len(people) - 1):
         p1, p2 = people[i], people[i + 1]
-
         imgs1 = sorted(
             [
                 f
@@ -80,6 +80,7 @@ def run_roc(model_name, dataset_path, iters=300):
 
     wrapper = load_model(model_name)
 
+    # ensure correct LFW path
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
@@ -89,30 +90,47 @@ def run_roc(model_name, dataset_path, iters=300):
     labels = []
 
     for img1, img2, label in tqdm(pairs):
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
             continue
-        emb1 = wrapper.embed(a)
-        emb2 = wrapper.embed(b)
+
+        # ---- detect faces ----
+        faces_a = wrapper.detector.detect(a)
+        faces_b = wrapper.detector.detect(b)
+        if not faces_a or not faces_b:
+            continue
+
+        # ---- align using landmarks ----
+        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
+        if aligned_a is None or aligned_b is None:
+            continue
+
+        # ---- embeddings ----
+        emb1 = wrapper.embed(aligned_a)
+        emb2 = wrapper.embed(aligned_b)
         if emb1 is None or emb2 is None:
             continue
+
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(label)
 
     sims = np.array(sims)
     labels = np.array(labels)
 
-    # Compute ROC curve
+    # Compute ROC
     fpr, tpr, thresholds = roc_curve(labels, sims)
     roc_auc = auc(fpr, tpr)
 
-    # --------- ✅ Compute EER ---------
+    # Compute EER
     fnr = 1 - tpr
     eer_index = np.nanargmin(np.abs(fnr - fpr))
     eer = (fpr[eer_index] + fnr[eer_index]) / 2.0
 
-    # --------- ✅ Compute TAR @ FAR = 1e-3 ---------
+    # Compute TAR @ FAR = 1e-3
     target_far = 1e-3
     idx = np.searchsorted(fpr, target_far, side="right") - 1
     if 0 <= idx < len(tpr):
@@ -120,7 +138,7 @@ def run_roc(model_name, dataset_path, iters=300):
     else:
         tar_at_far = float("nan")
 
-    # Save ROC PNG
+    # Save ROC plot
     save_path = os.path.join(os.path.dirname(__file__), "roc_result.png")
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
@@ -132,7 +150,6 @@ def run_roc(model_name, dataset_path, iters=300):
     plt.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close()
 
-    # --------- ✅ Output JSON to GUI ---------
     print(
         json.dumps(
             {
