@@ -99,8 +99,16 @@ def run_confusion(model_name, dataset_path, iters=300):
     sims = []
     labels = []
     pair_records = []
+    used_identities = {}
 
     for img1, img2, label in tqdm(pairs, desc="Computing Confusion Matrix"):
+
+        # ✅ Track which identities and images are used
+        person1 = os.path.basename(os.path.dirname(img1))
+        person2 = os.path.basename(os.path.dirname(img2))
+        used_identities.setdefault(person1, set()).add(os.path.basename(img1))
+        used_identities.setdefault(person2, set()).add(os.path.basename(img2))
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
@@ -164,6 +172,10 @@ def run_confusion(model_name, dataset_path, iters=300):
         "threshold": float(FIXED_THRESHOLD),
     }
 
+    identities_detail = {
+        person: sorted(list(images)) for person, images in used_identities.items()
+    }
+
     # ✅ Build export JSON
     export_data = {
         "meta": {
@@ -176,6 +188,7 @@ def run_confusion(model_name, dataset_path, iters=300):
         },
         "metrics": result,
         "pairs": pair_records,
+        "identities_used": identities_detail,
     }
 
     # ✅ Save to /exports/ folder

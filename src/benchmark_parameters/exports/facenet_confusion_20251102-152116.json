@@ -1,0 +1,1118 @@
+{
+    "meta": {
+        "model": "facenet",
+        "dataset": "lfw-deepfunneled",
+        "test_name": "Confusion Matrix (Image)",
+        "threshold": 0.6,
+        "pairs_evaluated": 100,
+        "timestamp": "20251102-152116"
+    },
+    "metrics": {
+        "kind": "confusion_matrix",
+        "model": "facenet",
+        "dataset": "lfw-deepfunneled",
+        "pairs_tested": 100,
+        "tp": 31,
+        "tn": 50,
+        "fp": 0,
+        "fn": 19,
+        "accuracy": 0.81,
+        "precision": 0.9999999999677419,
+        "recall": 0.6199999999876,
+        "specificity": 0.9999999999800001,
+        "f1": 0.7654320982740436,
+        "far": 0.0,
+        "frr": 0.37999999999240003,
+        "threshold": 0.6
+    },
+    "pairs": [
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0072.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0336.jpg",
+            "label": "pos",
+            "similarity": 0.6232166290283203,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0029.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0297.jpg",
+            "label": "pos",
+            "similarity": 0.70569908618927,
+            "predicted": 1
+        },
+        {
+            "img1": "Ariel_Sharon\\Ariel_Sharon_0031.jpg",
+            "img2": "Ariel_Sharon\\Ariel_Sharon_0070.jpg",
+            "label": "pos",
+            "similarity": 0.7627176642417908,
+            "predicted": 1
+        },
+        {
+            "img1": "Donald_Rumsfeld\\Donald_Rumsfeld_0075.jpg",
+            "img2": "Donald_Rumsfeld\\Donald_Rumsfeld_0121.jpg",
+            "label": "pos",
+            "similarity": 0.5460365414619446,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0321.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0507.jpg",
+            "label": "pos",
+            "similarity": 0.1165807917714119,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0045.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0345.jpg",
+            "label": "pos",
+            "similarity": 0.7157495021820068,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0083.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0522.jpg",
+            "label": "pos",
+            "similarity": 0.8130216002464294,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0019.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0498.jpg",
+            "label": "pos",
+            "similarity": 0.7600570321083069,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0015.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0191.jpg",
+            "label": "pos",
+            "similarity": 0.5181266069412231,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0153.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0297.jpg",
+            "label": "pos",
+            "similarity": 0.6872972249984741,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0427.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0461.jpg",
+            "label": "pos",
+            "similarity": 0.7272651195526123,
+            "predicted": 1
+        },
+        {
+            "img1": "Hans_Blix\\Hans_Blix_0030.jpg",
+            "img2": "Hans_Blix\\Hans_Blix_0038.jpg",
+            "label": "pos",
+            "similarity": 0.4740603566169739,
+            "predicted": 0
+        },
+        {
+            "img1": "Gerhard_Schroeder\\Gerhard_Schroeder_0069.jpg",
+            "img2": "Gerhard_Schroeder\\Gerhard_Schroeder_0106.jpg",
+            "label": "pos",
+            "similarity": 0.44313693046569824,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0202.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0280.jpg",
+            "label": "pos",
+            "similarity": 0.7028511762619019,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0006.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0466.jpg",
+            "label": "pos",
+            "similarity": 0.5746737122535706,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0239.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0318.jpg",
+            "label": "pos",
+            "similarity": 0.6947281956672668,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0085.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0099.jpg",
+            "label": "pos",
+            "similarity": 0.7000100612640381,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0259.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0473.jpg",
+            "label": "pos",
+            "similarity": 0.6975933313369751,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0147.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0351.jpg",
+            "label": "pos",
+            "similarity": 0.6474637389183044,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0069.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0507.jpg",
+            "label": "pos",
+            "similarity": 0.595184326171875,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0097.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0431.jpg",
+            "label": "pos",
+            "similarity": 0.6406069993972778,
+            "predicted": 1
+        },
+        {
+            "img1": "Jacques_Chirac\\Jacques_Chirac_0001.jpg",
+            "img2": "Jacques_Chirac\\Jacques_Chirac_0010.jpg",
+            "label": "pos",
+            "similarity": 0.5813001394271851,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0126.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0379.jpg",
+            "label": "pos",
+            "similarity": 0.6798402070999146,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0197.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0334.jpg",
+            "label": "pos",
+            "similarity": 0.597470760345459,
+            "predicted": 0
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0045.jpg",
+            "img2": "Colin_Powell\\Colin_Powell_0203.jpg",
+            "label": "pos",
+            "similarity": 0.9033023118972778,
+            "predicted": 1
+        },
+        {
+            "img1": "Nestor_Kirchner\\Nestor_Kirchner_0023.jpg",
+            "img2": "Nestor_Kirchner\\Nestor_Kirchner_0034.jpg",
+            "label": "pos",
+            "similarity": 0.7646055817604065,
+            "predicted": 1
+        },
+        {
+            "img1": "Donald_Rumsfeld\\Donald_Rumsfeld_0030.jpg",
+            "img2": "Donald_Rumsfeld\\Donald_Rumsfeld_0114.jpg",
+            "label": "pos",
+            "similarity": 0.7079592943191528,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0314.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0476.jpg",
+            "label": "pos",
+            "similarity": 0.5861278772354126,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0110.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0269.jpg",
+            "label": "pos",
+            "similarity": 0.5762678384780884,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0216.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0466.jpg",
+            "label": "pos",
+            "similarity": 0.7192103266716003,
+            "predicted": 1
+        },
+        {
+            "img1": "Donald_Rumsfeld\\Donald_Rumsfeld_0029.jpg",
+            "img2": "Donald_Rumsfeld\\Donald_Rumsfeld_0037.jpg",
+            "label": "pos",
+            "similarity": 0.5949372053146362,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0070.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0099.jpg",
+            "label": "pos",
+            "similarity": 0.6047307252883911,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0229.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0404.jpg",
+            "label": "pos",
+            "similarity": 0.6421071290969849,
+            "predicted": 1
+        },
+        {
+            "img1": "Hugo_Chavez\\Hugo_Chavez_0017.jpg",
+            "img2": "Hugo_Chavez\\Hugo_Chavez_0039.jpg",
+            "label": "pos",
+            "similarity": 0.668611466884613,
+            "predicted": 1
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0104.jpg",
+            "img2": "Colin_Powell\\Colin_Powell_0203.jpg",
+            "label": "pos",
+            "similarity": 0.8655824065208435,
+            "predicted": 1
+        },
+        {
+            "img1": "Serena_Williams\\Serena_Williams_0022.jpg",
+            "img2": "Serena_Williams\\Serena_Williams_0047.jpg",
+            "label": "pos",
+            "similarity": 0.8135102987289429,
+            "predicted": 1
+        },
+        {
+            "img1": "Lindsay_Davenport\\Lindsay_Davenport_0008.jpg",
+            "img2": "Lindsay_Davenport\\Lindsay_Davenport_0016.jpg",
+            "label": "pos",
+            "similarity": 0.7211426496505737,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0452.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0506.jpg",
+            "label": "pos",
+            "similarity": 0.712133526802063,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0177.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0249.jpg",
+            "label": "pos",
+            "similarity": 0.599075436592102,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0185.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0411.jpg",
+            "label": "pos",
+            "similarity": 0.6041271686553955,
+            "predicted": 1
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0151.jpg",
+            "img2": "Colin_Powell\\Colin_Powell_0227.jpg",
+            "label": "pos",
+            "similarity": 0.7973794937133789,
+            "predicted": 1
+        },
+        {
+            "img1": "David_Stern\\David_Stern_0002.jpg",
+            "img2": "David_Stern\\David_Stern_0003.jpg",
+            "label": "pos",
+            "similarity": 0.21615803241729736,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0014.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0485.jpg",
+            "label": "pos",
+            "similarity": 0.5629932880401611,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0088.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0520.jpg",
+            "label": "pos",
+            "similarity": 0.74169921875,
+            "predicted": 1
+        },
+        {
+            "img1": "Jennifer_Connelly\\Jennifer_Connelly_0002.jpg",
+            "img2": "Jennifer_Connelly\\Jennifer_Connelly_0004.jpg",
+            "label": "pos",
+            "similarity": 0.703382134437561,
+            "predicted": 1
+        },
+        {
+            "img1": "Alejandro_Toledo\\Alejandro_Toledo_0010.jpg",
+            "img2": "Alejandro_Toledo\\Alejandro_Toledo_0014.jpg",
+            "label": "pos",
+            "similarity": 0.584617555141449,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0178.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0359.jpg",
+            "label": "pos",
+            "similarity": 0.7245146632194519,
+            "predicted": 1
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0085.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0145.jpg",
+            "label": "pos",
+            "similarity": 0.5144692063331604,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0315.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0362.jpg",
+            "label": "pos",
+            "similarity": 0.5863369107246399,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0321.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0479.jpg",
+            "label": "pos",
+            "similarity": 0.3192502558231354,
+            "predicted": 0
+        },
+        {
+            "img1": "Andy_Griggs\\Andy_Griggs_0001.jpg",
+            "img2": "Paul_Wolfowitz\\Paul_Wolfowitz_0009.jpg",
+            "label": "neg",
+            "similarity": 0.15724186599254608,
+            "predicted": 0
+        },
+        {
+            "img1": "Larenz_Tate\\Larenz_Tate_0001.jpg",
+            "img2": "Peter_Arnett\\Peter_Arnett_0002.jpg",
+            "label": "neg",
+            "similarity": 0.140908882021904,
+            "predicted": 0
+        },
+        {
+            "img1": "Bill_Gates\\Bill_Gates_0006.jpg",
+            "img2": "John_Paul_II\\John_Paul_II_0004.jpg",
+            "label": "neg",
+            "similarity": 0.013310708105564117,
+            "predicted": 0
+        },
+        {
+            "img1": "Kristen_Breitweiser\\Kristen_Breitweiser_0001.jpg",
+            "img2": "Padraig_Harrington\\Padraig_Harrington_0001.jpg",
+            "label": "neg",
+            "similarity": 0.12445184588432312,
+            "predicted": 0
+        },
+        {
+            "img1": "Bartosz_Kizierowski\\Bartosz_Kizierowski_0001.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0241.jpg",
+            "label": "neg",
+            "similarity": 0.17376646399497986,
+            "predicted": 0
+        },
+        {
+            "img1": "Ashton_Kutcher\\Ashton_Kutcher_0003.jpg",
+            "img2": "Garry_Witherall\\Garry_Witherall_0001.jpg",
+            "label": "neg",
+            "similarity": 0.2190200239419937,
+            "predicted": 0
+        },
+        {
+            "img1": "Adel_Al-Jubeir\\Adel_Al-Jubeir_0001.jpg",
+            "img2": "Samuel_Waksal\\Samuel_Waksal_0004.jpg",
+            "label": "neg",
+            "similarity": 0.5242465734481812,
+            "predicted": 0
+        },
+        {
+            "img1": "Chen_Shui-bian\\Chen_Shui-bian_0002.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0040.jpg",
+            "label": "neg",
+            "similarity": 0.10781498998403549,
+            "predicted": 0
+        },
+        {
+            "img1": "Alessandro_Nesta\\Alessandro_Nesta_0001.jpg",
+            "img2": "Colin_Powell\\Colin_Powell_0105.jpg",
+            "label": "neg",
+            "similarity": 0.1752534806728363,
+            "predicted": 0
+        },
+        {
+            "img1": "Alison_Lohman\\Alison_Lohman_0002.jpg",
+            "img2": "Mariangel_Ruiz_Torrealba\\Mariangel_Ruiz_Torrealba_0002.jpg",
+            "label": "neg",
+            "similarity": -0.04097446799278259,
+            "predicted": 0
+        },
+        {
+            "img1": "David_Ballantyne\\David_Ballantyne_0001.jpg",
+            "img2": "Taha_Yassin_Ramadan\\Taha_Yassin_Ramadan_0002.jpg",
+            "label": "neg",
+            "similarity": 0.011535867117345333,
+            "predicted": 0
+        },
+        {
+            "img1": "David_Beckham\\David_Beckham_0030.jpg",
+            "img2": "Peter_Bacanovic\\Peter_Bacanovic_0001.jpg",
+            "label": "neg",
+            "similarity": 0.357759028673172,
+            "predicted": 0
+        },
+        {
+            "img1": "Ariel_Sharon\\Ariel_Sharon_0064.jpg",
+            "img2": "Jose_Cevallos\\Jose_Cevallos_0001.jpg",
+            "label": "neg",
+            "similarity": 0.3455158770084381,
+            "predicted": 0
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0154.jpg",
+            "img2": "Juan_Carlos_Ferrero\\Juan_Carlos_Ferrero_0023.jpg",
+            "label": "neg",
+            "similarity": -0.14233478903770447,
+            "predicted": 0
+        },
+        {
+            "img1": "Bashar_Assad\\Bashar_Assad_0004.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0277.jpg",
+            "label": "neg",
+            "similarity": 0.13987459242343903,
+            "predicted": 0
+        },
+        {
+            "img1": "Azra_Akin\\Azra_Akin_0003.jpg",
+            "img2": "Rolf_Eckrodt\\Rolf_Eckrodt_0002.jpg",
+            "label": "neg",
+            "similarity": 0.02569406107068062,
+            "predicted": 0
+        },
+        {
+            "img1": "Juan_Manuel_Marquez\\Juan_Manuel_Marquez_0002.jpg",
+            "img2": "Tom_Curley\\Tom_Curley_0001.jpg",
+            "label": "neg",
+            "similarity": 0.2534722089767456,
+            "predicted": 0
+        },
+        {
+            "img1": "Ed_Rosenthal\\Ed_Rosenthal_0002.jpg",
+            "img2": "Rebecca_Romijn-Stamos\\Rebecca_Romijn-Stamos_0003.jpg",
+            "label": "neg",
+            "similarity": 0.08517219126224518,
+            "predicted": 0
+        },
+        {
+            "img1": "Al_Sharpton\\Al_Sharpton_0006.jpg",
+            "img2": "Harrison_Ford\\Harrison_Ford_0008.jpg",
+            "label": "neg",
+            "similarity": -0.12341891974210739,
+            "predicted": 0
+        },
+        {
+            "img1": "Adolfo_Aguilar_Zinser\\Adolfo_Aguilar_Zinser_0002.jpg",
+            "img2": "Assad_Ahmadi\\Assad_Ahmadi_0001.jpg",
+            "label": "neg",
+            "similarity": 0.04612119123339653,
+            "predicted": 0
+        },
+        {
+            "img1": "Alvaro_Uribe\\Alvaro_Uribe_0010.jpg",
+            "img2": "Paddy_Long\\Paddy_Long_0001.jpg",
+            "label": "neg",
+            "similarity": 0.08159877359867096,
+            "predicted": 0
+        },
+        {
+            "img1": "Ariel_Sharon\\Ariel_Sharon_0045.jpg",
+            "img2": "Franco_Dragone\\Franco_Dragone_0002.jpg",
+            "label": "neg",
+            "similarity": 0.2531449496746063,
+            "predicted": 0
+        },
+        {
+            "img1": "Francesco_Totti\\Francesco_Totti_0001.jpg",
+            "img2": "Megawati_Sukarnoputri\\Megawati_Sukarnoputri_0009.jpg",
+            "label": "neg",
+            "similarity": -0.00906416866928339,
+            "predicted": 0
+        },
+        {
+            "img1": "Lleyton_Hewitt\\Lleyton_Hewitt_0014.jpg",
+            "img2": "Tony_Shalhoub\\Tony_Shalhoub_0002.jpg",
+            "label": "neg",
+            "similarity": 0.03248349577188492,
+            "predicted": 0
+        },
+        {
+            "img1": "Carl_Reiner\\Carl_Reiner_0002.jpg",
+            "img2": "Michael_Bloomberg\\Michael_Bloomberg_0007.jpg",
+            "label": "neg",
+            "similarity": 0.31608355045318604,
+            "predicted": 0
+        },
+        {
+            "img1": "Samira_Makhmalbaf\\Samira_Makhmalbaf_0001.jpg",
+            "img2": "Tom_Coverdale\\Tom_Coverdale_0001.jpg",
+            "label": "neg",
+            "similarity": -0.033633358776569366,
+            "predicted": 0
+        },
+        {
+            "img1": "Claudette_Robinson\\Claudette_Robinson_0001.jpg",
+            "img2": "Fernando_Gonzalez\\Fernando_Gonzalez_0001.jpg",
+            "label": "neg",
+            "similarity": -0.01994442008435726,
+            "predicted": 0
+        },
+        {
+            "img1": "Mick_Jagger\\Mick_Jagger_0005.jpg",
+            "img2": "Serena_Williams\\Serena_Williams_0003.jpg",
+            "label": "neg",
+            "similarity": -0.03732209652662277,
+            "predicted": 0
+        },
+        {
+            "img1": "Junichiro_Koizumi\\Junichiro_Koizumi_0030.jpg",
+            "img2": "Taha_Yassin_Ramadan\\Taha_Yassin_Ramadan_0006.jpg",
+            "label": "neg",
+            "similarity": 0.17744825780391693,
+            "predicted": 0
+        },
+        {
+            "img1": "Chris_Rock\\Chris_Rock_0001.jpg",
+            "img2": "Gary_Williams\\Gary_Williams_0002.jpg",
+            "label": "neg",
+            "similarity": -0.07467584311962128,
+            "predicted": 0
+        },
+        {
+            "img1": "Enrique_Bolanos\\Enrique_Bolanos_0004.jpg",
+            "img2": "Sherri_Coale\\Sherri_Coale_0001.jpg",
+            "label": "neg",
+            "similarity": 0.20974059402942657,
+            "predicted": 0
+        },
+        {
+            "img1": "David_Anderson\\David_Anderson_0001.jpg",
+            "img2": "Tommy_Tubberville\\Tommy_Tubberville_0001.jpg",
+            "label": "neg",
+            "similarity": 0.14466476440429688,
+            "predicted": 0
+        },
+        {
+            "img1": "Tony_Blair\\Tony_Blair_0142.jpg",
+            "img2": "William_Pryor_Jr\\William_Pryor_Jr_0001.jpg",
+            "label": "neg",
+            "similarity": 0.2504991292953491,
+            "predicted": 0
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0010.jpg",
+            "img2": "George_W_Bush\\George_W_Bush_0057.jpg",
+            "label": "neg",
+            "similarity": 0.0347023643553257,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0493.jpg",
+            "img2": "Tono_Suratman\\Tono_Suratman_0001.jpg",
+            "label": "neg",
+            "similarity": 0.1481703221797943,
+            "predicted": 0
+        },
+        {
+            "img1": "Ariel_Sharon\\Ariel_Sharon_0022.jpg",
+            "img2": "Ishaq_Shahryar\\Ishaq_Shahryar_0002.jpg",
+            "label": "neg",
+            "similarity": 0.33250027894973755,
+            "predicted": 0
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0051.jpg",
+            "img2": "Paul_Patton\\Paul_Patton_0001.jpg",
+            "label": "neg",
+            "similarity": 0.5085840225219727,
+            "predicted": 0
+        },
+        {
+            "img1": "Hillary_Clinton\\Hillary_Clinton_0008.jpg",
+            "img2": "Joaquim_Levy\\Joaquim_Levy_0001.jpg",
+            "label": "neg",
+            "similarity": -0.03175773471593857,
+            "predicted": 0
+        },
+        {
+            "img1": "Ernie_Els\\Ernie_Els_0002.jpg",
+            "img2": "James_Young\\James_Young_0001.jpg",
+            "label": "neg",
+            "similarity": 0.09494589269161224,
+            "predicted": 0
+        },
+        {
+            "img1": "Michael_Munoz\\Michael_Munoz_0001.jpg",
+            "img2": "Michelle_Lecky\\Michelle_Lecky_0001.jpg",
+            "label": "neg",
+            "similarity": 0.1378495991230011,
+            "predicted": 0
+        },
+        {
+            "img1": "George_W_Bush\\George_W_Bush_0057.jpg",
+            "img2": "Tony_Blair\\Tony_Blair_0106.jpg",
+            "label": "neg",
+            "similarity": 0.22064106166362762,
+            "predicted": 0
+        },
+        {
+            "img1": "Mitchell_Crooks\\Mitchell_Crooks_0001.jpg",
+            "img2": "Zhu_Rongji\\Zhu_Rongji_0003.jpg",
+            "label": "neg",
+            "similarity": -0.26729816198349,
+            "predicted": 0
+        },
+        {
+            "img1": "Clay_Aiken\\Clay_Aiken_0001.jpg",
+            "img2": "Yashwant_Sinha\\Yashwant_Sinha_0001.jpg",
+            "label": "neg",
+            "similarity": 0.04121505841612816,
+            "predicted": 0
+        },
+        {
+            "img1": "Dominique_de_Villepin\\Dominique_de_Villepin_0003.jpg",
+            "img2": "John_McCain\\John_McCain_0006.jpg",
+            "label": "neg",
+            "similarity": 0.08836757391691208,
+            "predicted": 0
+        },
+        {
+            "img1": "Colin_Powell\\Colin_Powell_0038.jpg",
+            "img2": "Edmund_Stoiber\\Edmund_Stoiber_0004.jpg",
+            "label": "neg",
+            "similarity": -0.02929300256073475,
+            "predicted": 0
+        },
+        {
+            "img1": "Luiz_Inacio_Lula_da_Silva\\Luiz_Inacio_Lula_da_Silva_0016.jpg",
+            "img2": "Nastassia_Kinski\\Nastassia_Kinski_0001.jpg",
+            "label": "neg",
+            "similarity": 0.08970394730567932,
+            "predicted": 0
+        },
+        {
+            "img1": "Edward_Johnson\\Edward_Johnson_0001.jpg",
+            "img2": "Nicole_Kidman\\Nicole_Kidman_0007.jpg",
+            "label": "neg",
+            "similarity": 0.1339285969734192,
+            "predicted": 0
+        },
+        {
+            "img1": "Hans-Christian_Schmid\\Hans-Christian_Schmid_0001.jpg",
+            "img2": "Lawrence_Di_Rita\\Lawrence_Di_Rita_0001.jpg",
+            "label": "neg",
+            "similarity": -0.15016613900661469,
+            "predicted": 0
+        },
+        {
+            "img1": "Chris_Crocker\\Chris_Crocker_0001.jpg",
+            "img2": "Leon_Barmore\\Leon_Barmore_0001.jpg",
+            "label": "neg",
+            "similarity": -0.2200978696346283,
+            "predicted": 0
+        },
+        {
+            "img1": "Bill_Clinton\\Bill_Clinton_0011.jpg",
+            "img2": "Catherine_Zeta-Jones\\Catherine_Zeta-Jones_0010.jpg",
+            "label": "neg",
+            "similarity": 0.1592114120721817,
+            "predicted": 0
+        }
+    ],
+    "identities_used": {
+        "George_W_Bush": [
+            "George_W_Bush_0006.jpg",
+            "George_W_Bush_0014.jpg",
+            "George_W_Bush_0015.jpg",
+            "George_W_Bush_0019.jpg",
+            "George_W_Bush_0029.jpg",
+            "George_W_Bush_0040.jpg",
+            "George_W_Bush_0045.jpg",
+            "George_W_Bush_0057.jpg",
+            "George_W_Bush_0069.jpg",
+            "George_W_Bush_0070.jpg",
+            "George_W_Bush_0072.jpg",
+            "George_W_Bush_0083.jpg",
+            "George_W_Bush_0085.jpg",
+            "George_W_Bush_0088.jpg",
+            "George_W_Bush_0097.jpg",
+            "George_W_Bush_0099.jpg",
+            "George_W_Bush_0110.jpg",
+            "George_W_Bush_0126.jpg",
+            "George_W_Bush_0145.jpg",
+            "George_W_Bush_0147.jpg",
+            "George_W_Bush_0153.jpg",
+            "George_W_Bush_0177.jpg",
+            "George_W_Bush_0178.jpg",
+            "George_W_Bush_0185.jpg",
+            "George_W_Bush_0191.jpg",
+            "George_W_Bush_0197.jpg",
+            "George_W_Bush_0202.jpg",
+            "George_W_Bush_0216.jpg",
+            "George_W_Bush_0229.jpg",
+            "George_W_Bush_0239.jpg",
+            "George_W_Bush_0241.jpg",
+            "George_W_Bush_0249.jpg",
+            "George_W_Bush_0259.jpg",
+            "George_W_Bush_0269.jpg",
+            "George_W_Bush_0277.jpg",
+            "George_W_Bush_0280.jpg",
+            "George_W_Bush_0297.jpg",
+            "George_W_Bush_0314.jpg",
+            "George_W_Bush_0315.jpg",
+            "George_W_Bush_0318.jpg",
+            "George_W_Bush_0321.jpg",
+            "George_W_Bush_0334.jpg",
+            "George_W_Bush_0336.jpg",
+            "George_W_Bush_0345.jpg",
+            "George_W_Bush_0351.jpg",
+            "George_W_Bush_0359.jpg",
+            "George_W_Bush_0362.jpg",
+            "George_W_Bush_0379.jpg",
+            "George_W_Bush_0404.jpg",
+            "George_W_Bush_0411.jpg",
+            "George_W_Bush_0427.jpg",
+            "George_W_Bush_0431.jpg",
+            "George_W_Bush_0452.jpg",
+            "George_W_Bush_0461.jpg",
+            "George_W_Bush_0466.jpg",
+            "George_W_Bush_0473.jpg",
+            "George_W_Bush_0476.jpg",
+            "George_W_Bush_0479.jpg",
+            "George_W_Bush_0485.jpg",
+            "George_W_Bush_0493.jpg",
+            "George_W_Bush_0498.jpg",
+            "George_W_Bush_0506.jpg",
+            "George_W_Bush_0507.jpg",
+            "George_W_Bush_0520.jpg",
+            "George_W_Bush_0522.jpg"
+        ],
+        "Ariel_Sharon": [
+            "Ariel_Sharon_0022.jpg",
+            "Ariel_Sharon_0031.jpg",
+            "Ariel_Sharon_0045.jpg",
+            "Ariel_Sharon_0064.jpg",
+            "Ariel_Sharon_0070.jpg"
+        ],
+        "Donald_Rumsfeld": [
+            "Donald_Rumsfeld_0029.jpg",
+            "Donald_Rumsfeld_0030.jpg",
+            "Donald_Rumsfeld_0037.jpg",
+            "Donald_Rumsfeld_0075.jpg",
+            "Donald_Rumsfeld_0114.jpg",
+            "Donald_Rumsfeld_0121.jpg"
+        ],
+        "Hans_Blix": [
+            "Hans_Blix_0030.jpg",
+            "Hans_Blix_0038.jpg"
+        ],
+        "Gerhard_Schroeder": [
+            "Gerhard_Schroeder_0069.jpg",
+            "Gerhard_Schroeder_0106.jpg"
+        ],
+        "Jacques_Chirac": [
+            "Jacques_Chirac_0001.jpg",
+            "Jacques_Chirac_0010.jpg"
+        ],
+        "Colin_Powell": [
+            "Colin_Powell_0010.jpg",
+            "Colin_Powell_0038.jpg",
+            "Colin_Powell_0045.jpg",
+            "Colin_Powell_0051.jpg",
+            "Colin_Powell_0104.jpg",
+            "Colin_Powell_0105.jpg",
+            "Colin_Powell_0151.jpg",
+            "Colin_Powell_0154.jpg",
+            "Colin_Powell_0203.jpg",
+            "Colin_Powell_0227.jpg"
+        ],
+        "Nestor_Kirchner": [
+            "Nestor_Kirchner_0023.jpg",
+            "Nestor_Kirchner_0034.jpg"
+        ],
+        "Hugo_Chavez": [
+            "Hugo_Chavez_0017.jpg",
+            "Hugo_Chavez_0039.jpg"
+        ],
+        "Serena_Williams": [
+            "Serena_Williams_0003.jpg",
+            "Serena_Williams_0022.jpg",
+            "Serena_Williams_0047.jpg"
+        ],
+        "Lindsay_Davenport": [
+            "Lindsay_Davenport_0008.jpg",
+            "Lindsay_Davenport_0016.jpg"
+        ],
+        "David_Stern": [
+            "David_Stern_0002.jpg",
+            "David_Stern_0003.jpg"
+        ],
+        "Jennifer_Connelly": [
+            "Jennifer_Connelly_0002.jpg",
+            "Jennifer_Connelly_0004.jpg"
+        ],
+        "Alejandro_Toledo": [
+            "Alejandro_Toledo_0010.jpg",
+            "Alejandro_Toledo_0014.jpg"
+        ],
+        "Andy_Griggs": [
+            "Andy_Griggs_0001.jpg"
+        ],
+        "Paul_Wolfowitz": [
+            "Paul_Wolfowitz_0009.jpg"
+        ],
+        "Larenz_Tate": [
+            "Larenz_Tate_0001.jpg"
+        ],
+        "Peter_Arnett": [
+            "Peter_Arnett_0002.jpg"
+        ],
+        "Bill_Gates": [
+            "Bill_Gates_0006.jpg"
+        ],
+        "John_Paul_II": [
+            "John_Paul_II_0004.jpg"
+        ],
+        "Kristen_Breitweiser": [
+            "Kristen_Breitweiser_0001.jpg"
+        ],
+        "Padraig_Harrington": [
+            "Padraig_Harrington_0001.jpg"
+        ],
+        "Bartosz_Kizierowski": [
+            "Bartosz_Kizierowski_0001.jpg"
+        ],
+        "Ashton_Kutcher": [
+            "Ashton_Kutcher_0003.jpg"
+        ],
+        "Garry_Witherall": [
+            "Garry_Witherall_0001.jpg"
+        ],
+        "Adel_Al-Jubeir": [
+            "Adel_Al-Jubeir_0001.jpg"
+        ],
+        "Samuel_Waksal": [
+            "Samuel_Waksal_0004.jpg"
+        ],
+        "Chen_Shui-bian": [
+            "Chen_Shui-bian_0002.jpg"
+        ],
+        "Alessandro_Nesta": [
+            "Alessandro_Nesta_0001.jpg"
+        ],
+        "Alison_Lohman": [
+            "Alison_Lohman_0002.jpg"
+        ],
+        "Mariangel_Ruiz_Torrealba": [
+            "Mariangel_Ruiz_Torrealba_0002.jpg"
+        ],
+        "David_Ballantyne": [
+            "David_Ballantyne_0001.jpg"
+        ],
+        "Taha_Yassin_Ramadan": [
+            "Taha_Yassin_Ramadan_0002.jpg",
+            "Taha_Yassin_Ramadan_0006.jpg"
+        ],
+        "David_Beckham": [
+            "David_Beckham_0030.jpg"
+        ],
+        "Peter_Bacanovic": [
+            "Peter_Bacanovic_0001.jpg"
+        ],
+        "Jose_Cevallos": [
+            "Jose_Cevallos_0001.jpg"
+        ],
+        "Juan_Carlos_Ferrero": [
+            "Juan_Carlos_Ferrero_0023.jpg"
+        ],
+        "Bashar_Assad": [
+            "Bashar_Assad_0004.jpg"
+        ],
+        "Azra_Akin": [
+            "Azra_Akin_0003.jpg"
+        ],
+        "Rolf_Eckrodt": [
+            "Rolf_Eckrodt_0002.jpg"
+        ],
+        "Juan_Manuel_Marquez": [
+            "Juan_Manuel_Marquez_0002.jpg"
+        ],
+        "Tom_Curley": [
+            "Tom_Curley_0001.jpg"
+        ],
+        "Ed_Rosenthal": [
+            "Ed_Rosenthal_0002.jpg"
+        ],
+        "Rebecca_Romijn-Stamos": [
+            "Rebecca_Romijn-Stamos_0003.jpg"
+        ],
+        "Al_Sharpton": [
+            "Al_Sharpton_0006.jpg"
+        ],
+        "Harrison_Ford": [
+            "Harrison_Ford_0008.jpg"
+        ],
+        "Adolfo_Aguilar_Zinser": [
+            "Adolfo_Aguilar_Zinser_0002.jpg"
+        ],
+        "Assad_Ahmadi": [
+            "Assad_Ahmadi_0001.jpg"
+        ],
+        "Alvaro_Uribe": [
+            "Alvaro_Uribe_0010.jpg"
+        ],
+        "Paddy_Long": [
+            "Paddy_Long_0001.jpg"
+        ],
+        "Franco_Dragone": [
+            "Franco_Dragone_0002.jpg"
+        ],
+        "Francesco_Totti": [
+            "Francesco_Totti_0001.jpg"
+        ],
+        "Megawati_Sukarnoputri": [
+            "Megawati_Sukarnoputri_0009.jpg"
+        ],
+        "Lleyton_Hewitt": [
+            "Lleyton_Hewitt_0014.jpg"
+        ],
+        "Tony_Shalhoub": [
+            "Tony_Shalhoub_0002.jpg"
+        ],
+        "Carl_Reiner": [
+            "Carl_Reiner_0002.jpg"
+        ],
+        "Michael_Bloomberg": [
+            "Michael_Bloomberg_0007.jpg"
+        ],
+        "Samira_Makhmalbaf": [
+            "Samira_Makhmalbaf_0001.jpg"
+        ],
+        "Tom_Coverdale": [
+            "Tom_Coverdale_0001.jpg"
+        ],
+        "Claudette_Robinson": [
+            "Claudette_Robinson_0001.jpg"
+        ],
+        "Fernando_Gonzalez": [
+            "Fernando_Gonzalez_0001.jpg"
+        ],
+        "Mick_Jagger": [
+            "Mick_Jagger_0005.jpg"
+        ],
+        "Junichiro_Koizumi": [
+            "Junichiro_Koizumi_0030.jpg"
+        ],
+        "Chris_Rock": [
+            "Chris_Rock_0001.jpg"
+        ],
+        "Gary_Williams": [
+            "Gary_Williams_0002.jpg"
+        ],
+        "Enrique_Bolanos": [
+            "Enrique_Bolanos_0004.jpg"
+        ],
+        "Sherri_Coale": [
+            "Sherri_Coale_0001.jpg"
+        ],
+        "David_Anderson": [
+            "David_Anderson_0001.jpg"
+        ],
+        "Tommy_Tubberville": [
+            "Tommy_Tubberville_0001.jpg"
+        ],
+        "Tony_Blair": [
+            "Tony_Blair_0106.jpg",
+            "Tony_Blair_0142.jpg"
+        ],
+        "William_Pryor_Jr": [
+            "William_Pryor_Jr_0001.jpg"
+        ],
+        "Tono_Suratman": [
+            "Tono_Suratman_0001.jpg"
+        ],
+        "Ishaq_Shahryar": [
+            "Ishaq_Shahryar_0002.jpg"
+        ],
+        "Paul_Patton": [
+            "Paul_Patton_0001.jpg"
+        ],
+        "Hillary_Clinton": [
+            "Hillary_Clinton_0008.jpg"
+        ],
+        "Joaquim_Levy": [
+            "Joaquim_Levy_0001.jpg"
+        ],
+        "Ernie_Els": [
+            "Ernie_Els_0002.jpg"
+        ],
+        "James_Young": [
+            "James_Young_0001.jpg"
+        ],
+        "Michael_Munoz": [
+            "Michael_Munoz_0001.jpg"
+        ],
+        "Michelle_Lecky": [
+            "Michelle_Lecky_0001.jpg"
+        ],
+        "Mitchell_Crooks": [
+            "Mitchell_Crooks_0001.jpg"
+        ],
+        "Zhu_Rongji": [
+            "Zhu_Rongji_0003.jpg"
+        ],
+        "Clay_Aiken": [
+            "Clay_Aiken_0001.jpg"
+        ],
+        "Yashwant_Sinha": [
+            "Yashwant_Sinha_0001.jpg"
+        ],
+        "Dominique_de_Villepin": [
+            "Dominique_de_Villepin_0003.jpg"
+        ],
+        "John_McCain": [
+            "John_McCain_0006.jpg"
+        ],
+        "Edmund_Stoiber": [
+            "Edmund_Stoiber_0004.jpg"
+        ],
+        "Luiz_Inacio_Lula_da_Silva": [
+            "Luiz_Inacio_Lula_da_Silva_0016.jpg"
+        ],
+        "Nastassia_Kinski": [
+            "Nastassia_Kinski_0001.jpg"
+        ],
+        "Edward_Johnson": [
+            "Edward_Johnson_0001.jpg"
+        ],
+        "Nicole_Kidman": [
+            "Nicole_Kidman_0007.jpg"
+        ],
+        "Hans-Christian_Schmid": [
+            "Hans-Christian_Schmid_0001.jpg"
+        ],
+        "Lawrence_Di_Rita": [
+            "Lawrence_Di_Rita_0001.jpg"
+        ],
+        "Chris_Crocker": [
+            "Chris_Crocker_0001.jpg"
+        ],
+        "Leon_Barmore": [
+            "Leon_Barmore_0001.jpg"
+        ],
+        "Bill_Clinton": [
+            "Bill_Clinton_0011.jpg"
+        ],
+        "Catherine_Zeta-Jones": [
+            "Catherine_Zeta-Jones_0010.jpg"
+        ]
+    }
+}
