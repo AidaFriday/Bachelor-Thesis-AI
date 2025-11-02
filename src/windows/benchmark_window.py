@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
     QDialog,
     QListWidget,
     QListWidgetItem,
+    QLabel,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -72,6 +73,42 @@ class SelectSubjectsDialog(QDialog):
             if self.list_widget.item(i).checkState()
         ]
         super().accept()
+
+
+# ------------------ Simple Metric Selection Dialog ------------------
+class SelectMetricDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Evaluation Method")
+        self.setFixedWidth(360)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(
+            "Which evaluation metric would you like to compute?\n\n"
+            "• ROC Curve (AUC, EER, TAR@FAR)\n"
+            "• Confusion Matrix (TP/TN/FP/FN, Accuracy, Threshold)"
+        )
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        button_layout = QHBoxLayout()
+
+        btn_roc = QPushButton("ROC Curve")
+        btn_cm = QPushButton("Confusion Matrix")
+
+        btn_roc.clicked.connect(lambda: self._choose("roc"))
+        btn_cm.clicked.connect(lambda: self._choose("cm"))
+
+        button_layout.addWidget(btn_roc)
+        button_layout.addWidget(btn_cm)
+
+        layout.addLayout(button_layout)
+        self.selection = None
+
+    def _choose(self, selection):
+        self.selection = selection
+        self.accept()
 
 
 # ------------------ Worker Thread ------------------
@@ -387,17 +424,11 @@ class BenchmarkPage(QWidget):
                 iters = num_pairs
 
                 # ✅ Step 3: Ask which metric to run
-                resp = QMessageBox.question(
-                    self,
-                    "Select Evaluation Method",
-                    "Which evaluation metric would you like to compute?\n\n"
-                    "Yes = ROC Curve (AUC, EER, TAR@FAR=1e-3)\n"
-                    "No = Confusion Matrix (TP/TN/FP/FN, Accuracy, Threshold)",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.Yes,
-                )
+                dlg_metric = SelectMetricDialog(self)
+                if dlg_metric.exec_() != QDialog.Accepted:
+                    return
 
-                if resp == QMessageBox.Yes:
+                if dlg_metric.selection == "roc":
                     file_path = os.path.join(
                         self.benchmark_dir,
                         "validation_accuracy",
@@ -829,11 +860,10 @@ class BenchmarkPage(QWidget):
                 lines.append(f"TAR@FAR=1e-3: {float(tar)*100:.2f}%")
             if pairs:
                 lines.append(f"Pairs: {int(pairs)}")
-            
+
             best_thr = data.get("best_threshold")
             if best_thr is not None:
                 lines.insert(3, f"Best Thr (Youden J): {float(best_thr):.4f}")
-
 
             # Draw overlay (bottom-right)
             if lines:
