@@ -584,19 +584,14 @@ class BenchmarkPage(QWidget):
 
         # ===================== CONFUSION MATRIX =====================
         if data.get("kind") == "confusion_matrix":
-            tp = data["tp"]
-            tn = data["tn"]
-            fp = data["fp"]
-            fn = data["fn"]
+            tp, tn, fp, fn = data["tp"], data["tn"], data["fp"], data["fn"]
             threshold = data["threshold"]
-            acc = data["accuracy"] * 100.0
             model = data.get("model", "")
             dataset = data.get("dataset", "")
 
-            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
-
             fig.clear()
             ax = fig.add_subplot(111)
+            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
             im = ax.imshow(cm, cmap="Blues")
 
             ax.set_xticks([0, 1])
@@ -617,9 +612,37 @@ class BenchmarkPage(QWidget):
                     )
 
             ax.set_title(
-                f"Confusion Matrix – {model} on {dataset}\nAcc={acc:.2f}%, Thr={threshold:.4f}"
+                f"Confusion Matrix - {model} on {dataset}\nThr={threshold:.4f}"
             )
+
+            # Draw confusion matrix colors
             fig.colorbar(im, ax=ax)
+
+            # ✅ Shift matrix left to make room for metrics box
+            fig.subplots_adjust(right=0.75)
+
+            # ✅ Build metrics text (reads clean and matches terminology)
+            metrics = (
+                f"Accuracy: {data['accuracy']*100:.2f}%\n"
+                f"Precision: {data['precision']*100:.2f}%\n"
+                f"Recall (TAR): {data['recall']*100:.2f}%\n"
+                f"Specificity (TNR): {data['specificity']*100:.2f}%\n"
+                f"F1 Score: {data['f1']*100:.2f}%\n"
+                f"FAR: {data['far']*100:.2f}%\n"
+                f"FRR: {data['frr']*100:.2f}%"
+            )
+
+            # ✅ Place metrics box OUTSIDE the plot area properly
+            fig.text(
+                0.82,
+                0.50,  # <-- X=0.82 moves the box further right (no overlap)
+                metrics,
+                ha="left",
+                va="center",
+                fontsize=10,
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
+            )
+
             canvas.draw()
             return
 

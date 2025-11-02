@@ -118,26 +118,34 @@ def run_confusion(model_name, dataset_path, iters=300):
     fp = int(((preds == 1) & (labels == 0)).sum())
     fn = int(((preds == 0) & (labels == 1)).sum())
 
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    precision = tp / (tp + fp + 1e-9)
+    recall = tp / (tp + fn + 1e-9)  # TAR
+    specificity = tn / (tn + fp + 1e-9)
+    f1 = 2 * precision * recall / (precision + recall + 1e-9)
+    far = fp / (fp + tn + 1e-9)  # False Accept Rate
+    frr = fn / (fn + tp + 1e-9)  # False Reject Rate
+
     result = {
+        "kind": "confusion_matrix",
+        "model": model_name,
+        "dataset": os.path.basename(dataset_path),
+        "pairs_tested": len(labels),
         "tp": tp,
         "tn": tn,
         "fp": fp,
         "fn": fn,
-        "accuracy": float((preds == labels).mean()),
+        "accuracy": float(accuracy),
+        "precision": float(precision),
+        "recall": float(recall),
+        "specificity": float(specificity),
+        "f1": float(f1),
+        "far": float(far),
+        "frr": float(frr),
         "threshold": float(FIXED_THRESHOLD),
     }
 
-    print(
-        json.dumps(
-            {
-                "kind": "confusion_matrix",
-                "model": model_name,
-                "dataset": os.path.basename(dataset_path),
-                "pairs_tested": len(labels),
-                **result,
-            }
-        )
-    )
+    print(json.dumps(result))
 
 
 if __name__ == "__main__":
