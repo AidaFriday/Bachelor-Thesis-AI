@@ -125,6 +125,14 @@ def run_roc(model_name, dataset_path, iters=300):
     fpr, tpr, thresholds = roc_curve(labels, sims)
     roc_auc = auc(fpr, tpr)
 
+    # --- Best Threshold (Youden's J statistic) ---
+    j_scores = tpr - fpr
+    best_idx = np.argmax(j_scores)
+    best_threshold = thresholds[best_idx]
+
+    print(f"[THRESHOLD] Best threshold (Youden J): {best_threshold:.4f}")
+
+
     # Compute EER
     fnr = 1 - tpr
     eer_index = np.nanargmin(np.abs(fnr - fpr))
@@ -157,6 +165,7 @@ def run_roc(model_name, dataset_path, iters=300):
                 "path": save_path,
                 "auc": float(roc_auc),
                 "eer": float(eer),
+                "best_threshold": float(best_threshold),
                 "tar_far_1e3": float(tar_at_far),
                 "pairs_tested": int(len(labels)),
                 "model": model_name,

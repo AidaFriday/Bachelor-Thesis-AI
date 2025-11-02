@@ -829,6 +829,11 @@ class BenchmarkPage(QWidget):
                 lines.append(f"TAR@FAR=1e-3: {float(tar)*100:.2f}%")
             if pairs:
                 lines.append(f"Pairs: {int(pairs)}")
+            
+            best_thr = data.get("best_threshold")
+            if best_thr is not None:
+                lines.insert(3, f"Best Thr (Youden J): {float(best_thr):.4f}")
+
 
             # Draw overlay (bottom-right)
             if lines:
