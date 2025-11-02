@@ -406,23 +406,6 @@ class BenchmarkPage(QWidget):
                 if not ok:
                     return
 
-                # Step 2: Pick a starting identity (single selection)
-                ds_for_dialog = self.dataset_path
-                if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
-                    ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
-
-                dlg = SelectSubjectsDialog(ds_for_dialog, self)
-                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
-
-                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
-                    return
-
-                start_person = dlg.selected_subjects[0]
-
-                os.environ["LFW_START_PERSON"] = start_person
-                os.environ["POS_RATIO"] = "0.5"
-                iters = num_pairs
-
                 # ✅ Step 3: Ask which metric to run
                 dlg_metric = SelectMetricDialog(self)
                 if dlg_metric.exec_() != QDialog.Accepted:
