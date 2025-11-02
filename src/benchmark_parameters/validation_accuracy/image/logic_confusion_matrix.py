@@ -4,6 +4,10 @@ import numpy as np
 from tqdm import tqdm
 import sys
 import json
+from datetime import datetime
+from itertools import combinations
+import random
+
 
 # ✅ Correct path: go up 3 directories (image → validation_accuracy → benchmark_parameters → src)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
@@ -23,8 +27,11 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
+from itertools import combinations
+import random
+
+
 def collect_pairs(dataset_path, max_pairs=300):
-    """Collect ~50% positive and ~50% negative LFW-style pairs."""
     people = sorted(
         [
             p
@@ -36,6 +43,7 @@ def collect_pairs(dataset_path, max_pairs=300):
     pos_pairs = []
     neg_pairs = []
 
+    # ----- Build Positive Pairs -----
     for person in people:
         imgs = sorted(
             [
@@ -44,39 +52,36 @@ def collect_pairs(dataset_path, max_pairs=300):
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
+
+        # create ALL unique pairs: (img_i, img_j)
         if len(imgs) >= 2:
-            pos_pairs.append((imgs[0], imgs[1], 1))
+            for a, b in combinations(imgs, 2):
+                pos_pairs.append((a, b, 1))
 
-    for i in range(len(people) - 1):
-        p1 = people[i]
-        p2 = people[i + 1]
+    # ----- Build Negative Pairs -----
+    # Randomly pair images from different identities
+    all_people_imgs = {
+        p: [
+            os.path.join(dataset_path, p, f)
+            for f in os.listdir(os.path.join(dataset_path, p))
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        ]
+        for p in people
+    }
 
-        imgs1 = sorted(
-            [
-                f
-                for f in os.listdir(os.path.join(dataset_path, p1))
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-        )
-        imgs2 = sorted(
-            [
-                f
-                for f in os.listdir(os.path.join(dataset_path, p2))
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-        )
+    for i in range(len(people)):
+        for j in range(i + 1, len(people)):
+            p1, p2 = people[i], people[j]
+            for img1 in all_people_imgs[p1]:
+                for img2 in all_people_imgs[p2]:
+                    neg_pairs.append((img1, img2, 0))
 
-        if imgs1 and imgs2:
-            neg_pairs.append(
-                (
-                    os.path.join(dataset_path, p1, imgs1[0]),
-                    os.path.join(dataset_path, p2, imgs2[0]),
-                    0,
-                )
-            )
+    # Shuffle and take equal number of pos/neg
+    random.shuffle(pos_pairs)
+    random.shuffle(neg_pairs)
 
     half = max_pairs // 2
-    return (pos_pairs[:half] + neg_pairs[:half])[:max_pairs]
+    return pos_pairs[:half] + neg_pairs[:half]
 
 
 def run_confusion(model_name, dataset_path, iters=300):
@@ -93,6 +98,7 @@ def run_confusion(model_name, dataset_path, iters=300):
 
     sims = []
     labels = []
+    pair_records = []
 
     for img1, img2, label in tqdm(pairs, desc="Computing Confusion Matrix"):
         a = cv2.imread(img1)
@@ -105,13 +111,26 @@ def run_confusion(model_name, dataset_path, iters=300):
         if emb1 is None or emb2 is None:
             continue
 
-        sims.append(cosine_similarity(emb1, emb2))
+        sim = cosine_similarity(emb1, emb2)
+        sims.append(sim)
         labels.append(label)
+
+        # ✅ Store pair data
+        pair_records.append(
+            {
+                "img1": img1.replace(dataset_path + os.sep, ""),
+                "img2": img2.replace(dataset_path + os.sep, ""),
+                "label": "pos" if label == 1 else "neg",
+                "similarity": float(sim),
+            }
+        )
 
     scores = np.array(sims)
     labels = np.array(labels)
 
     preds = (scores >= FIXED_THRESHOLD).astype(int)
+    for i in range(len(pair_records)):
+        pair_records[i]["predicted"] = int(preds[i])
 
     tp = int(((preds == 1) & (labels == 1)).sum())
     tn = int(((preds == 0) & (labels == 0)).sum())
@@ -144,6 +163,32 @@ def run_confusion(model_name, dataset_path, iters=300):
         "frr": float(frr),
         "threshold": float(FIXED_THRESHOLD),
     }
+
+    # ✅ Build export JSON
+    export_data = {
+        "meta": {
+            "model": model_name,
+            "dataset": os.path.basename(dataset_path),
+            "test_name": "Confusion Matrix (Image)",
+            "threshold": FIXED_THRESHOLD,
+            "pairs_evaluated": len(labels),
+            "timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
+        },
+        "metrics": result,
+        "pairs": pair_records,
+    }
+
+    # ✅ Save to /exports/ folder
+    export_dir = os.path.join(os.path.dirname(__file__), "..", "..", "exports")
+    os.makedirs(export_dir, exist_ok=True)
+
+    filename = f"{model_name}_confusion_{export_data['meta']['timestamp']}.json"
+    filepath = os.path.join(export_dir, filename)
+
+    with open(filepath, "w") as f:
+        json.dump(export_data, f, indent=4)
+
+    print(f"\n[EXPORTED] -> {filepath}\n")
 
     print(json.dumps(result))
 
