@@ -31,7 +31,16 @@ from itertools import combinations
 import random
 
 
-def collect_pairs(dataset_path, max_pairs=300):
+def collect_pairs(dataset_path, start_identity, max_pairs=300):
+    """
+    Deterministic pair generation:
+    - Start from chosen identity
+    - Max 10 positive pairs per identity
+    - Balanced negative pairs
+    - No randomness
+    """
+
+    # List identities in sorted order
     people = sorted(
         [
             p
@@ -40,51 +49,82 @@ def collect_pairs(dataset_path, max_pairs=300):
         ]
     )
 
+    # Find index of starting identity
+    if start_identity not in people:
+        raise ValueError(f"Identity '{start_identity}' not found in dataset.")
+
+    start_idx = people.index(start_identity)
+    ordered_people = people[start_idx:]  # process from selected identity onward
+
     pos_pairs = []
     neg_pairs = []
 
-    # ----- Build Positive Pairs -----
-    for person in people:
-        imgs = sorted(
+    # Load image lists for each identity for later negative pairing
+    all_people_imgs = {
+        p: sorted(
             [
-                os.path.join(dataset_path, person, f)
-                for f in os.listdir(os.path.join(dataset_path, person))
+                os.path.join(dataset_path, p, f)
+                for f in os.listdir(os.path.join(dataset_path, p))
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
-
-        # create ALL unique pairs: (img_i, img_j)
-        if len(imgs) >= 2:
-            for a, b in combinations(imgs, 2):
-                pos_pairs.append((a, b, 1))
-
-    # ----- Build Negative Pairs -----
-    # Randomly pair images from different identities
-    all_people_imgs = {
-        p: [
-            os.path.join(dataset_path, p, f)
-            for f in os.listdir(os.path.join(dataset_path, p))
-            if f.lower().endswith((".jpg", ".jpeg", ".png"))
-        ]
-        for p in people
+        for p in ordered_people
     }
 
-    for i in range(len(people)):
-        for j in range(i + 1, len(people)):
-            p1, p2 = people[i], people[j]
-            for img1 in all_people_imgs[p1]:
-                for img2 in all_people_imgs[p2]:
-                    neg_pairs.append((img1, img2, 0))
+    # ----- 1) Generate Positive Pairs -----
+    for person in ordered_people:
+        imgs = all_people_imgs[person]
+        if len(imgs) < 2:
+            continue
 
-    # Shuffle and take equal number of pos/neg
-    random.shuffle(pos_pairs)
-    random.shuffle(neg_pairs)
+        # all combinations (deterministic order)
+        all_combos = list(combinations(imgs, 2))
 
-    half = max_pairs // 2
-    return pos_pairs[:half] + neg_pairs[:half]
+        # take first 10
+        for a, b in all_combos[:10]:
+            pos_pairs.append((a, b, 1))
+
+        # stop if we hit pair limit
+        if len(pos_pairs) >= max_pairs // 2:
+            break
+
+    # Limit positive pairs
+    pos_pairs = pos_pairs[: max_pairs // 2]
+
+    # ----- 2) Generate Negative Pairs (deterministic) -----
+    pos_count = len(pos_pairs)
+    neg_needed = pos_count
+    neg_collected = 0
+
+    # Pair identity i with identity i+1 (stable deterministic)
+    for i in range(len(ordered_people) - 1):
+        p1, p2 = ordered_people[i], ordered_people[i + 1]
+        imgs1, imgs2 = all_people_imgs[p1], all_people_imgs[p2]
+
+        # require at least one image in each
+        if len(imgs1) == 0 or len(imgs2) == 0:
+            continue
+
+        # pair images in index order
+        for img1, img2 in zip(imgs1, imgs2):
+            neg_pairs.append((img1, img2, 0))
+            neg_collected += 1
+
+            if neg_collected >= neg_needed or len(neg_pairs) >= max_pairs // 2:
+                break
+
+        if neg_collected >= neg_needed or len(neg_pairs) >= max_pairs // 2:
+            break
+
+    # Ensure balanced dataset
+    neg_pairs = neg_pairs[: len(pos_pairs)]
+
+    # Final pair list
+    final_pairs = pos_pairs + neg_pairs
+    return final_pairs[:max_pairs]
 
 
-def run_confusion(model_name, dataset_path, iters=300):
+def run_confusion(model_name, dataset_path, start_identity, iters=300):
     print(f"[CM] Model: {model_name}")
     print(f"[CM] Dataset: {dataset_path}")
     print(f"[CM] Using FIXED THRESHOLD = {FIXED_THRESHOLD}")
@@ -94,7 +134,7 @@ def run_confusion(model_name, dataset_path, iters=300):
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    pairs = collect_pairs(dataset_path, max_pairs=iters)
+    pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
     sims = []
     labels = []
@@ -145,6 +185,9 @@ def run_confusion(model_name, dataset_path, iters=300):
     fp = int(((preds == 1) & (labels == 0)).sum())
     fn = int(((preds == 0) & (labels == 1)).sum())
 
+    pos_count = int((labels == 1).sum())
+    neg_count = int((labels == 0).sum())
+
     accuracy = (tp + tn) / (tp + tn + fp + fn)
     precision = tp / (tp + fp + 1e-9)
     recall = tp / (tp + fn + 1e-9)  # TAR
@@ -170,6 +213,8 @@ def run_confusion(model_name, dataset_path, iters=300):
         "far": float(far),
         "frr": float(frr),
         "threshold": float(FIXED_THRESHOLD),
+        "pos_pairs": pos_count,
+        "neg_pairs": neg_count,
     }
 
     identities_detail = {
@@ -184,6 +229,9 @@ def run_confusion(model_name, dataset_path, iters=300):
             "test_name": "Confusion Matrix (Image)",
             "threshold": FIXED_THRESHOLD,
             "pairs_evaluated": len(labels),
+            "pos_pairs": pos_count,
+            "neg_pairs": neg_count,
+            "start_identity": start_identity,
             "timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
         },
         "metrics": result,
@@ -212,7 +260,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
     parser.add_argument("--iters", type=int, default=300)
 
     args = parser.parse_args()
-    run_confusion(args.model, args.dataset, args.iters)
+    run_confusion(args.model, args.dataset, args.start, args.iters)

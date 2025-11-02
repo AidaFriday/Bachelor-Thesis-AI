@@ -21,59 +21,77 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-def collect_pairs(dataset_path, max_pairs=300):
+def collect_pairs(dataset_path, start_identity, max_pairs=300):
     people = sorted(
         [
-            p
-            for p in os.listdir(dataset_path)
-            if os.path.isdir(os.path.join(dataset_path, p))
+            d
+            for d in os.listdir(dataset_path)
+            if os.path.isdir(os.path.join(dataset_path, d))
         ]
     )
+
+    # ✅ Re-order so we start from the selected identity
+    if start_identity in people:
+        start_index = people.index(start_identity)
+        people = people[start_index:]  # no wrap-around, same as confusion matrix
 
     pos_pairs = []
     neg_pairs = []
 
+    # ----- Positive Pairs -----
     for person in people:
+        img_dir = os.path.join(dataset_path, person)
         imgs = sorted(
             [
-                os.path.join(dataset_path, person, f)
-                for f in os.listdir(os.path.join(dataset_path, person))
+                os.path.join(img_dir, f)
+                for f in os.listdir(img_dir)
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
-        if len(imgs) >= 2:
-            pos_pairs.append((imgs[0], imgs[1], 1))
 
+        if len(imgs) < 2:
+            continue
+
+        # take up to first 10 deterministic pairs (just like confusion matrix)
+        for i in range(min(len(imgs) - 1, 9)):
+            pos_pairs.append((imgs[i], imgs[i + 1], 1))
+
+        if len(pos_pairs) >= max_pairs // 2:
+            break
+
+    pos_pairs = pos_pairs[: max_pairs // 2]
+
+    # ----- Negative Pairs -----
+    neg_needed = len(pos_pairs)
     for i in range(len(people) - 1):
         p1, p2 = people[i], people[i + 1]
         imgs1 = sorted(
             [
-                f
+                os.path.join(dataset_path, p1, f)
                 for f in os.listdir(os.path.join(dataset_path, p1))
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
         imgs2 = sorted(
             [
-                f
+                os.path.join(dataset_path, p2, f)
                 for f in os.listdir(os.path.join(dataset_path, p2))
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
+
         if imgs1 and imgs2:
-            neg_pairs.append(
-                (
-                    os.path.join(dataset_path, p1, imgs1[0]),
-                    os.path.join(dataset_path, p2, imgs2[0]),
-                    0,
-                )
-            )
+            neg_pairs.append((imgs1[0], imgs2[0], 0))
 
-    pairs = pos_pairs[: max_pairs // 2] + neg_pairs[: max_pairs // 2]
-    return pairs[:max_pairs]
+        if len(neg_pairs) >= neg_needed:
+            break
+
+    neg_pairs = neg_pairs[:neg_needed]
+
+    return pos_pairs + neg_pairs
 
 
-def run_roc(model_name, dataset_path, iters=300):
+def run_roc(model_name, dataset_path, start_identity, iters=300):
     print(f"[ROC] Model: {model_name}")
     print(f"[ROC] Dataset: {dataset_path}")
     print(f"[ROC] Pairs: {iters}")
@@ -84,7 +102,7 @@ def run_roc(model_name, dataset_path, iters=300):
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    pairs = collect_pairs(dataset_path, max_pairs=iters)
+    pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
     sims = []
     labels = []
@@ -131,7 +149,6 @@ def run_roc(model_name, dataset_path, iters=300):
     best_threshold = thresholds[best_idx]
 
     print(f"[THRESHOLD] Best threshold (Youden J): {best_threshold:.4f}")
-
 
     # Compute EER
     fnr = 1 - tpr
@@ -181,7 +198,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
     parser.add_argument("--iters", type=int, default=300)
     args = parser.parse_args()
-
-    run_roc(args.model, args.dataset, args.iters)
+    run_roc(args.model, args.dataset, args.start, args.iters)

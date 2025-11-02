@@ -437,6 +437,7 @@ class BenchmarkPage(QWidget):
                 if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                     return
                 start_person = dlg.selected_subjects[0]
+                extra_args = ["--start", start_person]
 
                 pos_ratio = 0.5  # or prompt later if you want
 
