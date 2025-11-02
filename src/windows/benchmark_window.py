@@ -634,13 +634,20 @@ class BenchmarkPage(QWidget):
 
             # ✅ Place metrics box OUTSIDE the plot area properly
             fig.text(
-                0.82,
-                0.50,  # <-- X=0.82 moves the box further right (no overlap)
+                1.15,
+                0.5,
                 metrics,
-                ha="left",
-                va="center",
+                transform=ax.transAxes,
                 fontsize=10,
-                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
+                va="center",
+                ha="left",
+                color="white",  # ← text color for dark background
+                bbox=dict(
+                    boxstyle="round,pad=0.5",
+                    fc="#222222",  # ← dark background
+                    ec="#555555",  # ← subtle border
+                    alpha=0.9,  # ← slightly transparent
+                ),
             )
 
             canvas.draw()
