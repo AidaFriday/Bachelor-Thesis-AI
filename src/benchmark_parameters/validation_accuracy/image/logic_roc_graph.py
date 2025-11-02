@@ -6,6 +6,8 @@ from tqdm import tqdm
 import sys
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
+from datetime import datetime
+
 
 # make project root importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
@@ -162,6 +164,61 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         tar_at_far = tpr[idx]
     else:
         tar_at_far = float("nan")
+
+    # ---- Build export pair records ----
+    pair_records = []
+    used_identities = {}
+
+    for (img1, img2, label), sim in zip(pairs, sims):
+        person1 = os.path.basename(os.path.dirname(img1))
+        person2 = os.path.basename(os.path.dirname(img2))
+
+        used_identities.setdefault(person1, set()).add(os.path.basename(img1))
+        used_identities.setdefault(person2, set()).add(os.path.basename(img2))
+
+        pair_records.append(
+            {
+                "img1": img1.replace(dataset_path + os.sep, ""),
+                "img2": img2.replace(dataset_path + os.sep, ""),
+                "label": "pos" if label == 1 else "neg",
+                "similarity": float(sim),
+            }
+        )
+
+    export = {
+        "meta": {
+            "model": model_name,
+            "dataset": os.path.basename(dataset_path),
+            "test_name": "ROC (Image)",
+            "pairs_evaluated": len(labels),
+        },
+        "metrics": {
+            "auc": float(roc_auc),
+            "eer": float(eer),
+            "best_threshold": float(best_threshold),
+            "tar_far_1e3": float(tar_at_far),
+        },
+        "pairs": pair_records,
+        "identities_used": {
+            p: sorted(list(imgs)) for p, imgs in used_identities.items()
+        },
+    }
+
+    # ---- Save Export JSON ----
+    export_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "exports",
+        f"{model_name}_roc_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json",
+    )
+
+    os.makedirs(os.path.dirname(export_path), exist_ok=True)
+
+    with open(export_path, "w") as f:
+        json.dump(export, f, indent=2)
+
+    print(f"[EXPORTED] -> {os.path.abspath(export_path)}")
 
     # Save ROC plot
     save_path = os.path.join(os.path.dirname(__file__), "roc_result.png")
