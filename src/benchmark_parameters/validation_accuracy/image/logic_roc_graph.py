@@ -124,7 +124,14 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     sims = []
     labels = []
 
-    for img1, img2, label in tqdm(pairs):
+    total = len(pairs)
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+
+        # ---- PROGRESS UPDATE (for GUI progress bar) ----
+        sys.stdout.write(
+            json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n"
+        )
+        sys.stdout.flush()
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
