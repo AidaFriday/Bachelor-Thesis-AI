@@ -23,7 +23,19 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-def collect_pairs(dataset_path, start_identity, max_pairs=300):
+def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
+    """
+    Deterministic pair generation:
+    - Start from selected identity unless ALL mode is activated
+    - Max ~10 positive pairs per identity
+    - Balanced negative pairs
+    - No randomness
+    """
+
+    # ✅ Detect ALL mode
+    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
+
+    # List all people
     people = sorted(
         [
             d
@@ -32,65 +44,65 @@ def collect_pairs(dataset_path, start_identity, max_pairs=300):
         ]
     )
 
-    # ✅ Re-order so we start from the selected identity
-    if start_identity in people:
-        start_index = people.index(start_identity)
-        people = people[start_index:]  # no wrap-around, same as confusion matrix
+    # ✅ If not ALL mode and identity was selected → reorder dataset starting from that identity
+    if not return_all and start_identity in people:
+        start_idx = people.index(start_identity)
+        people = people[start_idx:]
+
+    # Load images once
+    all_people_imgs = {
+        p: sorted(
+            [
+                os.path.join(dataset_path, p, f)
+                for f in os.listdir(os.path.join(dataset_path, p))
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
+        for p in people
+    }
 
     pos_pairs = []
     neg_pairs = []
 
-    # ----- Positive Pairs -----
+    # ----- Positive pairs (max 10 per identity) -----
     for person in people:
-        img_dir = os.path.join(dataset_path, person)
-        imgs = sorted(
-            [
-                os.path.join(img_dir, f)
-                for f in os.listdir(img_dir)
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-        )
-
+        imgs = all_people_imgs[person]
         if len(imgs) < 2:
             continue
 
-        # take up to first 10 deterministic pairs (just like confusion matrix)
         for i in range(min(len(imgs) - 1, 9)):
             pos_pairs.append((imgs[i], imgs[i + 1], 1))
 
-        if len(pos_pairs) >= max_pairs // 2:
+        # ✅ Only stop if not ALL mode
+        if not return_all and len(pos_pairs) >= max_pairs // 2:
             break
 
-    pos_pairs = pos_pairs[: max_pairs // 2]
+    # ✅ Determine how many negative pairs needed
+    pos_count = len(pos_pairs)
+    neg_needed = pos_count
 
-    # ----- Negative Pairs -----
-    neg_needed = len(pos_pairs)
+    # ----- Negative pairs (identity i vs identity i+1) -----
     for i in range(len(people) - 1):
         p1, p2 = people[i], people[i + 1]
-        imgs1 = sorted(
-            [
-                os.path.join(dataset_path, p1, f)
-                for f in os.listdir(os.path.join(dataset_path, p1))
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-        )
-        imgs2 = sorted(
-            [
-                os.path.join(dataset_path, p2, f)
-                for f in os.listdir(os.path.join(dataset_path, p2))
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-        )
+        imgs1, imgs2 = all_people_imgs[p1], all_people_imgs[p2]
 
-        if imgs1 and imgs2:
-            neg_pairs.append((imgs1[0], imgs2[0], 0))
+        for a, b in zip(imgs1, imgs2):
+            neg_pairs.append((a, b, 0))
+            if not return_all and len(neg_pairs) >= neg_needed:
+                break
 
-        if len(neg_pairs) >= neg_needed:
+        if not return_all and len(neg_pairs) >= neg_needed:
             break
 
     neg_pairs = neg_pairs[:neg_needed]
 
-    return pos_pairs + neg_pairs
+    final_pairs = pos_pairs + neg_pairs
+
+    # ✅ In ALL mode return everything, else return limited
+    if return_all:
+        return final_pairs
+    else:
+        return final_pairs[:max_pairs]
 
 
 def run_roc(model_name, dataset_path, start_identity, iters=300):
@@ -104,7 +116,10 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
+    if start_identity == "__ALL__":
+        pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
+    else:
+        pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
     sims = []
     labels = []

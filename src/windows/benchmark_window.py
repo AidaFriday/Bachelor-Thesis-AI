@@ -58,8 +58,19 @@ class SelectSubjectsDialog(QDialog):
         layout.addWidget(self.list_widget)
 
         btns = QHBoxLayout()
+        select_all_btn = QPushButton("All")
         ok_btn = QPushButton("OK")
         cancel_btn = QPushButton("Cancel")
+
+        select_all_btn.clicked.connect(self._select_all)
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+        btns.addWidget(select_all_btn)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
         ok_btn.clicked.connect(self.accept)
         cancel_btn.clicked.connect(self.reject)
         btns.addWidget(ok_btn)
@@ -72,6 +83,11 @@ class SelectSubjectsDialog(QDialog):
             for i in range(self.list_widget.count())
             if self.list_widget.item(i).checkState()
         ]
+        super().accept()
+
+    def _select_all(self):
+        # special code path: tells caller to process entire dataset
+        self.selected_subjects = ["__ALL__"]
         super().accept()
 
 
@@ -436,17 +452,19 @@ class BenchmarkPage(QWidget):
                 dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
                 if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                     return
-                start_person = dlg.selected_subjects[0]
+
+                if dlg.selected_subjects[0] == "__ALL__":
+                    start_person = "__ALL__"
+                    iters = -1  # ✅ tell script to process ALL pairs
+                else:
+                    start_person = dlg.selected_subjects[0]
+                    iters = num_pairs  # ✅ normal limited mode
+
                 extra_args = ["--start", start_person]
 
-                pos_ratio = 0.5  # or prompt later if you want
-
-                # pass via env (the VA script reads these)
+                # pass for ROC / Confusion scripts
                 os.environ["LFW_START_PERSON"] = start_person
-                os.environ["POS_RATIO"] = str(pos_ratio)
-
-                iters = num_pairs  # pairs count
-                # extra_args stays [] for VA
+                os.environ["POS_RATIO"] = "0.5"
 
             else:
                 # Show person-selection dialog for latency, inference etc.

@@ -31,35 +31,33 @@ from itertools import combinations
 import random
 
 
-def collect_pairs(dataset_path, start_identity, max_pairs=300):
+def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
     """
     Deterministic pair generation:
-    - Start from chosen identity
-    - Max 10 positive pairs per identity
+    - Start from selected identity unless ALL mode is activated
+    - Max ~10 positive pairs per identity
     - Balanced negative pairs
     - No randomness
     """
 
-    # List identities in sorted order
+    # ✅ Detect ALL mode
+    return_all = (start_identity == "__ALL__" or max_pairs is None or max_pairs == -1)
+
+    # List all people
     people = sorted(
         [
-            p
-            for p in os.listdir(dataset_path)
-            if os.path.isdir(os.path.join(dataset_path, p))
+            d
+            for d in os.listdir(dataset_path)
+            if os.path.isdir(os.path.join(dataset_path, d))
         ]
     )
 
-    # Find index of starting identity
-    if start_identity not in people:
-        raise ValueError(f"Identity '{start_identity}' not found in dataset.")
+    # ✅ If not ALL mode and identity was selected → reorder dataset starting from that identity
+    if not return_all and start_identity in people:
+        start_idx = people.index(start_identity)
+        people = people[start_idx:]
 
-    start_idx = people.index(start_identity)
-    ordered_people = people[start_idx:]  # process from selected identity onward
-
-    pos_pairs = []
-    neg_pairs = []
-
-    # Load image lists for each identity for later negative pairing
+    # Load images once
     all_people_imgs = {
         p: sorted(
             [
@@ -68,60 +66,52 @@ def collect_pairs(dataset_path, start_identity, max_pairs=300):
                 if f.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
         )
-        for p in ordered_people
+        for p in people
     }
 
-    # ----- 1) Generate Positive Pairs -----
-    for person in ordered_people:
+    pos_pairs = []
+    neg_pairs = []
+
+    # ----- Positive pairs (max 10 per identity) -----
+    for person in people:
         imgs = all_people_imgs[person]
         if len(imgs) < 2:
             continue
 
-        # all combinations (deterministic order)
-        all_combos = list(combinations(imgs, 2))
+        for i in range(min(len(imgs) - 1, 9)):
+            pos_pairs.append((imgs[i], imgs[i + 1], 1))
 
-        # take first 10
-        for a, b in all_combos[:10]:
-            pos_pairs.append((a, b, 1))
-
-        # stop if we hit pair limit
-        if len(pos_pairs) >= max_pairs // 2:
+        # ✅ Only stop if not ALL mode
+        if not return_all and len(pos_pairs) >= max_pairs // 2:
             break
 
-    # Limit positive pairs
-    pos_pairs = pos_pairs[: max_pairs // 2]
-
-    # ----- 2) Generate Negative Pairs (deterministic) -----
+    # ✅ Determine how many negative pairs needed
     pos_count = len(pos_pairs)
     neg_needed = pos_count
-    neg_collected = 0
 
-    # Pair identity i with identity i+1 (stable deterministic)
-    for i in range(len(ordered_people) - 1):
-        p1, p2 = ordered_people[i], ordered_people[i + 1]
+    # ----- Negative pairs (identity i vs identity i+1) -----
+    for i in range(len(people) - 1):
+        p1, p2 = people[i], people[i + 1]
         imgs1, imgs2 = all_people_imgs[p1], all_people_imgs[p2]
 
-        # require at least one image in each
-        if len(imgs1) == 0 or len(imgs2) == 0:
-            continue
-
-        # pair images in index order
-        for img1, img2 in zip(imgs1, imgs2):
-            neg_pairs.append((img1, img2, 0))
-            neg_collected += 1
-
-            if neg_collected >= neg_needed or len(neg_pairs) >= max_pairs // 2:
+        for a, b in zip(imgs1, imgs2):
+            neg_pairs.append((a, b, 0))
+            if not return_all and len(neg_pairs) >= neg_needed:
                 break
 
-        if neg_collected >= neg_needed or len(neg_pairs) >= max_pairs // 2:
+        if not return_all and len(neg_pairs) >= neg_needed:
             break
 
-    # Ensure balanced dataset
-    neg_pairs = neg_pairs[: len(pos_pairs)]
+    neg_pairs = neg_pairs[:neg_needed]
 
-    # Final pair list
     final_pairs = pos_pairs + neg_pairs
-    return final_pairs[:max_pairs]
+
+    # ✅ In ALL mode return everything, else return limited
+    if return_all:
+        return final_pairs
+    else:
+        return final_pairs[:max_pairs]
+
 
 
 def run_confusion(model_name, dataset_path, start_identity, iters=300):
@@ -134,7 +124,10 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
+    if start_identity == "__ALL__":
+        pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
+    else:
+        pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
     sims = []
     labels = []
