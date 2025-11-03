@@ -172,8 +172,11 @@ class RunnerThread(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",  # ✅ force UTF-8 decoding
+                errors="replace",  # ✅ avoid crash on unsupported chars
                 bufsize=1,
             )
+
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
             process.stdout.close()
