@@ -791,6 +791,29 @@ class BenchmarkPage(QWidget):
             ax.set_title(f"Per-Frame Latency – {model} on {dataset_name}")
 
             ax.grid(True)
+
+            # ---- Add average latency box ----
+            avg_ms = data.get("avg_latency_ms")
+            if avg_ms is not None:
+                num_runs = data.get("num_runs", 1)
+
+                ax.text(
+                    1.02,
+                    0.85,
+                    f"Average Latency\n{avg_ms:.2f} ms\n({num_runs} run(s))",
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=10,
+                    color="black",
+                    bbox=dict(
+                        boxstyle="round,pad=0.4",
+                        fc="white",
+                        ec="gray",
+                        alpha=0.85,
+                    ),
+                )
+
             canvas.draw()
             return
 
