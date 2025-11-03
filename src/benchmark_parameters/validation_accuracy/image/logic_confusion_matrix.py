@@ -41,7 +41,7 @@ def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
     """
 
     # ✅ Detect ALL mode
-    return_all = (start_identity == "__ALL__" or max_pairs is None or max_pairs == -1)
+    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
 
     # List all people
     people = sorted(
@@ -113,7 +113,6 @@ def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
         return final_pairs[:max_pairs]
 
 
-
 def run_confusion(model_name, dataset_path, start_identity, iters=300):
     print(f"[CM] Model: {model_name}")
     print(f"[CM] Dataset: {dataset_path}")
@@ -134,7 +133,15 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     pair_records = []
     used_identities = {}
 
-    for img1, img2, label in tqdm(pairs, desc="Computing Confusion Matrix"):
+    total = len(pairs)
+
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+
+        # ---- PROGRESS UPDATE FOR GUI ----
+        sys.stdout.write(
+            json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n"
+        )
+        sys.stdout.flush()
 
         # ✅ Track which identities and images are used
         person1 = os.path.basename(os.path.dirname(img1))
