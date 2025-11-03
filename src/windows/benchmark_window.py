@@ -654,22 +654,19 @@ class BenchmarkPage(QWidget):
                 f"FRR: {data['frr']*100:.2f}%"
             )
 
-            # ✅ Place metrics box OUTSIDE the plot area properly
+            # --- Move metrics box into figure coordinate space (not affected by axes or colorbar) ---
             fig.text(
-                1.15,
-                0.5,
+                0.75,  # x-position (relative to whole figure)
+                0.70,  # y-position (higher = further from progress bar)
                 metrics,
-                transform=ax.transAxes,
-                fontsize=10,
-                va="center",
                 ha="left",
-                color="white",  # ← text color for dark background
+                va="center",
+                fontsize=10,
+                color="white",
                 bbox=dict(
-                    boxstyle="round,pad=0.5",
-                    fc="#222222",  # ← dark background
-                    ec="#555555",  # ← subtle border
-                    alpha=0.9,  # ← slightly transparent
+                    boxstyle="round,pad=0.4", fc="#1e1e1e", ec="#666666", alpha=0.92
                 ),
+                transform=fig.transFigure,  # ✅ key change
             )
 
             canvas.draw()
