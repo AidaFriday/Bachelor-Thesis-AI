@@ -49,14 +49,19 @@ class FaceNetWrapper:
 
     def detect_and_embed(self, frame):
         """
-        Detect faces → align → embed
+        Detect faces → align using detected keypoints → embed
         """
         faces = self.aligner.detect(frame)
         results: List[Dict] = []
         for f in faces:
-            crop = self.aligner.align_for(frame, "facenet")
+            kps = f.get("kps", None)
+            if kps is None:
+                continue
+
+            crop = self.aligner.align_for(frame, kps)
             if crop is None:
                 continue
+
             emb = self.embed(crop)
             results.append(
                 {

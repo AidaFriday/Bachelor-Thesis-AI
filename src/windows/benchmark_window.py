@@ -837,8 +837,8 @@ class BenchmarkPage(QWidget):
                 avg_all = float(np.mean(run_avgs))
                 num_runs = len(run_avgs)
                 ax.text(
-                    1.18,
-                    0.35,  # 🔼 move up (closer under the legend box)
+                    1.02,  # ← moved left so it stays visible
+                    0.35,
                     f"Average FPS over {num_runs} run(s): {avg_all:.2f}",
                     transform=ax.transAxes,
                     ha="left",
