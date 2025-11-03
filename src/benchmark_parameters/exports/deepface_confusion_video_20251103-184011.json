@@ -1,0 +1,819 @@
+{
+    "meta": {
+        "model": "deepface",
+        "dataset": "YTF",
+        "test_name": "Confusion Matrix (Video)",
+        "threshold": 0.6,
+        "pairs_evaluated": 100,
+        "pos_pairs": 50,
+        "neg_pairs": 50,
+        "start_identity": "AJ_Cook",
+        "timestamp": "20251103-184011"
+    },
+    "metrics": {
+        "kind": "confusion_matrix",
+        "model": "deepface",
+        "dataset": "YTF",
+        "pairs_tested": 100,
+        "tp": 50,
+        "tn": 0,
+        "fp": 50,
+        "fn": 0,
+        "accuracy": 0.5,
+        "precision": 0.499999999995,
+        "recall": 0.9999999999800001,
+        "specificity": 0.0,
+        "f1": 0.6666666662133334,
+        "far": 0.9999999999800001,
+        "frr": 0.0,
+        "threshold": 0.6,
+        "pos_pairs": 50,
+        "neg_pairs": 50
+    },
+    "pairs": [
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.123.jpg",
+            "img2": "AJ_Cook\\0\\aligned_detect_0.124.jpg",
+            "label": "pos",
+            "similarity": 0.9897133111953735,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.124.jpg",
+            "img2": "AJ_Cook\\0\\aligned_detect_0.125.jpg",
+            "label": "pos",
+            "similarity": 0.9951198697090149,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.125.jpg",
+            "img2": "AJ_Cook\\0\\aligned_detect_0.126.jpg",
+            "label": "pos",
+            "similarity": 0.9901094436645508,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.126.jpg",
+            "img2": "AJ_Cook\\0\\aligned_detect_0.127.jpg",
+            "label": "pos",
+            "similarity": 0.9925262928009033,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.127.jpg",
+            "img2": "AJ_Cook\\2\\aligned_detect_2.131.jpg",
+            "label": "pos",
+            "similarity": 0.9490649104118347,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.131.jpg",
+            "img2": "AJ_Cook\\2\\aligned_detect_2.132.jpg",
+            "label": "pos",
+            "similarity": 1.0,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.132.jpg",
+            "img2": "AJ_Cook\\2\\aligned_detect_2.133.jpg",
+            "label": "pos",
+            "similarity": 0.9760962724685669,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.133.jpg",
+            "img2": "AJ_Cook\\2\\aligned_detect_2.134.jpg",
+            "label": "pos",
+            "similarity": 1.0,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.134.jpg",
+            "img2": "AJ_Cook\\2\\aligned_detect_2.135.jpg",
+            "label": "pos",
+            "similarity": 0.9881592988967896,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+            "label": "pos",
+            "similarity": 0.9920546412467957,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+            "label": "pos",
+            "similarity": 0.995650589466095,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+            "label": "pos",
+            "similarity": 0.996222734451294,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+            "label": "pos",
+            "similarity": 0.9976207613945007,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.183.jpg",
+            "label": "pos",
+            "similarity": 0.9835421442985535,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\1\\aligned_detect_1.183.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.184.jpg",
+            "label": "pos",
+            "similarity": 0.9981047511100769,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\1\\aligned_detect_1.184.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.185.jpg",
+            "label": "pos",
+            "similarity": 0.99834144115448,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\1\\aligned_detect_1.185.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.186.jpg",
+            "label": "pos",
+            "similarity": 0.9983773827552795,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\1\\aligned_detect_1.186.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.187.jpg",
+            "label": "pos",
+            "similarity": 0.9976242780685425,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\1\\aligned_detect_1.187.jpg",
+            "img2": "Aaron_Eckhart\\2\\aligned_detect_2.1718.jpg",
+            "label": "pos",
+            "similarity": 0.9797401428222656,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+            "label": "pos",
+            "similarity": 0.9896440505981445,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+            "label": "pos",
+            "similarity": 0.9836639761924744,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+            "label": "pos",
+            "similarity": 0.9797933101654053,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1845.jpg",
+            "label": "pos",
+            "similarity": 0.9958938360214233,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+            "label": "pos",
+            "similarity": 0.9928926229476929,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+            "label": "pos",
+            "similarity": 0.991526186466217,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+            "label": "pos",
+            "similarity": 0.9934996962547302,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+            "label": "pos",
+            "similarity": 0.9947812557220459,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+            "img2": "Aaron_Sorkin\\3\\aligned_detect_3.425.jpg",
+            "label": "pos",
+            "similarity": 0.9705526828765869,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.425.jpg",
+            "img2": "Aaron_Sorkin\\3\\aligned_detect_3.426.jpg",
+            "label": "pos",
+            "similarity": 0.998119592666626,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.426.jpg",
+            "img2": "Aaron_Sorkin\\3\\aligned_detect_3.427.jpg",
+            "label": "pos",
+            "similarity": 0.9964954853057861,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.427.jpg",
+            "img2": "Aaron_Sorkin\\3\\aligned_detect_3.428.jpg",
+            "label": "pos",
+            "similarity": 0.996778666973114,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.428.jpg",
+            "img2": "Aaron_Sorkin\\3\\aligned_detect_3.429.jpg",
+            "label": "pos",
+            "similarity": 0.9985014796257019,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+            "label": "pos",
+            "similarity": 1.0000001192092896,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+            "label": "pos",
+            "similarity": 0.9975623488426208,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+            "label": "pos",
+            "similarity": 0.9975348114967346,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+            "label": "pos",
+            "similarity": 1.0,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+            "label": "pos",
+            "similarity": 0.9572854042053223,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+            "label": "pos",
+            "similarity": 0.9707901477813721,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+            "label": "pos",
+            "similarity": 0.9901542067527771,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1598.jpg",
+            "label": "pos",
+            "similarity": 0.9756054282188416,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1598.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1599.jpg",
+            "label": "pos",
+            "similarity": 0.9619513154029846,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.100.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.101.jpg",
+            "label": "pos",
+            "similarity": 0.9999983310699463,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.101.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.102.jpg",
+            "label": "pos",
+            "similarity": 0.9980860352516174,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.102.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.103.jpg",
+            "label": "pos",
+            "similarity": 0.9994149804115295,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.103.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.104.jpg",
+            "label": "pos",
+            "similarity": 0.9931329488754272,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.104.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.10.jpg",
+            "label": "pos",
+            "similarity": 0.9836952686309814,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\5\\aligned_detect_5.10.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.100.jpg",
+            "label": "pos",
+            "similarity": 0.9976783990859985,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\5\\aligned_detect_5.100.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.101.jpg",
+            "label": "pos",
+            "similarity": 0.9976872801780701,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\5\\aligned_detect_5.101.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.102.jpg",
+            "label": "pos",
+            "similarity": 0.9964284300804138,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\5\\aligned_detect_5.102.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.103.jpg",
+            "label": "pos",
+            "similarity": 0.9961873888969421,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.123.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+            "label": "neg",
+            "similarity": 0.9690479040145874,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.124.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+            "label": "neg",
+            "similarity": 0.9789270758628845,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.125.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+            "label": "neg",
+            "similarity": 0.9758133292198181,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.126.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+            "label": "neg",
+            "similarity": 0.9699869751930237,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\0\\aligned_detect_0.127.jpg",
+            "img2": "Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+            "label": "neg",
+            "similarity": 0.9651318192481995,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.131.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.183.jpg",
+            "label": "neg",
+            "similarity": 0.9543813467025757,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.132.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.184.jpg",
+            "label": "neg",
+            "similarity": 0.9522346258163452,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.133.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.185.jpg",
+            "label": "neg",
+            "similarity": 0.909238338470459,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.134.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.186.jpg",
+            "label": "neg",
+            "similarity": 0.9113590121269226,
+            "predicted": 1
+        },
+        {
+            "img1": "AJ_Cook\\2\\aligned_detect_2.135.jpg",
+            "img2": "Aaron_Eckhart\\1\\aligned_detect_1.187.jpg",
+            "label": "neg",
+            "similarity": 0.9454413056373596,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.555.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+            "label": "neg",
+            "similarity": 0.982607364654541,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.556.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+            "label": "neg",
+            "similarity": 0.9829837679862976,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.557.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+            "label": "neg",
+            "similarity": 0.9762030243873596,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.558.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+            "label": "neg",
+            "similarity": 0.9703229069709778,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Eckhart\\0\\aligned_detect_0.559.jpg",
+            "img2": "Aaron_Guiel\\5\\aligned_detect_5.1845.jpg",
+            "label": "neg",
+            "similarity": 0.9714058637619019,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1841.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+            "label": "neg",
+            "similarity": 0.9640215039253235,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1842.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+            "label": "neg",
+            "similarity": 0.951879620552063,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1843.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+            "label": "neg",
+            "similarity": 0.9551199674606323,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1844.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+            "label": "neg",
+            "similarity": 0.9564876556396484,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Guiel\\5\\aligned_detect_5.1845.jpg",
+            "img2": "Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+            "label": "neg",
+            "similarity": 0.9560152292251587,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.100.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+            "label": "neg",
+            "similarity": 0.9643151164054871,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.101.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+            "label": "neg",
+            "similarity": 0.9485931992530823,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.102.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+            "label": "neg",
+            "similarity": 0.9555521011352539,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.103.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+            "label": "neg",
+            "similarity": 0.968860387802124,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\0\\aligned_detect_0.104.jpg",
+            "img2": "Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+            "label": "neg",
+            "similarity": 0.9632229208946228,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.425.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+            "label": "neg",
+            "similarity": 0.9566123485565186,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.426.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+            "label": "neg",
+            "similarity": 0.8975225687026978,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.427.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+            "label": "neg",
+            "similarity": 0.8831788301467896,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.428.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1598.jpg",
+            "label": "neg",
+            "similarity": 0.8660585284233093,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Sorkin\\3\\aligned_detect_3.429.jpg",
+            "img2": "Aaron_Tippin\\1\\aligned_detect_1.1599.jpg",
+            "label": "neg",
+            "similarity": 0.9288394451141357,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.406.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.100.jpg",
+            "label": "neg",
+            "similarity": 0.9708379507064819,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.407.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.101.jpg",
+            "label": "neg",
+            "similarity": 0.9708719253540039,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.408.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.102.jpg",
+            "label": "neg",
+            "similarity": 0.9688265323638916,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.409.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.103.jpg",
+            "label": "neg",
+            "similarity": 0.9731864333152771,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\0\\aligned_detect_0.410.jpg",
+            "img2": "Abba_Eban\\0\\aligned_detect_0.104.jpg",
+            "label": "neg",
+            "similarity": 0.960963249206543,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1595.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.10.jpg",
+            "label": "neg",
+            "similarity": 0.968090295791626,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1596.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.100.jpg",
+            "label": "neg",
+            "similarity": 0.915471613407135,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1597.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.101.jpg",
+            "label": "neg",
+            "similarity": 0.8960319757461548,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1598.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.102.jpg",
+            "label": "neg",
+            "similarity": 0.8882533311843872,
+            "predicted": 1
+        },
+        {
+            "img1": "Aaron_Tippin\\1\\aligned_detect_1.1599.jpg",
+            "img2": "Abba_Eban\\5\\aligned_detect_5.103.jpg",
+            "label": "neg",
+            "similarity": 0.9473876953125,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.100.jpg",
+            "img2": "Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+            "label": "neg",
+            "similarity": 0.9665147066116333,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.101.jpg",
+            "img2": "Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+            "label": "neg",
+            "similarity": 0.969434380531311,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.102.jpg",
+            "img2": "Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+            "label": "neg",
+            "similarity": 0.967308521270752,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.103.jpg",
+            "img2": "Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+            "label": "neg",
+            "similarity": 0.9685465693473816,
+            "predicted": 1
+        },
+        {
+            "img1": "Abba_Eban\\0\\aligned_detect_0.104.jpg",
+            "img2": "Abbas_Kiarostami\\0\\aligned_detect_0.1403.jpg",
+            "label": "neg",
+            "similarity": 0.9594449400901794,
+            "predicted": 1
+        },
+        {
+            "img1": "Abbas_Kiarostami\\0\\aligned_detect_0.1399.jpg",
+            "img2": "Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1000.jpg",
+            "label": "neg",
+            "similarity": 0.9634575843811035,
+            "predicted": 1
+        },
+        {
+            "img1": "Abbas_Kiarostami\\0\\aligned_detect_0.1400.jpg",
+            "img2": "Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1001.jpg",
+            "label": "neg",
+            "similarity": 0.9661403298377991,
+            "predicted": 1
+        },
+        {
+            "img1": "Abbas_Kiarostami\\0\\aligned_detect_0.1401.jpg",
+            "img2": "Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1002.jpg",
+            "label": "neg",
+            "similarity": 0.9654306769371033,
+            "predicted": 1
+        },
+        {
+            "img1": "Abbas_Kiarostami\\0\\aligned_detect_0.1402.jpg",
+            "img2": "Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1003.jpg",
+            "label": "neg",
+            "similarity": 0.9650611877441406,
+            "predicted": 1
+        },
+        {
+            "img1": "Abbas_Kiarostami\\0\\aligned_detect_0.1403.jpg",
+            "img2": "Abdel_Aziz_Al-Hakim\\0\\aligned_detect_0.1004.jpg",
+            "label": "neg",
+            "similarity": 0.9582071304321289,
+            "predicted": 1
+        }
+    ],
+    "identities_used": {
+        "AJ_Cook": [
+            "aligned_detect_0.123.jpg",
+            "aligned_detect_0.124.jpg",
+            "aligned_detect_0.125.jpg",
+            "aligned_detect_0.126.jpg",
+            "aligned_detect_0.127.jpg",
+            "aligned_detect_2.131.jpg",
+            "aligned_detect_2.132.jpg",
+            "aligned_detect_2.133.jpg",
+            "aligned_detect_2.134.jpg",
+            "aligned_detect_2.135.jpg"
+        ],
+        "Aaron_Eckhart": [
+            "aligned_detect_0.555.jpg",
+            "aligned_detect_0.556.jpg",
+            "aligned_detect_0.557.jpg",
+            "aligned_detect_0.558.jpg",
+            "aligned_detect_0.559.jpg",
+            "aligned_detect_1.183.jpg",
+            "aligned_detect_1.184.jpg",
+            "aligned_detect_1.185.jpg",
+            "aligned_detect_1.186.jpg",
+            "aligned_detect_1.187.jpg",
+            "aligned_detect_2.1718.jpg"
+        ],
+        "Aaron_Guiel": [
+            "aligned_detect_5.1841.jpg",
+            "aligned_detect_5.1842.jpg",
+            "aligned_detect_5.1843.jpg",
+            "aligned_detect_5.1844.jpg",
+            "aligned_detect_5.1845.jpg"
+        ],
+        "Aaron_Sorkin": [
+            "aligned_detect_0.100.jpg",
+            "aligned_detect_0.101.jpg",
+            "aligned_detect_0.102.jpg",
+            "aligned_detect_0.103.jpg",
+            "aligned_detect_0.104.jpg",
+            "aligned_detect_3.425.jpg",
+            "aligned_detect_3.426.jpg",
+            "aligned_detect_3.427.jpg",
+            "aligned_detect_3.428.jpg",
+            "aligned_detect_3.429.jpg"
+        ],
+        "Aaron_Tippin": [
+            "aligned_detect_0.406.jpg",
+            "aligned_detect_0.407.jpg",
+            "aligned_detect_0.408.jpg",
+            "aligned_detect_0.409.jpg",
+            "aligned_detect_0.410.jpg",
+            "aligned_detect_1.1595.jpg",
+            "aligned_detect_1.1596.jpg",
+            "aligned_detect_1.1597.jpg",
+            "aligned_detect_1.1598.jpg",
+            "aligned_detect_1.1599.jpg"
+        ],
+        "Abba_Eban": [
+            "aligned_detect_0.100.jpg",
+            "aligned_detect_0.101.jpg",
+            "aligned_detect_0.102.jpg",
+            "aligned_detect_0.103.jpg",
+            "aligned_detect_0.104.jpg",
+            "aligned_detect_5.10.jpg",
+            "aligned_detect_5.100.jpg",
+            "aligned_detect_5.101.jpg",
+            "aligned_detect_5.102.jpg",
+            "aligned_detect_5.103.jpg"
+        ],
+        "Abbas_Kiarostami": [
+            "aligned_detect_0.1399.jpg",
+            "aligned_detect_0.1400.jpg",
+            "aligned_detect_0.1401.jpg",
+            "aligned_detect_0.1402.jpg",
+            "aligned_detect_0.1403.jpg"
+        ],
+        "Abdel_Aziz_Al-Hakim": [
+            "aligned_detect_0.1000.jpg",
+            "aligned_detect_0.1001.jpg",
+            "aligned_detect_0.1002.jpg",
+            "aligned_detect_0.1003.jpg",
+            "aligned_detect_0.1004.jpg"
+        ]
+    }
+}

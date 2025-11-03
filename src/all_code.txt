@@ -1,4 +1,5 @@
 # ==== Collected Python Files ====
+.\arcface_test.py
 .\check_lfw_structure.py
 .\connector.py
 .\extractor.py
@@ -8,9 +9,13 @@
 .\benchmark_parameters\performance\latency\latency.py
 .\benchmark_parameters\performance\latency\logic_dataset_image.py
 .\benchmark_parameters\performance\latency\logic_dataset_video.py
-.\benchmark_parameters\validation_accuracy\logic_dataset_image_va.py
-.\benchmark_parameters\validation_accuracy\logic_dataset_video_va.py
 .\benchmark_parameters\validation_accuracy\validation_accuracy.py
+.\benchmark_parameters\validation_accuracy\image\logic_confusion_matrix.py
+.\benchmark_parameters\validation_accuracy\image\logic_dataset_image_va.py
+.\benchmark_parameters\validation_accuracy\image\logic_roc_graph.py
+.\benchmark_parameters\validation_accuracy\video\logic_confusion_matrix_video.py
+.\benchmark_parameters\validation_accuracy\video\logic_dataset_video_va.py
+.\benchmark_parameters\validation_accuracy\video\logic_roc_graph_video.py
 .\components\camera.py
 .\components\face_detection.py
 .\components\settings.py
@@ -20,6 +25,8 @@
 .\dataset\manager.py
 .\dataset\YTF.py
 .\models\wrap_arcface.py
+.\models\wrap_deepface.py
+.\models\wrap_facedetection.py
 .\models\wrap_facenet.py
 .\models\wrap_insightface.py
 .\models\wrap_lightcnn.py
@@ -29,6 +36,192 @@
 
 
 # ==== File Contents Below ====
+
+
+# ==== .\arcface_test.py ====
+
+# project dependencies
+from deepface.commons import package_utils, weight_utils
+from deepface.models.FacialRecognition import FacialRecognition
+
+from deepface.commons.logger import Logger
+
+logger = Logger()
+
+# pylint: disable=unsubscriptable-object
+
+# --------------------------------
+# dependency configuration
+
+tf_version = package_utils.get_tf_major_version()
+
+if tf_version == 1:
+    from keras.models import Model
+    from keras.layers import (
+        ZeroPadding2D,
+        Input,
+        Conv2D,
+        BatchNormalization,
+        PReLU,
+        Add,
+        Dropout,
+        Flatten,
+        Dense,
+    )
+else:
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import (
+        ZeroPadding2D,
+        Input,
+        Conv2D,
+        BatchNormalization,
+        PReLU,
+        Add,
+        Dropout,
+        Flatten,
+        Dense,
+    )
+
+WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/v1.0/arcface_weights.h5"
+
+
+# pylint: disable=too-few-public-methods
+class ArcFaceClient(FacialRecognition):
+    """
+    ArcFace model class
+    """
+
+    def __init__(self):
+        self.model = load_model()
+        self.model_name = "ArcFace"
+        self.input_shape = (112, 112)
+        self.output_shape = 512
+
+
+def load_model(
+    url=WEIGHTS_URL,
+) -> Model:
+    """
+    Construct ArcFace model, download its weights and load
+    Returns:
+        model (Model)
+    """
+    base_model = ResNet34()
+    inputs = base_model.inputs[0]
+    arcface_model = base_model.outputs[0]
+    arcface_model = BatchNormalization(momentum=0.9, epsilon=2e-5)(arcface_model)
+    arcface_model = Dropout(0.4)(arcface_model)
+    arcface_model = Flatten()(arcface_model)
+    arcface_model = Dense(
+        512, activation=None, use_bias=True, kernel_initializer="glorot_normal"
+    )(arcface_model)
+    embedding = BatchNormalization(
+        momentum=0.9, epsilon=2e-5, name="embedding", scale=True
+    )(arcface_model)
+    model = Model(inputs, embedding, name=base_model.name)
+
+    # ---------------------------------------
+    weight_file = weight_utils.download_weights_if_necessary(
+        file_name="arcface_weights.h5", source_url=url
+    )
+
+    model = weight_utils.load_model_weights(model=model, weight_file=weight_file)
+    # ---------------------------------------
+
+    return model
+
+
+def ResNet34() -> Model:
+    """
+    ResNet34 model
+    Returns:
+        model (Model)
+    """
+    img_input = Input(shape=(112, 112, 3))
+
+    x = ZeroPadding2D(padding=1, name="conv1_pad")(img_input)
+    x = Conv2D(
+        64,
+        3,
+        strides=1,
+        use_bias=False,
+        kernel_initializer="glorot_normal",
+        name="conv1_conv",
+    )(x)
+    x = BatchNormalization(axis=3, epsilon=2e-5, momentum=0.9, name="conv1_bn")(x)
+    x = PReLU(shared_axes=[1, 2], name="conv1_prelu")(x)
+    x = stack_fn(x)
+
+    model = Model(img_input, x, name="ResNet34")
+
+    return model
+
+
+def block1(x, filters, kernel_size=3, stride=1, conv_shortcut=True, name=None):
+    bn_axis = 3
+
+    if conv_shortcut:
+        shortcut = Conv2D(
+            filters,
+            1,
+            strides=stride,
+            use_bias=False,
+            kernel_initializer="glorot_normal",
+            name=name + "_0_conv",
+        )(x)
+        shortcut = BatchNormalization(
+            axis=bn_axis, epsilon=2e-5, momentum=0.9, name=name + "_0_bn"
+        )(shortcut)
+    else:
+        shortcut = x
+
+    x = BatchNormalization(
+        axis=bn_axis, epsilon=2e-5, momentum=0.9, name=name + "_1_bn"
+    )(x)
+    x = ZeroPadding2D(padding=1, name=name + "_1_pad")(x)
+    x = Conv2D(
+        filters,
+        3,
+        strides=1,
+        kernel_initializer="glorot_normal",
+        use_bias=False,
+        name=name + "_1_conv",
+    )(x)
+    x = BatchNormalization(
+        axis=bn_axis, epsilon=2e-5, momentum=0.9, name=name + "_2_bn"
+    )(x)
+    x = PReLU(shared_axes=[1, 2], name=name + "_1_prelu")(x)
+
+    x = ZeroPadding2D(padding=1, name=name + "_2_pad")(x)
+    x = Conv2D(
+        filters,
+        kernel_size,
+        strides=stride,
+        kernel_initializer="glorot_normal",
+        use_bias=False,
+        name=name + "_2_conv",
+    )(x)
+    x = BatchNormalization(
+        axis=bn_axis, epsilon=2e-5, momentum=0.9, name=name + "_3_bn"
+    )(x)
+
+    x = Add(name=name + "_add")([shortcut, x])
+    return x
+
+
+def stack1(x, filters, blocks, stride1=2, name=None):
+    x = block1(x, filters, stride=stride1, name=name + "_block1")
+    for i in range(2, blocks + 1):
+        x = block1(x, filters, conv_shortcut=False, name=name + "_block" + str(i))
+    return x
+
+
+def stack_fn(x):
+    x = stack1(x, 64, 3, name="conv2")
+    x = stack1(x, 128, 4, name="conv3")
+    x = stack1(x, 256, 6, name="conv4")
+    return stack1(x, 512, 3, name="conv5")
+
 
 
 # ==== .\check_lfw_structure.py ====
@@ -61,18 +254,33 @@ for name, count in sample_counts:
 import importlib
 import torch
 
+# ✅ Add this import
+from models.wrap_facedetection import FaceDetectorAligner
+
+# ✅ Keep one shared detector instance for all models (faster)
+_DETECTOR = None
+
+
+def _get_detector():
+    global _DETECTOR
+    if _DETECTOR is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _DETECTOR = FaceDetectorAligner(device=device)
+    return _DETECTOR
+
 
 def load_model(model_name: str, config_path=None):
-    """Load model wrapper from package (pip-available only)."""
+    """Load model wrapper and attach the shared face detector/aligner."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
     wrappers = {
         "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
         "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
         "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
         "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
-        "lightcnn":  ("models.wrap_lightcnn",  "LightCNNWrapper"),
+        "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
+        "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
     }
+
     if model_name not in wrappers:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -80,7 +288,13 @@ def load_model(model_name: str, config_path=None):
     module = importlib.import_module(module_name)
     wrapper_class = getattr(module, class_name)
 
-    return wrapper_class(device)
+    # ✅ Create embedding model
+    wrapper = wrapper_class(device)
+
+    # ✅ Attach detector once (shared)
+    wrapper.detector = _get_detector()
+
+    return wrapper
 
 
 
@@ -1164,39 +1378,141 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
 
 
 
-# ==== .\benchmark_parameters\validation_accuracy\logic_dataset_image_va.py ====
+# ==== .\benchmark_parameters\validation_accuracy\validation_accuracy.py ====
 
-import os
-import cv2
+# validation_accuracy.py
+import argparse
 import json
-import time
-import numpy as np
-from tqdm import tqdm
+import os
 import sys
 
+# dynamic import loader same as latency.py
+try:
+    from components.utilities.file_indexer import load_file_index
+except ModuleNotFoundError:
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(__file__), "../../components/utilities")
+    )
+    from file_indexer import load_file_index
 
-# Loading Json File Content
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "test_config.json")
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-    _CFG = json.load(f)
+index_data = load_file_index()
+PROJECT_ROOT = index_data["root"]
+for rel_path in index_data["files"]:
+    dir_path = os.path.join(PROJECT_ROOT, os.path.dirname(rel_path))
+    if dir_path not in sys.path:
+        sys.path.insert(0, dir_path)
 
-DEFAULT_THRESHOLD = float(_CFG.get("threshold", 0.9))  # fallback if missing
-
-
-# Add the "src" directory to Python path dynamically
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
-
-from connector import load_model
+SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
 
-def send_log(msg: str, level: str = "info"):
-    """Emit a structured log line that the GUI will ignore (it only parses pure JSON objects)."""
+def send_log(msg, level="info"):
     print(json.dumps({"log": msg, "level": level}))
     sys.stdout.flush()
 
 
+def _resolve_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def run(model_name, iters, frame_h, frame_w, dataset=None):
+    """Delegates execution to image or video VA logic."""
+    dataset = dataset or ""
+    dl = dataset.lower()
+
+    # ✅ IMAGE DATASET (LFW, Celeb, etc.)
+    if "lfw" in dl:
+        from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
+            run_logic as logic_run,
+        )
+
+        send_log(f"[accuracy] Using SIMPLE IMAGE cosine test for {dataset}")
+
+        # IMPORTANT: run_logic(model, iters, frame_h, frame_w, dataset_path=...)
+        logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
+        return
+
+    # ✅ VIDEO DATASET
+    elif "ytf" in dl or "aligned_images_db" in dl or "video" in dl:
+        from benchmark_parameters.validation_accuracy.video.logic_dataset_video_va import (
+            run_logic as logic_run,
+        )
+
+        send_log(f"[accuracy] Using VIDEO dataset logic for {dataset}")
+        logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
+        return
+
+    # ✅ DEFAULT → treat as IMAGE dataset
+    from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
+        run_logic as logic_run,
+    )
+
+    send_log(f"[accuracy] Defaulting to SIMPLE IMAGE cosine test")
+    logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str)
+    parser.add_argument("--iters", type=int, default=50)
+    parser.add_argument("--frame-size", type=str, default="640x640")
+    parser.add_argument("--dataset", type=str, default=None)
+    args = parser.parse_args()
+
+    cfg = _resolve_settings()
+    model = args.model or cfg.get("model")
+    dataset = args.dataset or cfg.get("dataset")
+
+    if not model:
+        print(json.dumps({"error": "No model selected"}))
+        sys.exit(1)
+
+    try:
+        h, w = [int(x) for x in args.frame_size.lower().split("x")]
+    except Exception:
+        h, w = 640, 640
+
+    iters = args.iters or cfg.get("iters", 300)
+    if iters <= 0:
+        iters = 300
+        send_log("[WARN] iters was 0 — using default 300 instead")
+
+    run(model, iters, h, w, dataset)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\benchmark_parameters\validation_accuracy\image\logic_confusion_matrix.py ====
+
+import os
+import cv2
+import numpy as np
+from tqdm import tqdm
+import sys
+import json
+from datetime import datetime
+from itertools import combinations
+import random
+
+
+# ✅ Correct path: go up 3 directories (image → validation_accuracy → benchmark_parameters → src)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+# ✅ <<< HARD-CODE YOUR THRESHOLD HERE >>>
+FIXED_THRESHOLD = 0.60
+
+
 def cosine_similarity(a, b):
-    """Compute cosine similarity between two embeddings."""
     a = np.asarray(a, dtype=np.float32).flatten()
     b = np.asarray(b, dtype=np.float32).flatten()
     denom = np.linalg.norm(a) * np.linalg.norm(b)
@@ -1205,835 +1521,1008 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-# ----------------- ROC helpers (pure additions) -----------------
+from itertools import combinations
+import random
 
 
-def _roc_from_scores_labels(scores: np.ndarray, labels: np.ndarray, thresholds=None):
-    """Return (fpr, tpr, thr) for descending thresholds."""
-    if thresholds is None:
-        thresholds = np.unique(scores)
-    thresholds = np.sort(thresholds)[::-1]
-
-    P = int(np.sum(labels == 1))
-    N = int(np.sum(labels == 0))
-    if P == 0 or N == 0:
-        raise ValueError("Need both positive and negative pairs to compute ROC.")
-
-    tpr_list, fpr_list, thr_list = [], [], []
-    for t in thresholds:
-        preds = (scores >= t).astype(int)
-        tp = int(np.sum((preds == 1) & (labels == 1)))
-        fp = int(np.sum((preds == 1) & (labels == 0)))
-        tpr = tp / P if P else 0.0
-        fpr = fp / N if N else 0.0
-        tpr_list.append(tpr)
-        fpr_list.append(fpr)
-        thr_list.append(float(t))
-
-    # Ensure endpoints for a clean curve
-    if fpr_list[-1] != 1.0 or tpr_list[-1] != 1.0:
-        fpr_list.append(1.0)
-        tpr_list.append(1.0)
-        thr_list.append(thr_list[-1] - 1e-6)
-    if fpr_list[0] != 0.0 or tpr_list[0] != 0.0:
-        fpr_list.insert(0, 0.0)
-        tpr_list.insert(0, 0.0)
-        thr_list.insert(0, thr_list[0] + 1e-6)
-
-    return np.asarray(fpr_list), np.asarray(tpr_list), np.asarray(thr_list)
-
-
-def _auc_trapezoid(fpr: np.ndarray, tpr: np.ndarray) -> float:
-    order = np.argsort(fpr)
-    return float(np.trapz(tpr[order], fpr[order]))
-
-
-def _eer(fpr: np.ndarray, tpr: np.ndarray) -> float:
-    diff = np.abs(fpr - (1.0 - tpr))
-    i = int(np.argmin(diff))
-    if 0 < i < len(fpr):
-        x1, y1 = fpr[i - 1], 1.0 - tpr[i - 1]
-        x2, y2 = fpr[i], 1.0 - tpr[i]
-        denom = (x2 - x1) - (y2 - y1)
-        if abs(denom) > 1e-12:
-            s = (y1 - x1) / denom
-            s = min(max(s, 0.0), 1.0)
-            x = x1 + s * (x2 - x1)
-            return float(x)
-    return float((fpr[i] + (1.0 - tpr[i])) / 2.0)
-
-
-def _tar_at_far(fpr: np.ndarray, tpr: np.ndarray, far_target: float) -> float:
-    """Return TPR (aka TAR/Recall) at the requested FAR by linear interpolation."""
-    order = np.argsort(fpr)
-    fpr = fpr[order]
-    tpr = tpr[order]
-    if far_target <= fpr[0]:
-        return float(tpr[0])
-    if far_target >= fpr[-1]:
-        return float(tpr[-1])
-    i = int(np.searchsorted(fpr, far_target))
-    x1, x2 = float(fpr[i - 1]), float(fpr[i])
-    y1, y2 = float(tpr[i - 1]), float(tpr[i])
-    w = (far_target - x1) / (x2 - x1 + 1e-12)
-    return y1 + w * (y2 - y1)
-
-
-def _eer_threshold(fpr: np.ndarray, tpr: np.ndarray, thr: np.ndarray) -> float:
+def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
     """
-    Return the score threshold at which FPR ~= 1 - TPR (EER point), using
-    linear interpolation between the two closest ROC samples.
-    Assumes 'thr' corresponds to the same points as fpr/tpr (descending).
+    Deterministic pair generation:
+    - Start from selected identity unless ALL mode is activated
+    - Max ~10 positive pairs per identity
+    - Balanced negative pairs
+    - No randomness
     """
-    d = fpr - (1.0 - tpr)  # zero when at EER
-    i = int(np.argmin(np.abs(d)))
-    # If we have neighbors, interpolate threshold between i-1 and i
-    if 0 < i < len(thr):
-        d1, d2 = float(d[i - 1]), float(d[i])
-        t1, t2 = float(thr[i - 1]), float(thr[i])
-        # If both diffs identical, just average thresholds
-        if abs(d2 - d1) < 1e-12:
-            return float(0.5 * (t1 + t2))
-        # weight toward the point closer to zero
-        w = abs(d1) / (abs(d1) + abs(d2))
-        return float(t1 * (1.0 - w) + t2 * w)
-    return float(thr[i])
 
+    # ✅ Detect ALL mode
+    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
 
-def _plot_and_save_roc(
-    fpr,
-    tpr,
-    auc,
-    eer,
-    tau_eer=None,
-    thr=None,
-    title=None,
-    out_png=None,
-    stats_box_text=None,
-):
-
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import os  # <-- make sure os is available here
-
-    fig = plt.figure(figsize=(5.2, 4.6))
-    ax = fig.add_subplot(111)
-
-    ax.plot(fpr, tpr, linewidth=2, label=f"ROC (AUC={auc:.4f})")
-    ax.plot([0, 1], [0, 1], linestyle="--")
-
-    # --- Mark EER point ---
-    ax.scatter(
-        [eer], [1 - eer], s=35, color="blue", label=f"EER ≈ {eer*100:.2f}%", zorder=5
-    )
-
-    # --- Mark τ_EER (threshold at EER) ---
-    if tau_eer is not None and thr is not None:
-        try:
-            idx = int(np.argmin(np.abs(thr - tau_eer)))
-            # Red "×" marker without separate duplicate legend entry
-            ax.scatter([fpr[idx]], [tpr[idx]], s=70, marker="x", color="red", zorder=6)
-            # Add one legend label manually (so it doesn't duplicate)
-            ax.plot([], [], "x", color="red", label=f"τ_EER = {tau_eer:.3f}")
-
-            # Add annotation arrow
-            ax.annotate(
-                f"τ_EER\n{tau_eer:.3f}",
-                xy=(fpr[idx], tpr[idx]),
-                xytext=(-30, -20),
-                textcoords="offset points",
-                color="red",
-                fontsize=9,
-                fontweight="bold",
-                arrowprops=dict(arrowstyle="->", lw=0.8, color="red"),
-            )
-        except Exception:
-            pass
-
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xlabel("False Positive Rate (FPR)")
-    ax.set_ylabel("True Positive Rate (TPR)")
-    ax.set_title(title)
-    ax.legend(loc="lower right")
-    ax.grid(True, alpha=0.3)
-
-    # Reserve right gutter (smaller "right" => wider gutter)
-    gutter_right = float(os.getenv("ROC_RIGHT_GUTTER", "0.60"))  # was 0.74 or 0.62
-    fig.subplots_adjust(right=gutter_right)
-
-    if stats_box_text:
-        box_x = float(os.getenv("ROC_BOX_X", "0.965"))  # was 0.99
-        box_y = float(os.getenv("ROC_BOX_Y", "0.84"))
-        fig.text(
-            box_x,
-            box_y,
-            stats_box_text,
-            ha="right",
-            va="top",
-            fontsize=10,
-            bbox=dict(boxstyle="round,pad=0.45", fc="white", ec="0.75", alpha=0.95),
-            transform=fig.transFigure,
-            zorder=10,
-            clip_on=False,  # <- avoid clipping to containers
-        )
-
-    fig.savefig(out_png, dpi=150)
-    plt.close(fig)
-
-
-# ----------------- Deterministic pair builder (pos + neg) -----------------
-
-
-def _collect_ordered_people_with_images(dataset_path):
-    people = [
-        p
-        for p in os.listdir(dataset_path)
-        if os.path.isdir(os.path.join(dataset_path, p))
-    ]
-    people.sort()
-    imgs_by_person = []
-    for person in people:
-        imgs = [
-            os.path.join(dataset_path, person, f)
-            for f in sorted(os.listdir(os.path.join(dataset_path, person)))
-            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+    # List all people
+    people = sorted(
+        [
+            d
+            for d in os.listdir(dataset_path)
+            if os.path.isdir(os.path.join(dataset_path, d))
         ]
-        if imgs:
-            imgs_by_person.append((person, imgs))
-    return imgs_by_person  # list of (person, [img paths])
-
-
-def _ring_index(i, n):  # helper for wrap-around
-    return i % n if n else 0
-
-
-def _pair_key(a: str, b: str, lbl: int):
-    """Order-insensitive unique key for a pair."""
-    a = os.path.normpath(a)
-    b = os.path.normpath(b)
-    if a <= b:
-        return (a, b, int(lbl))
-    else:
-        return (b, a, int(lbl))
-
-
-def build_pairs_deterministic(
-    dataset_path,
-    start_person=None,
-    max_pairs=600,
-    pos_ratio=0.5,
-    exclude_singletons=True,  # only folders with ≥2 images for pos & neg
-    max_pos_per_identity=10,  # cap positive pairs contributed by each identity
-    max_neg_per_identity=20,  # cap negative pairs involving each identity
-    max_pos_per_image=3,  # NEW: cap how many positive pairs each *image* can be in
-    max_neg_per_image=3,  # NEW: cap how many negative pairs each *image* can be in
-):
-    """
-    Deterministic (reproducible) pair set with:
-      - Option B (no singletons)
-      - per-identity caps
-      - per-image caps (prevents one image from repeating a lot)
-      - order-insensitive pair de-duplication
-      - round-robin image selection to diversify pairs
-    """
-    pos_ratio = max(0.0, min(1.0, float(pos_ratio)))
-
-    people_all = _collect_ordered_people_with_images(dataset_path)
-    if not people_all:
-        print("[ERROR] No images found in dataset")
-        return []
-
-    people = (
-        [(p, imgs) for (p, imgs) in people_all if len(imgs) >= 2]
-        if exclude_singletons
-        else people_all[:]
     )
-    if not people:
-        print("[ERROR] No identities with >=2 images were found; nothing to build")
-        return []
 
-    all_names = [p for p, _ in people_all]
-    filt_names = [p for p, _ in people]
+    # ✅ If not ALL mode and identity was selected → reorder dataset starting from that identity
+    if not return_all and start_identity in people:
+        start_idx = people.index(start_identity)
+        people = people[start_idx:]
 
-    # start index resolution
-    if start_person:
-        if start_person in filt_names:
-            start_idx = filt_names.index(start_person)
-        else:
-            if start_person in all_names:
-                base = all_names.index(start_person)
-                chosen = None
-                for k in range(len(all_names)):
-                    cand = all_names[(base + k) % len(all_names)]
-                    if cand in filt_names:
-                        chosen = cand
-                        break
-                start_idx = filt_names.index(chosen) if chosen else 0
-                if chosen:
-                    print(
-                        f"[WARN] start_person '{start_person}' has <2 images; starting at next available '{chosen}'"
-                    )
-            else:
-                print(
-                    f"[WARN] start_person '{start_person}' not found; starting at '{filt_names[0]}'"
-                )
-                start_idx = 0
-    else:
-        start_idx = 0
+    # Load images once
+    all_people_imgs = {
+        p: sorted(
+            [
+                os.path.join(dataset_path, p, f)
+                for f in os.listdir(os.path.join(dataset_path, p))
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
+        for p in people
+    }
 
-    # --- POSITIVES (diversified & capped per image + per identity) ---
-    pos_pool: list[tuple[str, str, int]] = []
-    pos_seen: set[tuple[str, str, int]] = set()
-    pos_count_id = {name: 0 for name, _ in people}
-    pos_use_img: dict[str, int] = {}
+    pos_pairs = []
+    neg_pairs = []
 
-    for k in range(len(people)):  # walk from start with wrap-around
-        pi = _ring_index(start_idx + k, len(people))
-        name, imgs = people[pi]
-        if pos_count_id[name] >= max_pos_per_identity:
+    # ----- Positive pairs (max 10 per identity) -----
+    for person in people:
+        imgs = all_people_imgs[person]
+        if len(imgs) < 2:
             continue
 
-        added_for_id = 0
-        m = len(imgs)
-        for shift in range(1, m):
-            for i in range(m):
-                if added_for_id >= max_pos_per_identity:
-                    break
-                j = (i + shift) % m
-                if i >= j:
-                    continue
-                a, b = imgs[i], imgs[j]
-                if pos_use_img.get(a, 0) >= max_pos_per_image:
-                    continue
-                if pos_use_img.get(b, 0) >= max_pos_per_image:
-                    continue
-                key = _pair_key(a, b, 1)
-                if key in pos_seen:
-                    continue
-                pos_seen.add(key)
-                pos_pool.append((a, b, 1))
-                pos_use_img[a] = pos_use_img.get(a, 0) + 1
-                pos_use_img[b] = pos_use_img.get(b, 0) + 1
-                pos_count_id[name] += 1
-                added_for_id += 1
-            if added_for_id >= max_pos_per_identity:
+        for i in range(min(len(imgs) - 1, 9)):
+            pos_pairs.append((imgs[i], imgs[i + 1], 1))
+
+        # ✅ Only stop if not ALL mode
+        if not return_all and len(pos_pairs) >= max_pairs // 2:
+            break
+
+    # ✅ Determine how many negative pairs needed
+    pos_count = len(pos_pairs)
+    neg_needed = pos_count
+
+    # ----- Negative pairs (identity i vs identity i+1) -----
+    for i in range(len(people) - 1):
+        p1, p2 = people[i], people[i + 1]
+        imgs1, imgs2 = all_people_imgs[p1], all_people_imgs[p2]
+
+        for a, b in zip(imgs1, imgs2):
+            neg_pairs.append((a, b, 0))
+            if not return_all and len(neg_pairs) >= neg_needed:
                 break
 
-    # --- NEGATIVES (diversified & capped per image + per identity) ---
-    neg_pool: list[tuple[str, str, int]] = []
-    neg_seen: set[tuple[str, str, int]] = set()
-    neg_count_id = {name: 0 for name, _ in people}
-    neg_use_img: dict[str, int] = {}
+        if not return_all and len(neg_pairs) >= neg_needed:
+            break
 
-    n = len(people)
-    if n >= 2:
-        for id_offset in range(1, n):
-            for a_idx in range(n):
-                b_idx = _ring_index(a_idx + id_offset, n)
-                name_a, imgs_a = people[a_idx]
-                name_b, imgs_b = people[b_idx]
-                if (
-                    neg_count_id[name_a] >= max_neg_per_identity
-                    and neg_count_id[name_b] >= max_neg_per_identity
-                ):
-                    continue
-                La, Lb = len(imgs_a), len(imgs_b)
-                L = min(La, Lb)
-                for img_offset in range(L):
-                    a = imgs_a[img_offset % La]
-                    b = imgs_b[(img_offset + id_offset) % Lb]
-                    if neg_count_id[name_a] >= max_neg_per_identity:
-                        continue
-                    if neg_count_id[name_b] >= max_neg_per_identity:
-                        continue
-                    if neg_use_img.get(a, 0) >= max_neg_per_image:
-                        continue
-                    if neg_use_img.get(b, 0) >= max_neg_per_image:
-                        continue
-                    key = _pair_key(a, b, 0)
-                    if key in neg_seen:
-                        continue
-                    neg_seen.add(key)
-                    neg_pool.append((a, b, 0))
-                    neg_use_img[a] = neg_use_img.get(a, 0) + 1
-                    neg_use_img[b] = neg_use_img.get(b, 0) + 1
-                    neg_count_id[name_a] += 1
-                    neg_count_id[name_b] += 1
+    neg_pairs = neg_pairs[:neg_needed]
 
-    want_pos = int(round(max_pairs * pos_ratio))
-    want_neg = max_pairs - want_pos
+    final_pairs = pos_pairs + neg_pairs
 
-    combined: list[tuple[str, str, int]] = []
-    combined_seen: set[tuple[str, str, int]] = set()
-
-    def _try_add(pair):
-        key = _pair_key(pair[0], pair[1], pair[2])
-        if key in combined_seen:
-            return False
-        combined.append(pair)
-        combined_seen.add(key)
-        return True
-
-    for p in pos_pool[:want_pos]:
-        _try_add(p)
-    for q in neg_pool[:want_neg]:
-        _try_add(q)
-
-    if len(combined) < max_pairs:
-        for pool in (pos_pool[want_pos:], neg_pool[want_neg:]):
-            for item in pool:
-                if len(combined) >= max_pairs:
-                    break
-                _try_add(item)
-
-    print(
-        f"[INFO] Built {len(combined)} pairs "
-        f"({sum(1 for *_, l in combined if l==1)} pos / "
-        f"{sum(1 for *_, l in combined if l==0)} neg) "
-        f"starting at '{filt_names[start_idx]}'"
-    )
-    return combined[:max_pairs]
+    # ✅ In ALL mode return everything, else return limited
+    if return_all:
+        return final_pairs
+    else:
+        return final_pairs[:max_pairs]
 
 
-# ----------------- Eval utilities -----------------
+def run_confusion(model_name, dataset_path, start_identity, iters=300):
+    print(f"[CM] Model: {model_name}")
+    print(f"[CM] Dataset: {dataset_path}")
+    print(f"[CM] Using FIXED THRESHOLD = {FIXED_THRESHOLD}")
 
+    wrapper = load_model(model_name)
 
-def find_best_threshold(sims, labels):
-    thresholds = np.linspace(-1, 1, 200)
-    best_acc, best_t = 0.0, 0.0
-    labels = np.array(labels)
-    sims = np.array(sims)
-    for t in thresholds:
-        preds = (sims > t).astype(int)
-        acc = np.mean(preds == labels)
-        if acc > best_acc:
-            best_acc, best_t = float(acc), float(t)
-    return best_acc, best_t
-
-
-# ----------------- Main logic -----------------
-
-
-def run_logic(
-    model_path,
-    iters=300,
-    frame_h=None,
-    frame_w=None,
-    dataset_path=None,
-    start_person=None,
-    pos_ratio=0.5,
-):
-    if dataset_path is None:
-        dataset_path = model_path
-
-    # --- Auto-fix for common dataset folder structure ---
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    wrapper = load_model(model_path)
-    model_name = getattr(wrapper, "name", os.path.basename(model_path))
+    if start_identity == "__ALL__":
+        pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
+    else:
+        pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
-    # allow env overrides (useful when called from GUI)
-    start_person = start_person or os.getenv("LFW_START_PERSON") or None
-    try:
-        pos_ratio = float(os.getenv("POS_RATIO", pos_ratio))
-    except Exception:
-        pass
-    pos_ratio = max(0.0, min(1.0, pos_ratio))
+    sims = []
+    labels = []
+    pair_records = []
+    used_identities = {}
 
-    # per-identity caps (allow env override if needed)
-    try:
-        max_pos_cap = int(os.getenv("MAX_POS_PER_ID", "10"))
-    except Exception:
-        max_pos_cap = 10
-    try:
-        max_neg_cap = int(os.getenv("MAX_NEG_PER_ID", "20"))
-    except Exception:
-        max_neg_cap = 20
+    total = len(pairs)
 
-    print(
-        f"[DEBUG] run_logic() iters={iters}, dataset={dataset_path}, "
-        f"start_person={start_person}, pos_ratio={pos_ratio}, "
-        f"max_pos_per_identity={max_pos_cap}, max_neg_per_identity={max_neg_cap}"
-    )
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
 
-    # --- Build pairs deterministically ---
-    pairs = build_pairs_deterministic(
-        dataset_path,
-        start_person=start_person,
-        max_pairs=iters,
-        pos_ratio=pos_ratio,
-        exclude_singletons=True,
-        max_pos_per_identity=max_pos_cap,
-        max_neg_per_identity=max_neg_cap,
-    )
-
-    if not pairs:
-        print(
-            json.dumps(
-                {
-                    "kind": "accuracy_image",
-                    "dataset": os.path.basename(dataset_path),
-                    "model": model_name,
-                    "num_pairs": 0,
-                    "error": "No pairs could be built (check dataset path or start person)",
-                }
-            ),
-            flush=True,
+        # ---- PROGRESS UPDATE FOR GUI ----
+        sys.stdout.write(
+            json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n"
         )
-        return
+        sys.stdout.flush()
 
-    # --- Evaluate pairs ---
-    sims, labels = [], []
-    start_time = time.time()
-
-    total_pairs = len(pairs)
-    # reset the bar to 0 first
-    print(
-        json.dumps({"_type": "progress", "progress": 0, "total": total_pairs}),
-        flush=True,
-    )
-
-    for i, (img1, img2, label) in enumerate(pairs):
-        img1 = os.path.normpath(img1)
-        img2 = os.path.normpath(img2)
+        # ✅ Track which identities and images are used
+        person1 = os.path.basename(os.path.dirname(img1))
+        person2 = os.path.basename(os.path.dirname(img2))
+        used_identities.setdefault(person1, set()).add(os.path.basename(img1))
+        used_identities.setdefault(person2, set()).add(os.path.basename(img2))
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
-            print(f"[WARN] Skipping unreadable pair:\n  {img1}\n  {img2}")
-            # still advance the visual progress so the bar moves
-            print(
-                json.dumps(
-                    {"_type": "progress", "progress": i + 1, "total": total_pairs}
-                ),
-                flush=True,
-            )
             continue
 
         emb1 = wrapper.embed(a)
         emb2 = wrapper.embed(b)
         if emb1 is None or emb2 is None:
-            print(f"[WARN] Skipping pair with missing embedding:\n  {img1}\n  {img2}")
-            print(
-                json.dumps(
-                    {"_type": "progress", "progress": i + 1, "total": total_pairs}
-                ),
-                flush=True,
-            )
             continue
 
-        sims.append(cosine_similarity(emb1, emb2))
-        labels.append(int(label))
+        sim = cosine_similarity(emb1, emb2)
+        sims.append(sim)
+        labels.append(label)
 
-        # ✅ emit after every pair so the bar moves smoothly
-        print(
-            json.dumps({"_type": "progress", "progress": i + 1, "total": total_pairs}),
-            flush=True,
-        )
-
-    if not sims:
-        print(
-            json.dumps(
-                {
-                    "kind": "accuracy_image",
-                    "dataset": os.path.basename(dataset_path),
-                    "model": model_name,
-                    "num_pairs": 0,
-                    "error": "All pairs were unreadable or produced no embeddings",
-                }
-            ),
-            flush=True,
-        )
-        return
-
-    # --- Fixed-threshold accuracy (kept exactly as before) ---
-    fixed_t = DEFAULT_THRESHOLD
-    labels_np = np.array(labels, dtype=int)
-    preds = (np.array(sims) > fixed_t).astype(int)
-    acc = float(np.mean(preds == labels_np))
-    best_t = fixed_t
-
-    elapsed = time.time() - start_time
-
-    # --- Confusion counts at fixed threshold ---
-    labels_np = np.array(labels, dtype=int)
-    preds = (np.array(sims) > best_t).astype(int)
-
-    tp = int(((preds == 1) & (labels_np == 1)).sum())
-    tn = int(((preds == 0) & (labels_np == 0)).sum())
-    fp = int(((preds == 1) & (labels_np == 0)).sum())
-    fn = int(((preds == 0) & (labels_np == 1)).sum())
-
-    # Precision / Recall / F1 at the fixed threshold
-    prec_den = tp + fp
-    rec_den = tp + fn
-    precision = float(tp / prec_den) if prec_den > 0 else 0.0
-    recall = float(tp / rec_den) if rec_den > 0 else 0.0  # == tpr_at_fixed
-    f1 = (
-        float(2 * precision * recall / (precision + recall))
-        if (precision + recall) > 0
-        else 0.0
-    )
-
-    pos = int((labels_np == 1).sum())
-    neg = int((labels_np == 0).sum())
-
-    P = max(1, pos)  # positives
-    N = max(1, neg)  # negatives
-    tpr_at_fixed = tp / P
-    fpr_at_fixed = fp / N
-    stats_box_text = (
-        f"Threshold: {best_t:.3f}\n"
-        f"TP: {tp}  FP: {fp}\n"
-        f"TN: {tn}  FN: {fn}\n"
-        f"TPR: {tpr_at_fixed:.3f}  FPR: {fpr_at_fixed:.3f}"
-    )
-
-    # --- ROC/AUC/EER (new; exports PNG+JSON) ---
-    fpr, tpr, thr = _roc_from_scores_labels(
-        np.array(sims, dtype=np.float64), np.array(labels, dtype=np.int32)
-    )
-    auc = _auc_trapezoid(fpr, tpr)
-    eer = _eer(fpr, tpr)
-
-    # --- Threshold at EER (tau_EER) ---
-    eer_idx = int(np.argmin(np.abs(fpr - (1.0 - tpr))))
-    tau_eer = float(thr[eer_idx])
-
-    # --- TAR at fixed FAR levels ---
-    tar_at_1e2 = _tar_at_far(fpr, tpr, 1e-2)  # FAR = 0.01
-    tar_at_1e3 = _tar_at_far(fpr, tpr, 1e-3)  # FAR = 0.001
-
-    # identities involved (folder names)
-    def _identity_from_path(p):
-        return os.path.basename(os.path.dirname(p))
-
-    identities_used = sorted(
-        set(
-            [_identity_from_path(p1) for p1, _, _ in pairs]
-            + [_identity_from_path(p2) for _, p2, _ in pairs]
-        )
-    )
-    unique_identities = len(identities_used)
-    identities_preview = identities_used[:8]
-
-    result = {
-        "kind": "accuracy_image",
-        "dataset": os.path.basename(dataset_path),
-        "model": model_name,
-        "num_pairs": len(sims),  # effective evaluated pairs
-        "requested_pairs": len(pairs),  # before skipping any invalids
-        "pos_ratio": round(float(pos_ratio), 3),
-        "accuracy": round(float(acc), 5),
-        "threshold": round(float(best_t), 3),
-        "elapsed_sec": round(float(elapsed), 2),
-        "start_person": start_person,
-        "tp": tp,
-        "fp": fp,
-        "tn": tn,
-        "fn": fn,
-        "tpr_at_fixed": round(
-            float(tpr_at_fixed), 6
-        ),  # == TAR/Recall at fixed threshold
-        "fpr_at_fixed": round(float(fpr_at_fixed), 6),  # == FAR at fixed threshold
-        # (optional but handy)
-        # "P": int(P),
-        # "N": int(N),
-        "pos_pairs": pos,
-        "neg_pairs": neg,
-        "unique_identities": unique_identities,
-        "identities_preview": identities_preview,
-        "max_pos_per_identity": max_pos_cap,
-        "max_neg_per_identity": max_neg_cap,
-        "auc": round(float(auc), 6),
-        "eer": round(float(eer), 6),
-        "tar_at_far_1e2": round(float(tar_at_1e2), 6),
-        "tar_at_far_1e3": round(float(tar_at_1e3), 6),
-        "precision": round(float(precision), 6),
-        "recall": round(float(recall), 6),
-        "f1": round(float(f1), 6),
-        "tau_eer": round(float(tau_eer), 6),
-    }
-
-    # ------- Export full run details to a separate JSON file -------
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    dataset_name = os.path.basename(dataset_path.rstrip(os.sep))
-    test_name = "Validation Accuracy (Image)"
-
-    # Store pairs with paths relative to dataset for portability
-    pairs_export = []
-    for a, b, lbl in pairs:
-        pairs_export.append(
+        # ✅ Store pair data
+        pair_records.append(
             {
-                "a": os.path.relpath(os.path.normpath(a), dataset_path),
-                "b": os.path.relpath(os.path.normpath(b), dataset_path),
-                "label": "pos" if int(lbl) == 1 else "neg",
+                "img1": img1.replace(dataset_path + os.sep, ""),
+                "img2": img2.replace(dataset_path + os.sep, ""),
+                "label": "pos" if label == 1 else "neg",
+                "similarity": float(sim),
             }
         )
 
-    export_dir = os.path.join(os.path.dirname(__file__), "exports")
-    os.makedirs(export_dir, exist_ok=True)
+    scores = np.array(sims)
+    labels = np.array(labels)
 
-    # Existing VA export (unchanged)
-    export_path = os.path.join(
-        export_dir, f"va_{dataset_name}_{model_name}_{timestamp}.json"
-    )
+    preds = (scores >= FIXED_THRESHOLD).astype(int)
+    for i in range(len(pair_records)):
+        pair_records[i]["predicted"] = int(preds[i])
 
-    export_payload = {
-        "meta": {
-            "model": model_name,
-            "dataset": dataset_name,
-            "test_name": test_name,
-            "start_person": start_person,
-            "pos_ratio": pos_ratio,
-            "iters_requested": iters,
-            "pairs_evaluated": len(sims),
-            "timestamp": timestamp,
-        },
-        "stats": {
-            "accuracy": result["accuracy"],
-            "threshold": result["threshold"],
-            "elapsed_sec": result["elapsed_sec"],
-            "tp": result["tp"],
-            "fp": result["fp"],
-            "tn": result["tn"],
-            "fn": result["fn"],
-            "pos_pairs": result["pos_pairs"],
-            "neg_pairs": result["neg_pairs"],
-            "unique_identities": result["unique_identities"],
-            "auc": result["auc"],
-            "eer": result["eer"],
-            "precision": round(float(precision), 6),
-            "recall": round(float(recall), 6),
-            "f1": round(float(f1), 6),
-            "tau_eer": round(float(tau_eer), 6),
-        },
-        "identities": identities_used,  # full, sorted list
-        "pairs": pairs_export,  # every evaluated pair (no duplicates)
-        # NEW: include raw ROC curve for reproducibility
-        "roc_curve": {
-            "fpr": [float(x) for x in fpr.tolist()],
-            "tpr": [float(x) for x in tpr.tolist()],
-            "thresholds": [float(x) for x in thr.tolist()],
-        },
+    tp = int(((preds == 1) & (labels == 1)).sum())
+    tn = int(((preds == 0) & (labels == 0)).sum())
+    fp = int(((preds == 1) & (labels == 0)).sum())
+    fn = int(((preds == 0) & (labels == 1)).sum())
+
+    pos_count = int((labels == 1).sum())
+    neg_count = int((labels == 0).sum())
+
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    precision = tp / (tp + fp + 1e-9)
+    recall = tp / (tp + fn + 1e-9)  # TAR
+    specificity = tn / (tn + fp + 1e-9)
+    f1 = 2 * precision * recall / (precision + recall + 1e-9)
+    far = fp / (fp + tn + 1e-9)  # False Accept Rate
+    frr = fn / (fn + tp + 1e-9)  # False Reject Rate
+
+    result = {
+        "kind": "confusion_matrix",
+        "model": model_name,
+        "dataset": os.path.basename(dataset_path),
+        "pairs_tested": len(labels),
+        "tp": tp,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "accuracy": float(accuracy),
+        "precision": float(precision),
+        "recall": float(recall),
+        "specificity": float(specificity),
+        "f1": float(f1),
+        "far": float(far),
+        "frr": float(frr),
+        "threshold": float(FIXED_THRESHOLD),
+        "pos_pairs": pos_count,
+        "neg_pairs": neg_count,
     }
 
-    with open(export_path, "w", encoding="utf-8") as f:
-        json.dump(export_payload, f, indent=2)
+    identities_detail = {
+        person: sorted(list(images)) for person, images in used_identities.items()
+    }
 
-    # NEW: Save ROC figure & a compact ROC-only JSON
-    roc_png = os.path.join(
-        export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.png"
-    )
-    _plot_and_save_roc(
-        fpr,
-        tpr,
-        auc,
-        eer,
-        tau_eer=tau_eer,
-        thr=thr,
-        title=f"ROC – {model_name} on {dataset_name}",
-        out_png=roc_png,
-        stats_box_text=stats_box_text,
-    )
+    # ✅ Build export JSON
+    export_data = {
+        "meta": {
+            "model": model_name,
+            "dataset": os.path.basename(dataset_path),
+            "test_name": "Confusion Matrix (Image)",
+            "threshold": FIXED_THRESHOLD,
+            "pairs_evaluated": len(labels),
+            "pos_pairs": pos_count,
+            "neg_pairs": neg_count,
+            "start_identity": start_identity,
+            "timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
+        },
+        "metrics": result,
+        "pairs": pair_records,
+        "identities_used": identities_detail,
+    }
 
-    roc_json = os.path.join(
-        export_dir, f"roc_{dataset_name}_{model_name}_{timestamp}.json"
-    )
-    with open(roc_json, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "model": model_name,
-                "dataset": dataset_name,
-                "timestamp": timestamp,
-                "auc": round(float(auc), 6),
-                "eer": round(float(eer), 6),
-                "figure_path": roc_png,
-                # NEW: include fixed-threshold performance in ROC JSON
-                "tpr_at_fixed": round(float(tpr_at_fixed), 6),
-                "fpr_at_fixed": round(float(fpr_at_fixed), 6),
-                # NEW: optional overlay text (useful for reproducing plots)
-                "stats_box_text": stats_box_text,
-                # existing full arrays
-                "fpr": [float(x) for x in fpr.tolist()],
-                "tpr": [float(x) for x in tpr.tolist()],
-                "thresholds": [float(x) for x in thr.tolist()],
-            },
-            f,
-            indent=2,
-        )
+    # ✅ Save to /exports/ folder
+    export_dir = os.path.join(os.path.dirname(__file__), "..", "..", "exports")
+    os.makedirs(export_dir, exist_ok=True)
 
-    # Optional info for console
-    result["export_path"] = export_path
-    result["roc_png"] = roc_png  # NEW
-    result["roc_json"] = roc_json  # NEW
-    try:
-        send_log(f"[export] wrote {export_path}")
-        send_log(f"[export] wrote {roc_png}")
-        send_log(f"[export] wrote {roc_json}")
-    except NameError:
-        pass
+    filename = f"{model_name}_confusion_{export_data['meta']['timestamp']}.json"
+    filepath = os.path.join(export_dir, filename)
 
-    # Human-readable pretty block for the console
-    print("[RESULT]", flush=True)
-    print(json.dumps(result, indent=2), flush=True)
-    print("", flush=True)  # blank line for readability
+    with open(filepath, "w") as f:
+        json.dump(export_data, f, indent=4)
 
-    # Raw JSON (single-line) for GUI to parse
+    print(f"\n[EXPORTED] -> {filepath}\n")
 
-    print(json.dumps(result), flush=True)
+    print(json.dumps(result))
 
-
-# ----------------- CLI -----------------
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        required=True,
-        help="Model key for connector.load_model (e.g., arcface, facenet, insightface)",
-    )
-    parser.add_argument(
-        "--dataset_path",
-        type=str,
-        required=True,
-        help="Path to LFW dataset or its parent (will auto-use lfw-deepfunneled)",
-    )
-    parser.add_argument(
-        "--iters", type=int, default=300, help="Number of pairs to evaluate"
-    )
-    parser.add_argument(
-        "--start-person",
-        type=str,
-        default=None,
-        help="Folder/person name to start from (exact match)",
-    )
-    parser.add_argument(
-        "--pos-ratio",
-        type=float,
-        default=0.5,
-        help="Fraction of positives in final set (0.0..1.0). 0.5 = balanced",
-    )
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
+    parser.add_argument("--iters", type=int, default=300)
+
     args = parser.parse_args()
+    run_confusion(args.model, args.dataset, args.start, args.iters)
 
-    run_logic(
-        args.model_path,
-        iters=args.iters,
-        dataset_path=args.dataset_path,
-        start_person=args.start_person,
-        pos_ratio=args.pos_ratio,
+
+
+# ==== .\benchmark_parameters\validation_accuracy\image\logic_dataset_image_va.py ====
+
+# logic_dataset_image_va.py
+import os
+import cv2
+import numpy as np
+from tqdm import tqdm
+import sys
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+import json
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def collect_pairs(dataset_path, max_pairs=300):
+    people = sorted(
+        [
+            p
+            for p in os.listdir(dataset_path)
+            if os.path.isdir(os.path.join(dataset_path, p))
+        ]
+    )
+
+    pos_pairs = []
+    neg_pairs = []
+
+    for person in people:
+        imgs = sorted(
+            [
+                os.path.join(dataset_path, person, f)
+                for f in os.listdir(os.path.join(dataset_path, person))
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
+        if len(imgs) >= 2:
+            pos_pairs.append((imgs[0], imgs[1], 1))
+
+    for i in range(len(people) - 1):
+        p1 = people[i]
+        p2 = people[i + 1]
+
+        imgs1 = sorted(
+            [
+                f
+                for f in os.listdir(os.path.join(dataset_path, p1))
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
+        imgs2 = sorted(
+            [
+                f
+                for f in os.listdir(os.path.join(dataset_path, p2))
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
+        if not imgs1 or not imgs2:
+            continue
+
+        neg_pairs.append(
+            (
+                os.path.join(dataset_path, p1, imgs1[0]),
+                os.path.join(dataset_path, p2, imgs2[0]),
+                0,
+            )
+        )
+
+    pairs = pos_pairs[: max_pairs // 2] + neg_pairs[: max_pairs // 2]
+    return pairs[:max_pairs]
+
+
+def run_logic(model_name, iters=300, frame_h=None, frame_w=None, dataset_path=None):
+    print(f"[ROC] Model: {model_name}")
+    print(f"[ROC] Dataset: {dataset_path}")
+
+    wrapper = load_model(model_name)
+
+    if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
+        dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
+
+    pairs = collect_pairs(dataset_path, max_pairs=iters)
+
+    sims = []
+    labels = []
+
+    for img1, img2, label in tqdm(pairs):
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+        if a is None or b is None:
+            continue
+        emb1 = wrapper.embed(a)
+        emb2 = wrapper.embed(b)
+        if emb1 is None or emb2 is None:
+            continue
+        sims.append(cosine_similarity(emb1, emb2))
+        labels.append(label)
+
+    sims = np.array(sims)
+    labels = np.array(labels)
+
+    fpr, tpr, _ = roc_curve(labels, sims)
+    auc_val = auc(fpr, tpr)
+
+    # --- EER (point where FAR == FRR) ---
+    fnr = 1.0 - tpr
+    eer_idx = np.nanargmin(np.abs(fnr - fpr))
+    eer = float((fnr[eer_idx] + fpr[eer_idx]) / 2.0)
+
+    # --- TAR @ FAR = 1e-3 ---
+    target_far = 1e-3
+    # fpr is monotonic from roc_curve, so interpolation is OK
+    tar_at_far = float(np.interp(target_far, fpr, tpr, left=tpr[0], right=tpr[-1]))
+
+    export_path = os.path.join(os.path.dirname(__file__), "last_roc.png")
+
+    plt.figure(figsize=(5, 5))
+    plt.plot(fpr, tpr, label=f"ROC (AUC={auc_val:.4f})")
+    plt.plot([0, 1], [0, 1], "k--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"ROC: {model_name} on LFW")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(export_path)
+    plt.close()
+
+    print(f"[ROC] Saved to: {export_path}")
+
+    result = {
+        "kind": "roc_image",
+        "path": export_path,
+        "auc": float(auc_val),
+        "eer": float(eer),  # <--- NEW
+        "tar_far_1e3": float(tar_at_far),  # <--- NEW
+        "pairs_tested": len(labels),
+        "model": model_name,
+        "dataset": os.path.basename(dataset_path),
+    }
+
+    print(json.dumps(result))
+
+
+
+# ==== .\benchmark_parameters\validation_accuracy\image\logic_roc_graph.py ====
+
+import os
+import cv2
+import json
+import numpy as np
+from tqdm import tqdm
+import sys
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+
+# make project root importable
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
+    """
+    Deterministic pair generation:
+    - Start from selected identity unless ALL mode is activated
+    - Max ~10 positive pairs per identity
+    - Balanced negative pairs
+    - No randomness
+    """
+
+    # ✅ Detect ALL mode
+    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
+
+    # List all people
+    people = sorted(
+        [
+            d
+            for d in os.listdir(dataset_path)
+            if os.path.isdir(os.path.join(dataset_path, d))
+        ]
+    )
+
+    # ✅ If not ALL mode and identity was selected → reorder dataset starting from that identity
+    if not return_all and start_identity in people:
+        start_idx = people.index(start_identity)
+        people = people[start_idx:]
+
+    # Load images once
+    all_people_imgs = {
+        p: sorted(
+            [
+                os.path.join(dataset_path, p, f)
+                for f in os.listdir(os.path.join(dataset_path, p))
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
+        )
+        for p in people
+    }
+
+    pos_pairs = []
+    neg_pairs = []
+
+    # ----- Positive pairs (max 10 per identity) -----
+    for person in people:
+        imgs = all_people_imgs[person]
+        if len(imgs) < 2:
+            continue
+
+        for i in range(min(len(imgs) - 1, 9)):
+            pos_pairs.append((imgs[i], imgs[i + 1], 1))
+
+        # ✅ Only stop if not ALL mode
+        if not return_all and len(pos_pairs) >= max_pairs // 2:
+            break
+
+    # ✅ Determine how many negative pairs needed
+    pos_count = len(pos_pairs)
+    neg_needed = pos_count
+
+    # ----- Negative pairs (identity i vs identity i+1) -----
+    for i in range(len(people) - 1):
+        p1, p2 = people[i], people[i + 1]
+        imgs1, imgs2 = all_people_imgs[p1], all_people_imgs[p2]
+
+        for a, b in zip(imgs1, imgs2):
+            neg_pairs.append((a, b, 0))
+            if not return_all and len(neg_pairs) >= neg_needed:
+                break
+
+        if not return_all and len(neg_pairs) >= neg_needed:
+            break
+
+    neg_pairs = neg_pairs[:neg_needed]
+
+    final_pairs = pos_pairs + neg_pairs
+
+    # ✅ In ALL mode return everything, else return limited
+    if return_all:
+        return final_pairs
+    else:
+        return final_pairs[:max_pairs]
+
+
+def run_roc(model_name, dataset_path, start_identity, iters=300):
+    print(f"[ROC] Model: {model_name}")
+    print(f"[ROC] Dataset: {dataset_path}")
+    print(f"[ROC] Pairs: {iters}")
+
+    wrapper = load_model(model_name)
+
+    # ensure correct LFW path
+    if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
+        dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
+
+    if start_identity == "__ALL__":
+        pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
+    else:
+        pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
+
+    sims = []
+    labels = []
+
+    total = len(pairs)
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+
+        # ---- PROGRESS UPDATE (for GUI progress bar) ----
+        sys.stdout.write(
+            json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n"
+        )
+        sys.stdout.flush()
+
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+        if a is None or b is None:
+            continue
+
+        # ---- detect faces ----
+        faces_a = wrapper.detector.detect(a)
+        faces_b = wrapper.detector.detect(b)
+        if not faces_a or not faces_b:
+            continue
+
+        # ---- align using landmarks ----
+        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
+        if aligned_a is None or aligned_b is None:
+            continue
+
+        # ---- embeddings ----
+        emb1 = wrapper.embed(aligned_a)
+        emb2 = wrapper.embed(aligned_b)
+        if emb1 is None or emb2 is None:
+            continue
+
+        sims.append(cosine_similarity(emb1, emb2))
+        labels.append(label)
+
+    sims = np.array(sims)
+    labels = np.array(labels)
+
+    # Compute ROC
+    fpr, tpr, thresholds = roc_curve(labels, sims)
+    roc_auc = auc(fpr, tpr)
+
+    # --- Best Threshold (Youden's J statistic) ---
+    j_scores = tpr - fpr
+    best_idx = np.argmax(j_scores)
+    best_threshold = thresholds[best_idx]
+
+    print(f"[THRESHOLD] Best threshold (Youden J): {best_threshold:.4f}")
+
+    # Compute EER
+    fnr = 1 - tpr
+    eer_index = np.nanargmin(np.abs(fnr - fpr))
+    eer = (fpr[eer_index] + fnr[eer_index]) / 2.0
+
+    # Compute TAR @ FAR = 1e-3
+    target_far = 1e-3
+    idx = np.searchsorted(fpr, target_far, side="right") - 1
+    if 0 <= idx < len(tpr):
+        tar_at_far = tpr[idx]
+    else:
+        tar_at_far = float("nan")
+
+    # ---- Build export pair records ----
+    pair_records = []
+    used_identities = {}
+
+    for (img1, img2, label), sim in zip(pairs, sims):
+        person1 = os.path.basename(os.path.dirname(img1))
+        person2 = os.path.basename(os.path.dirname(img2))
+
+        used_identities.setdefault(person1, set()).add(os.path.basename(img1))
+        used_identities.setdefault(person2, set()).add(os.path.basename(img2))
+
+        pair_records.append(
+            {
+                "img1": img1.replace(dataset_path + os.sep, ""),
+                "img2": img2.replace(dataset_path + os.sep, ""),
+                "label": "pos" if label == 1 else "neg",
+                "similarity": float(sim),
+            }
+        )
+
+    export = {
+        "meta": {
+            "model": model_name,
+            "dataset": os.path.basename(dataset_path),
+            "test_name": "ROC (Image)",
+            "pairs_evaluated": len(labels),
+        },
+        "metrics": {
+            "auc": float(roc_auc),
+            "eer": float(eer),
+            "best_threshold": float(best_threshold),
+            "tar_far_1e3": float(tar_at_far),
+        },
+        "pairs": pair_records,
+        "identities_used": {
+            p: sorted(list(imgs)) for p, imgs in used_identities.items()
+        },
+    }
+
+    # ---- Save Export JSON ----
+    export_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "exports",
+        f"{model_name}_roc_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json",
+    )
+
+    os.makedirs(os.path.dirname(export_path), exist_ok=True)
+
+    with open(export_path, "w") as f:
+        json.dump(export, f, indent=2)
+
+    print(f"[EXPORTED] -> {os.path.abspath(export_path)}")
+
+    # Save ROC plot
+    save_path = os.path.join(os.path.dirname(__file__), "roc_result.png")
+    plt.figure(figsize=(6, 5))
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"ROC Curve – {model_name}")
+    plt.legend(loc="lower right")
+    plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close()
+
+    print(
+        json.dumps(
+            {
+                "kind": "roc_image",
+                "path": save_path,
+                "auc": float(roc_auc),
+                "eer": float(eer),
+                "best_threshold": float(best_threshold),
+                "tar_far_1e3": float(tar_at_far),
+                "pairs_tested": int(len(labels)),
+                "model": model_name,
+                "dataset": os.path.basename(dataset_path),
+            }
+        )
     )
 
 
+if __name__ == "__main__":
+    import argparse
 
-# ==== .\benchmark_parameters\validation_accuracy\logic_dataset_video_va.py ====
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
+    parser.add_argument("--iters", type=int, default=300)
+    args = parser.parse_args()
+    run_roc(args.model, args.dataset, args.start, args.iters)
+
+
+
+# ==== .\benchmark_parameters\validation_accuracy\video\logic_confusion_matrix_video.py ====
+
+import os
+import cv2
+import numpy as np
+from tqdm import tqdm
+import sys
+import json
+from datetime import datetime
+
+# go up 3 levels to project root
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+# <<< HARD-CODED THRESHOLD >>>
+FIXED_THRESHOLD = 0.60
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def _resolve_video_root(dataset_path: str) -> str:
+    """
+    YTF-style: dataset may be either:
+      - <root>/aligned_images_DB/person/clip/frame.jpg
+      - or directly at aligned_images_DB
+    This normalizes to the level that contains the person folders.
+    """
+    if os.path.isdir(os.path.join(dataset_path, "aligned_images_DB")):
+        return os.path.join(dataset_path, "aligned_images_DB")
+    return dataset_path
+
+
+def collect_pairs(
+    dataset_path,
+    start_identity=None,
+    max_pairs=None,
+    max_frames_per_clip=5,
+    max_pos_per_identity=10,
+    max_neg_per_identity=20,
+):
+    """
+    Deterministic pair generation for VIDEO datasets.
+
+    - Walks: person / clip / frame.jpg
+    - Per clip: up to `max_frames_per_clip` frames (first N, sorted)
+    - Positive pairs:
+        * up to `max_pos_per_identity` adjacent-frame pairs per identity
+    - Negative pairs:
+        * person[i] frames vs person[i+1] frames (same index), up to
+          `max_neg_per_identity` per adjacent-identity pair
+    - No randomness, so results are reproducible across runs/models.
+
+    start_identity:
+        "__ALL__"  → use all identities
+        some name → start from that person (top-down), then go downwards
+    """
+
+    root = _resolve_video_root(dataset_path)
+
+    # --- detect ALL mode ---
+    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
+
+    # --- list identities ---
+    people = sorted(
+        [
+            d
+            for d in os.listdir(root)
+            if os.path.isdir(os.path.join(root, d))
+        ]
+    )
+
+    # reorder so we start from a specific identity
+    if not return_all and start_identity in people:
+        start_idx = people.index(start_identity)
+        people = people[start_idx:]
+
+    # --- collect frames per identity (limited) ---
+    all_person_frames = {}
+    for p in people:
+        person_dir = os.path.join(root, p)
+        clips = sorted(
+            [
+                c
+                for c in os.listdir(person_dir)
+                if os.path.isdir(os.path.join(person_dir, c))
+            ]
+        )
+
+        frames = []
+        for c in clips:
+            clip_dir = os.path.join(person_dir, c)
+            imgs = sorted(
+                f
+                for f in os.listdir(clip_dir)
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            )
+            # take first N frames from each clip for determinism & speed
+            for f in imgs[:max_frames_per_clip]:
+                frames.append(os.path.join(clip_dir, f))
+
+        if len(frames) >= 2:
+            all_person_frames[p] = frames
+
+    pos_pairs = []
+    neg_pairs = []
+
+    # --- positive pairs (adjacent frames) ---
+    for person in people:
+        frames = all_person_frames.get(person, [])
+        if len(frames) < 2:
+            continue
+
+        # adjacency pairs: (f0,f1), (f1,f2), ...
+        limit = min(len(frames) - 1, max_pos_per_identity)
+        for i in range(limit):
+            pos_pairs.append((frames[i], frames[i + 1], 1))
+
+        if not return_all and max_pairs is not None:
+            if len(pos_pairs) >= max_pairs // 2:
+                break
+
+    pos_count = len(pos_pairs)
+    if pos_count == 0:
+        return []
+
+    neg_needed = pos_count
+
+    # --- negative pairs (person i vs person i+1) ---
+    for i in range(len(people) - 1):
+        p1, p2 = people[i], people[i + 1]
+        f1 = all_person_frames.get(p1, [])
+        f2 = all_person_frames.get(p2, [])
+        if not f1 or not f2:
+            continue
+
+        limit = min(len(f1), len(f2), max_neg_per_identity)
+        for j in range(limit):
+            neg_pairs.append((f1[j], f2[j], 0))
+            if not return_all and len(neg_pairs) >= neg_needed:
+                break
+
+        if not return_all and len(neg_pairs) >= neg_needed:
+            break
+
+    neg_pairs = neg_pairs[:neg_needed]
+    all_pairs = pos_pairs + neg_pairs
+
+    if return_all:
+        return all_pairs
+    else:
+        return all_pairs[:max_pairs]
+
+
+def run_confusion(model_name, dataset_path, start_identity, iters=300):
+    print(f"[CM-VIDEO] Model: {model_name}")
+    print(f"[CM-VIDEO] Dataset: {dataset_path}")
+    print(f"[CM-VIDEO] Using FIXED THRESHOLD = {FIXED_THRESHOLD}")
+
+    wrapper = load_model(model_name)
+
+    # normalize root + build pairs
+    root = _resolve_video_root(dataset_path)
+
+    if start_identity == "__ALL__":
+        pairs = collect_pairs(root, start_identity="__ALL__", max_pairs=None)
+    else:
+        pairs = collect_pairs(root, start_identity=start_identity, max_pairs=iters)
+
+    sims = []
+    labels = []
+    pair_records = []
+    used_identities = {}
+
+    total = len(pairs)
+
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+        # progress for GUI
+        sys.stdout.write(
+            json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n"
+        )
+        sys.stdout.flush()
+
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+        if a is None or b is None:
+            continue
+
+        emb1 = wrapper.embed(a)
+        emb2 = wrapper.embed(b)
+        if emb1 is None or emb2 is None:
+            continue
+
+        sim = cosine_similarity(emb1, emb2)
+        sims.append(sim)
+        labels.append(label)
+
+        # track which identities/images were used (identity = top-level folder)
+        person1 = os.path.basename(os.path.dirname(os.path.dirname(img1))) \
+            if "aligned_images_DB" in img1 else os.path.basename(os.path.dirname(os.path.dirname(img1)))
+        person2 = os.path.basename(os.path.dirname(os.path.dirname(img2))) \
+            if "aligned_images_DB" in img2 else os.path.basename(os.path.dirname(os.path.dirname(img2)))
+
+        used_identities.setdefault(person1, set()).add(os.path.basename(img1))
+        used_identities.setdefault(person2, set()).add(os.path.basename(img2))
+
+        pair_records.append(
+            {
+                # store paths relative to ROOT (so reproducible)
+                "img1": img1.replace(root + os.sep, ""),
+                "img2": img2.replace(root + os.sep, ""),
+                "label": "pos" if label == 1 else "neg",
+                "similarity": float(sim),
+            }
+        )
+
+    scores = np.array(sims)
+    labels = np.array(labels)
+
+    if len(labels) == 0:
+        print(json.dumps({"error": "No valid pairs evaluated"}))
+        return
+
+    preds = (scores >= FIXED_THRESHOLD).astype(int)
+    for i in range(len(pair_records)):
+        pair_records[i]["predicted"] = int(preds[i])
+
+    tp = int(((preds == 1) & (labels == 1)).sum())
+    tn = int(((preds == 0) & (labels == 0)).sum())
+    fp = int(((preds == 1) & (labels == 0)).sum())
+    fn = int(((preds == 0) & (labels == 1)).sum())
+
+    pos_count = int((labels == 1).sum())
+    neg_count = int((labels == 0).sum())
+
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    precision = tp / (tp + fp + 1e-9)
+    recall = tp / (tp + fn + 1e-9)        # TAR
+    specificity = tn / (tn + fp + 1e-9)
+    f1 = 2 * precision * recall / (precision + recall + 1e-9)
+    far = fp / (fp + tn + 1e-9)           # False Accept Rate
+    frr = fn / (fn + tp + 1e-9)           # False Reject Rate
+
+    result = {
+        "kind": "confusion_matrix",
+        "model": model_name,
+        "dataset": os.path.basename(root),
+        "pairs_tested": len(labels),
+        "tp": tp,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "accuracy": float(accuracy),
+        "precision": float(precision),
+        "recall": float(recall),
+        "specificity": float(specificity),
+        "f1": float(f1),
+        "far": float(far),
+        "frr": float(frr),
+        "threshold": float(FIXED_THRESHOLD),
+        "pos_pairs": pos_count,
+        "neg_pairs": neg_count,
+    }
+
+    identities_detail = {
+        person: sorted(list(images)) for person, images in used_identities.items()
+    }
+
+    export_data = {
+        "meta": {
+            "model": model_name,
+            "dataset": os.path.basename(root),
+            "test_name": "Confusion Matrix (Video)",
+            "threshold": FIXED_THRESHOLD,
+            "pairs_evaluated": len(labels),
+            "pos_pairs": pos_count,
+            "neg_pairs": neg_count,
+            "start_identity": start_identity,
+            "timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
+        },
+        "metrics": result,
+        "pairs": pair_records,
+        "identities_used": identities_detail,
+    }
+
+    export_dir = os.path.join(os.path.dirname(__file__), "..", "..", "exports")
+    os.makedirs(export_dir, exist_ok=True)
+
+    filename = f"{model_name}_confusion_video_{export_data['meta']['timestamp']}.json"
+    filepath = os.path.join(export_dir, filename)
+
+    with open(filepath, "w") as f:
+        json.dump(export_data, f, indent=4)
+
+    print(f"\n[EXPORTED VIDEO CM] -> {filepath}\n")
+    print(json.dumps(result))
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
+    parser.add_argument("--iters", type=int, default=300)
+
+    args = parser.parse_args()
+    run_confusion(args.model, args.dataset, args.start, args.iters)
+
+
+
+# ==== .\benchmark_parameters\validation_accuracy\video\logic_dataset_video_va.py ====
 
 # ==== logic_dataset_video_va.py ====
 import os, sys, json, time, numpy as np, cv2
@@ -2561,106 +3050,309 @@ def run_logic(
 
 
 
-# ==== .\benchmark_parameters\validation_accuracy\validation_accuracy.py ====
+# ==== .\benchmark_parameters\validation_accuracy\video\logic_roc_graph_video.py ====
 
-# validation_accuracy.py
-import argparse
-import json
 import os
+import cv2
+import json
+import numpy as np
+from tqdm import tqdm
 import sys
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+from datetime import datetime
 
-# dynamic import loader same as latency.py
-try:
-    from components.utilities.file_indexer import load_file_index
-except ModuleNotFoundError:
-    sys.path.insert(
-        0, os.path.join(os.path.dirname(__file__), "../../components/utilities")
+# make project root importable
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def _resolve_video_root(dataset_path: str) -> str:
+    if os.path.isdir(os.path.join(dataset_path, "aligned_images_DB")):
+        return os.path.join(dataset_path, "aligned_images_DB")
+    return dataset_path
+
+
+def collect_pairs(
+    dataset_path,
+    start_identity=None,
+    max_pairs=None,
+    max_frames_per_clip=5,
+    max_pos_per_identity=10,
+    max_neg_per_identity=20,
+):
+    """
+    Same deterministic pairing as confusion_matrix_video.
+    """
+
+    root = _resolve_video_root(dataset_path)
+    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
+
+    people = sorted(
+        [
+            d
+            for d in os.listdir(root)
+            if os.path.isdir(os.path.join(root, d))
+        ]
     )
-    from file_indexer import load_file_index
 
-index_data = load_file_index()
-PROJECT_ROOT = index_data["root"]
-for rel_path in index_data["files"]:
-    dir_path = os.path.join(PROJECT_ROOT, os.path.dirname(rel_path))
-    if dir_path not in sys.path:
-        sys.path.insert(0, dir_path)
+    if not return_all and start_identity in people:
+        start_idx = people.index(start_identity)
+        people = people[start_idx:]
 
-SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
-
-
-def send_log(msg, level="info"):
-    print(json.dumps({"log": msg, "level": level}))
-    sys.stdout.flush()
-
-
-def _resolve_settings():
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-
-def run(model_name, iters, frame_h, frame_w, dataset=None):
-    """Delegates execution to image or video VA logic."""
-    dataset = dataset or ""
-    dl = dataset.lower()
-
-    if "lfw" in dl:
-        from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
-            run_logic as logic_run,
+    all_person_frames = {}
+    for p in people:
+        person_dir = os.path.join(root, p)
+        clips = sorted(
+            [
+                c
+                for c in os.listdir(person_dir)
+                if os.path.isdir(os.path.join(person_dir, c))
+            ]
         )
 
-        send_log(f"[accuracy] Using IMAGE dataset logic for {dataset}")
-    elif "ytf" in dl or "aligned_images_db" in dl or "video" in dl:
-        from benchmark_parameters.validation_accuracy.logic_dataset_video_va import (
-            run_logic as logic_run,
-        )
+        frames = []
+        for c in clips:
+            clip_dir = os.path.join(person_dir, c)
+            imgs = sorted(
+                f
+                for f in os.listdir(clip_dir)
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            )
+            for f in imgs[:max_frames_per_clip]:
+                frames.append(os.path.join(clip_dir, f))
 
-        send_log(f"[accuracy] Using VIDEO dataset logic for {dataset}")
+        if len(frames) >= 2:
+            all_person_frames[p] = frames
+
+    pos_pairs = []
+    neg_pairs = []
+
+    for person in people:
+        frames = all_person_frames.get(person, [])
+        if len(frames) < 2:
+            continue
+
+        limit = min(len(frames) - 1, max_pos_per_identity)
+        for i in range(limit):
+            pos_pairs.append((frames[i], frames[i + 1], 1))
+
+        if not return_all and max_pairs is not None:
+            if len(pos_pairs) >= max_pairs // 2:
+                break
+
+    pos_count = len(pos_pairs)
+    if pos_count == 0:
+        return []
+
+    neg_needed = pos_count
+
+    for i in range(len(people) - 1):
+        p1, p2 = people[i], people[i + 1]
+        f1 = all_person_frames.get(p1, [])
+        f2 = all_person_frames.get(p2, [])
+        if not f1 or not f2:
+            continue
+
+        limit = min(len(f1), len(f2), max_neg_per_identity)
+        for j in range(limit):
+            neg_pairs.append((f1[j], f2[j], 0))
+            if not return_all and len(neg_pairs) >= neg_needed:
+                break
+
+        if not return_all and len(neg_pairs) >= neg_needed:
+            break
+
+    neg_pairs = neg_pairs[:neg_needed]
+    all_pairs = pos_pairs + neg_pairs
+
+    if return_all:
+        return all_pairs
     else:
-        from benchmark_parameters.validation_accuracy.logic_dataset_image_va import (
-            run_logic as logic_run,
+        return all_pairs[:max_pairs]
+
+
+def run_roc(model_name, dataset_path, start_identity, iters=300):
+    print(f"[ROC-VIDEO] Model: {model_name}")
+    print(f"[ROC-VIDEO] Dataset: {dataset_path}")
+    print(f"[ROC-VIDEO] Pairs: {iters}")
+
+    wrapper = load_model(model_name)
+
+    root = _resolve_video_root(dataset_path)
+
+    if start_identity == "__ALL__":
+        pairs = collect_pairs(root, start_identity="__ALL__", max_pairs=None)
+    else:
+        pairs = collect_pairs(root, start_identity=start_identity, max_pairs=iters)
+
+    sims = []
+    labels = []
+    used_identities = {}
+    pair_records = []
+
+    total = len(pairs)
+
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+        # progress for GUI
+        sys.stdout.write(
+            json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n"
+        )
+        sys.stdout.flush()
+
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+        if a is None or b is None:
+            continue
+
+        # detect faces
+        faces_a = wrapper.detector.detect(a)
+        faces_b = wrapper.detector.detect(b)
+        if not faces_a or not faces_b:
+            continue
+
+        # align using landmarks
+        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+        if aligned_a is None or aligned_b is None:
+            continue
+
+        emb1 = wrapper.embed(aligned_a)
+        emb2 = wrapper.embed(aligned_b)
+        if emb1 is None or emb2 is None:
+            continue
+
+        sim = cosine_similarity(emb1, emb2)
+        sims.append(sim)
+        labels.append(label)
+
+        # track identities used
+        person1 = os.path.basename(os.path.dirname(os.path.dirname(img1)))
+        person2 = os.path.basename(os.path.dirname(os.path.dirname(img2)))
+        used_identities.setdefault(person1, set()).add(os.path.basename(img1))
+        used_identities.setdefault(person2, set()).add(os.path.basename(img2))
+
+        pair_records.append(
+            {
+                "img1": img1.replace(root + os.sep, ""),
+                "img2": img2.replace(root + os.sep, ""),
+                "label": "pos" if label == 1 else "neg",
+                "similarity": float(sim),
+            }
         )
 
-        send_log(f"[accuracy] Defaulting to IMAGE dataset logic (no match)")
+    sims = np.array(sims)
+    labels = np.array(labels)
 
-    logic_run(model_name, iters, frame_h, frame_w, dataset_path=dataset)
+    if len(labels) == 0:
+        print(json.dumps({"error": "No valid pairs evaluated"}))
+        return
 
+    # ROC
+    fpr, tpr, thresholds = roc_curve(labels, sims)
+    roc_auc = auc(fpr, tpr)
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str)
-    parser.add_argument("--iters", type=int, default=50)
-    parser.add_argument("--frame-size", type=str, default="640x640")
-    parser.add_argument("--dataset", type=str, default=None)
-    args = parser.parse_args()
+    # best threshold (Youden's J)
+    j_scores = tpr - fpr
+    best_idx = np.argmax(j_scores)
+    best_threshold = thresholds[best_idx]
 
-    cfg = _resolve_settings()
-    model = args.model or cfg.get("model")
-    dataset = args.dataset or cfg.get("dataset")
+    print(f"[THRESHOLD-VIDEO] Best threshold (Youden J): {best_threshold:.4f}")
 
-    if not model:
-        print(json.dumps({"error": "No model selected"}))
-        sys.exit(1)
+    # EER
+    fnr = 1 - tpr
+    eer_index = np.nanargmin(np.abs(fnr - fpr))
+    eer = (fpr[eer_index] + fnr[eer_index]) / 2.0
 
-    try:
-        h, w = [int(x) for x in args.frame_size.lower().split("x")]
-    except Exception:
-        h, w = 640, 640
+    # TAR @ FAR = 1e-3
+    target_far = 1e-3
+    idx = np.searchsorted(fpr, target_far, side="right") - 1
+    if 0 <= idx < len(tpr):
+        tar_at_far = tpr[idx]
+    else:
+        tar_at_far = float("nan")
 
-    iters = args.iters or cfg.get("iters", 300)
-    if iters <= 0:
-        iters = 300
-        send_log("[WARN] iters was 0 — using default 300 instead")
+    export = {
+        "meta": {
+            "model": model_name,
+            "dataset": os.path.basename(root),
+            "test_name": "ROC (Video)",
+            "pairs_evaluated": len(labels),
+        },
+        "metrics": {
+            "auc": float(roc_auc),
+            "eer": float(eer),
+            "best_threshold": float(best_threshold),
+            "tar_far_1e3": float(tar_at_far),
+        },
+        "pairs": pair_records,
+        "identities_used": {
+            p: sorted(list(imgs)) for p, imgs in used_identities.items()
+        },
+    }
 
-    run(model, iters, h, w, dataset)
+    # save export JSON
+    export_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "exports",
+        f"{model_name}_roc_video_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json",
+    )
+    os.makedirs(os.path.dirname(export_path), exist_ok=True)
+    with open(export_path, "w") as f:
+        json.dump(export, f, indent=2)
+
+    print(f"[EXPORTED VIDEO ROC] -> {os.path.abspath(export_path)}")
+
+    # save ROC plot PNG
+    save_path = os.path.join(os.path.dirname(__file__), "roc_video_result.png")
+    plt.figure(figsize=(6, 5))
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"ROC Curve (Video) – {model_name}")
+    plt.legend(loc="lower right")
+    plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close()
+
+    print(
+        json.dumps(
+            {
+                "kind": "roc_image",
+                "path": save_path,
+                "auc": float(roc_auc),
+                "eer": float(eer),
+                "best_threshold": float(best_threshold),
+                "tar_far_1e3": float(tar_at_far),
+                "pairs_tested": int(len(labels)),
+                "model": model_name,
+                "dataset": os.path.basename(root),
+            }
+        )
+    )
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
+    parser.add_argument("--iters", type=int, default=300)
+    args = parser.parse_args()
+    run_roc(args.model, args.dataset, args.start, args.iters)
 
 
 
@@ -2670,7 +3362,6 @@ import cv2
 import time
 import numpy as np
 from collections import deque
-from .face_detection import align_by_5pts
 
 
 def run_camera_loop(wrapper):
@@ -2680,7 +3371,6 @@ def run_camera_loop(wrapper):
         return
 
     print("Press ESC to exit.")
-    times_ms = deque(maxlen=200)
     fps_hist = deque(maxlen=60)
     last = time.perf_counter()
 
@@ -2689,23 +3379,46 @@ def run_camera_loop(wrapper):
         if not ok:
             break
 
-        faces = wrapper.detect_and_embed(frame)
-        disp = frame.copy()
+        # ✅ Use the UNIVERSAL detector
+        detected = wrapper.detector.detect(frame)
 
-        for f in faces:
-            x1, y1, x2, y2 = f["bbox"]
-            emb = f["embedding"]
+        disp = frame.copy()
+        faces = []
+
+        for f in detected:
+            bbox = f["bbox"]
+            kps = f["kps"]
+
+            # ✅ Align based on the model in use
+            aligned = wrapper.detector.align_for(frame, wrapper.name)
+            if aligned is None:
+                continue
+
+            emb = wrapper.embed(aligned)
+
+            faces.append({"bbox": bbox, "kps": kps, "embedding": emb})
+
+            x1, y1, x2, y2 = bbox
             cv2.rectangle(disp, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            for (px, py) in f["kps"].astype(int):
+
+            for px, py in kps.astype(int):
                 cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
 
+        # ✅ FPS calculation
         now = time.perf_counter()
         fps = 1.0 / (now - last)
         last = now
         fps_hist.append(fps)
 
-        cv2.putText(disp, f"{wrapper.name} | FPS: {np.mean(fps_hist):.1f} | faces: {len(faces)}",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(
+            disp,
+            f"{wrapper.name} | FPS: {np.mean(fps_hist):.1f} | faces: {len(faces)}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+        )
 
         cv2.imshow("Live FR Wrapper", disp)
         if cv2.waitKey(1) & 0xFF == 27:
@@ -3568,88 +4281,219 @@ class ArcFaceWrapper:
 
 
 
-# ==== .\models\wrap_facenet.py ====
-
-# ==== models/wrap_facenet.py (optional – behavior unchanged) ====
+# ==== .\models\wrap_deepface.py ====
 
 import cv2
 import numpy as np
 import torch
-import os  # ADDED: optional env toggles (kept for symmetry)
-from facenet_pytorch import InceptionResnetV1, MTCNN
+from typing import List, Dict
+
+# ✅ Import the ArcFace module (not a class)
+from deepface.models.facial_recognition import ArcFace
+
+from .wrap_facedetection import FaceDetectorAligner
+
+
+class DeepFaceWrapper:
+    name = "deepface"
+
+    def __init__(self, device=None, input_size=(112, 112)):
+        # Auto-select GPU if available
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.input_size = tuple(input_size)
+
+        # ✅ Load ArcFace model correctly
+        self.model = ArcFace.load_model()
+
+        # ✅ Create aligner
+        self.aligner = FaceDetectorAligner(device=self.device)
+
+    # ----- Single face embedding -----
+    def embed(self, img: np.ndarray) -> np.ndarray:
+        img = cv2.resize(img, self.input_size, interpolation=cv2.INTER_LINEAR)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype("float32")
+
+        # ✅ ArcFace normalization standard
+        img = (img - 127.5) / 128.0
+
+        img = np.expand_dims(img, axis=0)
+        emb = self.model.predict(img)[0]
+        emb = emb / np.linalg.norm(emb)
+        return emb.astype(np.float32)
+
+    # ----- Detect → Align → Embed -----
+    def detect_and_embed(self, frame: np.ndarray) -> List[Dict]:
+        faces = self.aligner.detect(frame)
+        results = []
+
+        for face in faces:
+            crop = self.aligner.align_for(frame, face["kps"])
+            if crop is None:
+                continue
+
+            emb = self.embed(crop)
+
+            results.append({"bbox": face["bbox"], "kps": face["kps"], "embedding": emb})
+
+        return results
+
+
+
+# ==== .\models\wrap_facedetection.py ====
+
+# models/wrap_facedetection.py
+import cv2
+import numpy as np
+from typing import Tuple, Dict, Optional, List
+
+from insightface.app import FaceAnalysis
+
+# Standard ArcFace 112×112 reference points
+REF_5PTS_112 = np.float32(
+    [
+        [38.2946, 51.6963],
+        [73.5318, 51.5014],
+        [56.0252, 71.7366],
+        [41.5493, 92.3655],
+        [70.7299, 92.2041],
+    ]
+)
+
+
+def align_5pts(
+    bgr: np.ndarray, kps: np.ndarray, out_size: Tuple[int, int]
+) -> Optional[np.ndarray]:
+    """Apply 5-point similarity transform to requested resolution."""
+    ref = REF_5PTS_112.copy()
+    scale = out_size[0] / 112.0
+    ref *= scale
+
+    M, _ = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)
+    if M is None:
+        return None
+
+    return cv2.warpAffine(bgr, M, out_size, flags=cv2.INTER_LINEAR)
+
+
+class FaceDetectorAligner:
+
+    def __init__(self, device="cpu"):
+        ctx_id = 0 if device == "cuda" else -1
+
+        # We only load detection + landmark models (no recognition)
+        self.det = FaceAnalysis(
+            name="buffalo_l", allowed_modules=["detection", "landmark"]
+        )
+        self.det.prepare(ctx_id=ctx_id, det_size=(640, 640))
+
+    def detect(self, frame: np.ndarray) -> List[Dict]:
+        faces = self.det.get(frame)
+        results = []
+        for f in faces:
+            results.append(
+                {
+                    "bbox": np.array(f.bbox, dtype=np.int32),
+                    "kps": np.array(f.kps, dtype=np.float32),  # (5,2)
+                }
+            )
+        return results
+
+    def align_for(
+        self, frame: np.ndarray, kps: np.ndarray, out_size=(112, 112)
+    ) -> Optional[np.ndarray]:
+        """
+        ✅ New: alignment based on keypoints only (no model name).
+        Used for ArcFace, DeepFace, and modern embeddings.
+        """
+        aligned = align_5pts(frame, kps, out_size=tuple(out_size))
+
+        if aligned is None:
+            # fallback center crop
+            h, w = frame.shape[:2]
+            s = min(h, w)
+            y0 = (h - s) // 2
+            x0 = (w - s) // 2
+            crop = frame[y0 : y0 + s, x0 : x0 + s]
+            aligned = cv2.resize(crop, out_size, interpolation=cv2.INTER_AREA)
+
+        return aligned.astype(np.uint8)
+
+
+
+# ==== .\models\wrap_facenet.py ====
+
+# models/wrap_facenet.py
+
+import torch
+import numpy as np
+import cv2
+from facenet_pytorch import InceptionResnetV1
+from typing import List, Dict
+
+from .wrap_facedetection import FaceDetectorAligner
 
 
 class FaceNetWrapper:
-    """
-    FaceNet wrapper using facenet-pytorch package.
-    """
-
     name = "facenet"
 
-    def __init__(self, device: str = "cpu", input_size=(160, 160)):
-        self.device = torch.device(device)
-        self.input_size = tuple(input_size)
-
-        # Load pretrained InceptionResnetV1
-        self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
-        self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
-
-        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"
-        # enforce a clear (W, H) tuple for OpenCV
-        self._embed_wh = (int(self.input_size[0]), int(self.input_size[1]))
-
-    def embed(self, bgr: np.ndarray) -> np.ndarray:
-        """
-        Embedding-only on an already aligned/cropped face (no detection).
-        """
-        W, H = self._embed_wh
-        rgb = cv2.cvtColor(
-            cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB
+    def __init__(self, device=None, input_size=(160, 160)):
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
+        self.input_size = tuple(map(int, input_size))
+        self._embed_wh = (self.input_size[0], self.input_size[1])
 
-        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
-        t = (t - 0.5) / 0.5
-        with torch.inference_mode():
-            emb = self.model(t.unsqueeze(0).to(self.device))
-        return emb[0].cpu().numpy().astype(np.float32)
+        # ✅ Load pretrained FaceNet weights (L2-normalized embedding output)
+        self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
 
-    def detect_and_embed(self, frame: np.ndarray):
+        # ✅ Use your universal aligner
+        self.aligner = FaceDetectorAligner(device=self.device.type)
+
+    @torch.no_grad()
+    def embed(self, img):
         """
-        Detection path for camera/production (unchanged).
+        img: must be (H, W, 3) BGR aligned face
+        returns 512-D embedding (float32, normalized)
         """
-        boxes, probs = self.detector.detect(frame)
-        results = []
-        if boxes is not None:
-            for box in boxes.astype(int):
-                x1, y1, x2, y2 = box
-                crop = frame[y1:y2, x1:x2]
-                if crop.size == 0:
-                    continue
-                results.append(
-                    {
-                        "bbox": box,
-                        "kps": np.zeros((5, 2)),  # MTCNN landmarks optional
-                        "embedding": self.embed(crop),
-                    }
-                )
+        if img is None:
+            raise ValueError("embed() called with None image")
+
+        # Resize and convert to RGB
+        img = cv2.resize(img, self._embed_wh, interpolation=cv2.INTER_AREA)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.astype("float32") / 255.0
+
+        # (H,W,C) -> (1,C,H,W)
+        tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).to(self.device)
+
+        emb = self.model(tensor)
+        emb = emb / emb.norm(dim=1, keepdim=True)
+
+        return emb.cpu().numpy().flatten().astype(np.float32)
+
+    def detect_and_embed(self, frame):
+        """
+        Detect faces → align using detected keypoints → embed
+        """
+        faces = self.aligner.detect(frame)
+        results: List[Dict] = []
+        for f in faces:
+            kps = f.get("kps", None)
+            if kps is None:
+                continue
+
+            crop = self.aligner.align_for(frame, kps)
+            if crop is None:
+                continue
+
+            emb = self.embed(crop)
+            results.append(
+                {
+                    "bbox": f["bbox"],
+                    "embedding": emb,
+                }
+            )
         return results
-
-    def get_embedding(self, img_path: str) -> np.ndarray:
-        frame = cv2.imread(img_path)
-        if frame is None:
-            raise ValueError(f"[FaceNet] Could not read image: {img_path}")
-        faces = self.detect_and_embed(frame)
-        if faces:
-            return faces[0]["embedding"]
-
-        # fallback: center crop
-        h, w = frame.shape[:2]
-        min_dim = min(h, w)
-        crop = frame[
-            (h - min_dim) // 2 : (h + min_dim) // 2,
-            (w - min_dim) // 2 : (w + min_dim) // 2,
-        ]
-        return self.embed(crop)
 
 
 
@@ -3799,27 +4643,22 @@ import numpy as np
 import torch.nn.functional as F
 from typing import List, Dict
 
-# ---- Ensure LightCNN source is always visible ----
+# ---- Ensure LightCNN source path ----
 SYS_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../external/LightCNN")
 )
 if SYS_ROOT not in sys.path:
     sys.path.append(SYS_ROOT)
 
-# ---- External LightCNN path ----
-LIGHTCNN_PATH = SYS_ROOT
+# ---- Correct architecture for LightCNN-29v2 ----
+from light_cnn import LightCNN_29Layers_v2
 
-# ✅ This import now always works (even when launched from main.py)
-from light_cnn_v4 import LightCNN_V4 as LightCNN_29Layers_v2
-
-# ---- Detector for alignment (InsightFace RetinaFace) ----
+# ---- Detector for alignment ----
 from insightface.app import FaceAnalysis
 
 
 def _align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(128, 128)) -> np.ndarray:
-    """
-    Simple 5-point similarity alignment to a square canvas.
-    """
+    """5-point similarity alignment."""
     ref = np.float32(
         [
             [38.2946, 51.6963],
@@ -3830,7 +4669,7 @@ def _align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(128, 128)) -> np.
         ]
     )
     scale = out_size[0] / 112.0
-    ref = ref * scale
+    ref *= scale
     M, _ = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)
     if M is None:
         return None
@@ -3839,10 +4678,7 @@ def _align_by_5pts(bgr: np.ndarray, kps: np.ndarray, out_size=(128, 128)) -> np.
 
 class LightCNNWrapper:
     """
-    Wrapper for pretrained LightCNN (29v2) with a unified API:
-      - name
-      - embed(bgr) -> np.ndarray
-      - detect_and_embed(frame) -> List[Dict]
+    Wrapper for pretrained LightCNN-29v2.
     """
 
     name = "lightcnn"
@@ -3854,105 +4690,80 @@ class LightCNNWrapper:
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
         self.input_size = tuple(map(int, input_size))
-        # Single source of truth for OpenCV resize (W,H)
-        self._embed_wh = (int(self.input_size[0]), int(self.input_size[1]))
+        self._embed_wh = (self.input_size[0], self.input_size[1])
 
-        # --- model ---
-        self.model = LightCNN_29Layers_v2(None)
+        # --- Model init ---
+        self.model = LightCNN_29Layers_v2()  # correct architecture
 
-        weights_path = os.path.join(LIGHTCNN_PATH, "models", f"{model_variant}.pth")
+        weights_path = os.path.join(SYS_ROOT, "models", f"{model_variant}.pth")
         if not os.path.exists(weights_path):
-            raise FileNotFoundError(f"❌ Missing pretrained weights: {weights_path}")
+            raise FileNotFoundError(
+                f"❌ Expected weights file not found:\n{weights_path}"
+            )
 
         state = torch.load(weights_path, map_location=self.device)
         if "state_dict" in state:
             state = state["state_dict"]
         self.model.load_state_dict(state, strict=False)
+
         self.model.to(self.device).eval()
 
-        # --- face detector (for raw images) ---
+        # --- Face detector for raw frames ---
         ctx_id = 0 if self.device.type == "cuda" else -1
-        self.det = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
+        self.det = FaceAnalysis(
+            name="buffalo_l", allowed_modules=["detection", "landmark"]
+        )
         self.det.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
-    @torch.no_grad()
-    def _infer_batch(self, batch: np.ndarray) -> np.ndarray:
-        """
-        batch: (N,H,W,C), uint8 BGR
-        """
-        if batch.ndim != 4:
-            raise ValueError("Expected batch with shape (N,H,W,C)")
+    # ---------------- PUBLIC API ----------------
 
-        # ensure 3 channels
-        if batch.shape[-1] == 1:
-            batch = np.repeat(batch, 3, axis=-1)
-
-        x = (
-            torch.from_numpy(batch.transpose(0, 3, 1, 2))
-            .float()
-            .div(255.0)
-            .to(self.device)
-        )
-
-        out = self.model(x)  # LightCNN v4 returns features or (features, ...)
-        feats = out[0] if isinstance(out, (tuple, list)) else out
-        feats = F.normalize(feats, dim=1)  # explicit dim
-        return feats.cpu().numpy()
-
-    # ---------- public API ----------
-    def embed(self, bgr: np.ndarray) -> np.ndarray:
+    def embed(self, inp: np.ndarray) -> np.ndarray:
         """
-        Accepts either an aligned face crop or a full image.
-        If it looks unaligned/large, try detection+alignment first.
+        Accepts:
+          (H,W,3) BGR aligned
+        or (1,1,128,128) LightCNN-format tensor
         """
-        H, W = bgr.shape[:2]
-        # Heuristic: if much bigger than target, try to detect & align
-        if max(H, W) > max(self.input_size) * 1.3:
-            faces = self.det.get(bgr)
-            if faces:
-                f = faces[0]
-                kps = np.array(f.kps, dtype=np.float32)
-                crop = _align_by_5pts(bgr, kps, out_size=self._embed_wh)
-                if crop is None:
-                    # fallback: center-crop square then resize
-                    s = min(H, W)
-                    y0 = (H - s) // 2
-                    x0 = (W - s) // 2
-                    crop = bgr[y0 : y0 + s, x0 : x0 + s]
-                    crop = cv2.resize(
-                        crop, self._embed_wh, interpolation=cv2.INTER_AREA
-                    )
-            else:
-                # fallback: center crop square
-                s = min(H, W)
-                y0 = (H - s) // 2
-                x0 = (W - s) // 2
-                crop = bgr[y0 : y0 + s, x0 : x0 + s]
-                crop = cv2.resize(crop, self._embed_wh, interpolation=cv2.INTER_AREA)
+
+        # Case: already preprocessed (1,1,128,128)
+        if inp.ndim == 4 and inp.shape[1:] == (1, 128, 128):
+            tensor = torch.from_numpy(inp).float().to(self.device)
+
+        # Case: raw aligned BGR image (H,W,3)
+        elif inp.ndim == 3 and inp.shape[2] == 3:
+            crop = cv2.resize(inp, self._embed_wh, interpolation=cv2.INTER_AREA)
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+            gray = gray.astype("float32") / 255.0
+            tensor = torch.from_numpy(gray).unsqueeze(0).unsqueeze(0).to(self.device)
+
         else:
-            crop = cv2.resize(bgr, self._embed_wh, interpolation=cv2.INTER_AREA)
+            raise ValueError(f"❌ embed() received invalid shape: {inp.shape}")
 
-        crop = crop.astype(np.uint8)
-        batch = crop[None, ...]  # (1,H,W,C)
-        return self._infer_batch(batch)[0].astype(np.float32)
+        with torch.no_grad():
+            out = self.model(tensor)
+            feats = out[0] if isinstance(out, (tuple, list)) else out
+            feats = F.normalize(feats, dim=1)
+
+        return feats.cpu().numpy().flatten().astype(np.float32)
 
     def detect_and_embed(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect faces, align, and return list with bbox, kps, embedding.
+        Detect → align → embed from a raw frame.
         """
         faces = self.det.get(frame)
-        results: List[Dict] = []
+        results = []
+
         for f in faces:
             kps = np.array(f.kps, dtype=np.float32)
             crop = _align_by_5pts(frame, kps, out_size=self._embed_wh)
             if crop is None:
                 continue
-            emb = self.embed(crop)  # uses fast path (already aligned)
+
+            emb = self.embed(crop)
             results.append(
                 {
                     "bbox": np.array(f.bbox, dtype=np.int32),
                     "kps": kps,
-                    "embedding": emb.astype(np.float32),
+                    "embedding": emb,
                 }
             )
         return results
@@ -4138,6 +4949,7 @@ from PyQt5.QtWidgets import (
     QDialog,
     QListWidget,
     QListWidgetItem,
+    QLabel,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -4178,8 +4990,19 @@ class SelectSubjectsDialog(QDialog):
         layout.addWidget(self.list_widget)
 
         btns = QHBoxLayout()
+        select_all_btn = QPushButton("All")
         ok_btn = QPushButton("OK")
         cancel_btn = QPushButton("Cancel")
+
+        select_all_btn.clicked.connect(self._select_all)
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+        btns.addWidget(select_all_btn)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
         ok_btn.clicked.connect(self.accept)
         cancel_btn.clicked.connect(self.reject)
         btns.addWidget(ok_btn)
@@ -4193,6 +5016,47 @@ class SelectSubjectsDialog(QDialog):
             if self.list_widget.item(i).checkState()
         ]
         super().accept()
+
+    def _select_all(self):
+        # special code path: tells caller to process entire dataset
+        self.selected_subjects = ["__ALL__"]
+        super().accept()
+
+
+# ------------------ Simple Metric Selection Dialog ------------------
+class SelectMetricDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Evaluation Method")
+        self.setFixedWidth(360)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(
+            "Which evaluation metric would you like to compute?\n\n"
+            "• ROC Curve (AUC, EER, TAR@FAR)\n"
+            "• Confusion Matrix (TP/TN/FP/FN, Accuracy, Threshold)"
+        )
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        button_layout = QHBoxLayout()
+
+        btn_roc = QPushButton("ROC Curve")
+        btn_cm = QPushButton("Confusion Matrix")
+
+        btn_roc.clicked.connect(lambda: self._choose("roc"))
+        btn_cm.clicked.connect(lambda: self._choose("cm"))
+
+        button_layout.addWidget(btn_roc)
+        button_layout.addWidget(btn_cm)
+
+        layout.addLayout(button_layout)
+        self.selection = None
+
+    def _choose(self, selection):
+        self.selection = selection
+        self.accept()
 
 
 # ------------------ Worker Thread ------------------
@@ -4231,7 +5095,7 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # NEW: append any extra CLI arguments (e.g., --start-person, --pos-ratio)
+            # append any extra CLI arguments (e.g., --start-person, --pos-ratio)
             if self.extra_args:
                 cmd.extend(self.extra_args)
 
@@ -4240,8 +5104,11 @@ class RunnerThread(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",  # ✅ force UTF-8 decoding
+                errors="replace",  # ✅ avoid crash on unsupported chars
                 bufsize=1,
             )
+
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
             process.stdout.close()
@@ -4441,20 +5308,79 @@ class BenchmarkPage(QWidget):
 
         # --- Video datasets (YTF etc.) ---
         if is_video_dataset:
-            ds_for_dialog = self.dataset_path
-            if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
-                ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+            # --- VIDEO VALIDATION ACCURACY (YTF etc.) ---
+            if "validation_accuracy" in os.path.basename(file_path).lower():
 
-            dlg = SelectSubjectsDialog(ds_for_dialog, self)
-            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
-                return
-            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
-            num_runs, ok = QInputDialog.getInt(
-                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
-            )
-            if not ok:
-                return
-            os.environ["YTF_RUNS"] = str(num_runs)
+                # 1) Ask how many pairs to test
+                num_pairs, ok = QInputDialog.getInt(
+                    self,
+                    "Number of Pairs",
+                    "How many pairs to test?",
+                    600,
+                    100,
+                    6000,
+                    100,
+                )
+                if not ok:
+                    return
+
+                # 2) Metric type (ROC vs Confusion)
+                dlg_metric = SelectMetricDialog(self)
+                if dlg_metric.exec_() != QDialog.Accepted:
+                    return
+
+                if dlg_metric.selection == "roc":
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "video",
+                        "logic_roc_graph_video.py",
+                    )
+                else:
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "video",
+                        "logic_confusion_matrix_video.py",
+                    )
+
+                # 3) Person selection (start identity / ALL) at video root
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+
+                if dlg.selected_subjects[0] == "__ALL__":
+                    start_person = "__ALL__"
+                    iters = -1  # ALL mode
+                else:
+                    start_person = dlg.selected_subjects[0]
+                    iters = num_pairs
+
+                extra_args = ["--start", start_person]
+
+            # --- VIDEO LATENCY / FPS / OTHER ---
+            else:
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+                os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
+
+                num_runs, ok = QInputDialog.getInt(
+                    self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+                )
+                if not ok:
+                    return
+                os.environ["YTF_RUNS"] = str(num_runs)
 
         # --- Image datasets (LFW etc.) ---
         elif is_image_dataset:
@@ -4476,17 +5402,41 @@ class BenchmarkPage(QWidget):
 
             # For validation accuracy, skip person selection — script handles pairs internally
             if "validation_accuracy" in os.path.basename(file_path).lower():
+
+                # Step 1: Ask how many pairs to test
                 num_pairs, ok = QInputDialog.getInt(
                     self,
                     "Number of Pairs",
                     "How many pairs to test?",
-                    600,  # default
-                    100,  # min
-                    6000,  # max
-                    100,  # step
+                    600,
+                    100,
+                    6000,
+                    100,
                 )
                 if not ok:
                     return
+
+                # ✅ Step 3: Ask which metric to run
+                dlg_metric = SelectMetricDialog(self)
+                if dlg_metric.exec_() != QDialog.Accepted:
+                    return
+
+                if dlg_metric.selection == "roc":
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "image",
+                        "logic_roc_graph.py",
+                    )
+                else:
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "image",
+                        "logic_confusion_matrix.py",
+                    )
+
+                # extra_args stays [] for VA
 
                 ds_for_dialog = self.dataset_path
                 if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
@@ -4496,16 +5446,19 @@ class BenchmarkPage(QWidget):
                 dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
                 if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
                     return
-                start_person = dlg.selected_subjects[0]
 
-                pos_ratio = 0.5  # or prompt later if you want
+                if dlg.selected_subjects[0] == "__ALL__":
+                    start_person = "__ALL__"
+                    iters = -1  # ✅ tell script to process ALL pairs
+                else:
+                    start_person = dlg.selected_subjects[0]
+                    iters = num_pairs  # ✅ normal limited mode
 
-                # pass via env (the VA script reads these)
+                extra_args = ["--start", start_person]
+
+                # pass for ROC / Confusion scripts
                 os.environ["LFW_START_PERSON"] = start_person
-                os.environ["POS_RATIO"] = str(pos_ratio)
-
-                iters = num_pairs  # pairs count
-                # extra_args stays [] for VA
+                os.environ["POS_RATIO"] = "0.5"
 
             else:
                 # Show person-selection dialog for latency, inference etc.
@@ -4642,6 +5595,74 @@ class BenchmarkPage(QWidget):
         fig.clear()
         ax = fig.add_subplot(111)
 
+        # ===================== CONFUSION MATRIX =====================
+        if data.get("kind") == "confusion_matrix":
+            tp, tn, fp, fn = data["tp"], data["tn"], data["fp"], data["fn"]
+            threshold = data["threshold"]
+            model = data.get("model", "")
+            dataset = data.get("dataset", "")
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
+            im = ax.imshow(cm, cmap="Blues")
+
+            ax.set_xticks([0, 1])
+            ax.set_yticks([0, 1])
+            ax.set_xticklabels(["Pred POS", "Pred NEG"])
+            ax.set_yticklabels(["Actual POS", "Actual NEG"])
+
+            for i in range(2):
+                for j in range(2):
+                    ax.text(
+                        j,
+                        i,
+                        int(cm[i, j]),
+                        ha="center",
+                        va="center",
+                        color="black",
+                        fontsize=12,
+                    )
+
+            ax.set_title(
+                f"Confusion Matrix - {model} on {dataset}\nThr={threshold:.4f}"
+            )
+
+            # Draw confusion matrix colors
+            fig.colorbar(im, ax=ax)
+
+            # ✅ Shift matrix left to make room for metrics box
+            fig.subplots_adjust(right=0.75)
+
+            # ✅ Build metrics text (reads clean and matches terminology)
+            metrics = (
+                f"Accuracy: {data['accuracy']*100:.2f}%\n"
+                f"Precision: {data['precision']*100:.2f}%\n"
+                f"Recall (TAR): {data['recall']*100:.2f}%\n"
+                f"Specificity (TNR): {data['specificity']*100:.2f}%\n"
+                f"F1 Score: {data['f1']*100:.2f}%\n"
+                f"FAR: {data['far']*100:.2f}%\n"
+                f"FRR: {data['frr']*100:.2f}%"
+            )
+
+            # --- Move metrics box into figure coordinate space (not affected by axes or colorbar) ---
+            fig.text(
+                0.75,  # x-position (relative to whole figure)
+                0.70,  # y-position (higher = further from progress bar)
+                metrics,
+                ha="left",
+                va="center",
+                fontsize=10,
+                color="white",
+                bbox=dict(
+                    boxstyle="round,pad=0.4", fc="#1e1e1e", ec="#666666", alpha=0.92
+                ),
+                transform=fig.transFigure,  # ✅ key change
+            )
+
+            canvas.draw()
+            return
+
         # ===================== LATENCY MODE =====================
 
         if kind == "latency" or "latency_series_all" in data:
@@ -4758,6 +5779,29 @@ class BenchmarkPage(QWidget):
             ax.set_title(f"Per-Frame Latency – {model} on {dataset_name}")
 
             ax.grid(True)
+
+            # ---- Add average latency box ----
+            avg_ms = data.get("avg_latency_ms")
+            if avg_ms is not None:
+                num_runs = data.get("num_runs", 1)
+
+                ax.text(
+                    1.02,
+                    0.85,
+                    f"Average Latency\n{avg_ms:.2f} ms\n({num_runs} run(s))",
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=10,
+                    color="black",
+                    bbox=dict(
+                        boxstyle="round,pad=0.4",
+                        fc="white",
+                        ec="gray",
+                        alpha=0.85,
+                    ),
+                )
+
             canvas.draw()
             return
 
@@ -4807,8 +5851,8 @@ class BenchmarkPage(QWidget):
                 avg_all = float(np.mean(run_avgs))
                 num_runs = len(run_avgs)
                 ax.text(
-                    1.18,
-                    0.35,  # 🔼 move up (closer under the legend box)
+                    1.02,  # ← moved left so it stays visible
+                    0.35,
                     f"Average FPS over {num_runs} run(s): {avg_all:.2f}",
                     transform=ax.transAxes,
                     ha="left",
@@ -4822,6 +5866,98 @@ class BenchmarkPage(QWidget):
                         alpha=0.7,
                     ),
                 )
+
+            canvas.draw()
+            return
+
+        # ===================== ROC IMAGE RESULT =====================
+        if data.get("kind") == "roc_image":
+            img_path = data.get("path")
+            if not os.path.exists(img_path):
+                print(f"[WARN] ROC image not found at {img_path}")
+                return
+
+            import matplotlib.image as mpimg
+
+            fig.clear()
+            fig.set_facecolor("white")
+            ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
+            img = mpimg.imread(img_path)
+            ax.imshow(img)
+            ax.set_axis_off()
+
+            # ---- NEW METRIC OVERLAY ----
+            auc_val = data.get("auc")
+            eer = data.get("eer")
+            tar = data.get("tar_far_1e3")
+            pairs = data.get("pairs_tested")
+            model = data.get("model")
+            dataset = data.get("dataset")
+
+            # Build annotation text
+            lines = []
+            if model and dataset:
+                lines.append(f"{model} on {dataset}")
+            if auc_val is not None:
+                lines.append(f"AUC: {float(auc_val):.4f}")
+            if eer is not None:
+                lines.append(f"EER: {float(eer)*100:.2f}%")
+            if tar is not None:
+                lines.append(f"TAR@FAR=1e-3: {float(tar)*100:.2f}%")
+            if pairs:
+                lines.append(f"Pairs: {int(pairs)}")
+
+            best_thr = data.get("best_threshold")
+            if best_thr is not None:
+                lines.insert(3, f"Best Thr (Youden J): {float(best_thr):.4f}")
+
+            # Draw overlay (bottom-right)
+            if lines:
+                fig.text(
+                    0.98,
+                    0.04,
+                    "\n".join(lines),
+                    ha="right",
+                    va="bottom",
+                    fontsize=10,
+                    bbox=dict(
+                        boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                    ),
+                )
+
+            canvas.setStyleSheet("background-color: white;")
+            canvas.draw()
+            return
+
+            # ===================== SIMPLE IMAGE ACCURACY =====================
+        if data.get("kind") == "accuracy_image_simple":
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc = float(data.get("accuracy", 0)) * 100.0
+            threshold = float(data.get("threshold", 0))
+            pairs = int(data.get("pairs_tested", 0))
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.axis("off")
+
+            text = (
+                f"Model: {model}\n"
+                f"Dataset: {dataset}\n\n"
+                f"Accuracy: {acc:.2f}%\n"
+                f"Best Threshold: {threshold:.4f}\n"
+                f"Pairs Tested: {pairs}"
+            )
+
+            ax.text(
+                0.5,
+                0.5,
+                text,
+                ha="center",
+                va="center",
+                fontsize=12,
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="black", alpha=0.8),
+            )
 
             canvas.draw()
             return

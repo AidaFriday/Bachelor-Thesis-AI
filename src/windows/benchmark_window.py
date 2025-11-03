@@ -376,20 +376,79 @@ class BenchmarkPage(QWidget):
 
         # --- Video datasets (YTF etc.) ---
         if is_video_dataset:
-            ds_for_dialog = self.dataset_path
-            if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
-                ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+            # --- VIDEO VALIDATION ACCURACY (YTF etc.) ---
+            if "validation_accuracy" in os.path.basename(file_path).lower():
 
-            dlg = SelectSubjectsDialog(ds_for_dialog, self)
-            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
-                return
-            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
-            num_runs, ok = QInputDialog.getInt(
-                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
-            )
-            if not ok:
-                return
-            os.environ["YTF_RUNS"] = str(num_runs)
+                # 1) Ask how many pairs to test
+                num_pairs, ok = QInputDialog.getInt(
+                    self,
+                    "Number of Pairs",
+                    "How many pairs to test?",
+                    600,
+                    100,
+                    6000,
+                    100,
+                )
+                if not ok:
+                    return
+
+                # 2) Metric type (ROC vs Confusion)
+                dlg_metric = SelectMetricDialog(self)
+                if dlg_metric.exec_() != QDialog.Accepted:
+                    return
+
+                if dlg_metric.selection == "roc":
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "video",
+                        "logic_roc_graph_video.py",
+                    )
+                else:
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "video",
+                        "logic_confusion_matrix_video.py",
+                    )
+
+                # 3) Person selection (start identity / ALL) at video root
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+
+                if dlg.selected_subjects[0] == "__ALL__":
+                    start_person = "__ALL__"
+                    iters = -1  # ALL mode
+                else:
+                    start_person = dlg.selected_subjects[0]
+                    iters = num_pairs
+
+                extra_args = ["--start", start_person]
+
+            # --- VIDEO LATENCY / FPS / OTHER ---
+            else:
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+                os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
+
+                num_runs, ok = QInputDialog.getInt(
+                    self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+                )
+                if not ok:
+                    return
+                os.environ["YTF_RUNS"] = str(num_runs)
 
         # --- Image datasets (LFW etc.) ---
         elif is_image_dataset:
