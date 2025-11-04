@@ -1,5 +1,6 @@
 # ==== logic_dataset_image.py ====
 import json, sys, time, numpy as np, os, cv2
+from datetime import datetime
 from connector import load_model
 
 try:
@@ -51,6 +52,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         _cached_wrapper = load_model(model_name)
         _cached_model_name = model_name
     wrapper = _cached_wrapper
+    # mark overall run start time (ISO 8601)
+    run_start = datetime.now().isoformat(timespec="seconds")
 
     start_person = os.getenv("LFW_START_PERSON", "")
     img_limit = int(os.getenv("LFW_IMAGE_COUNT", "0"))
@@ -169,7 +172,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         return
 
     overall_avg = float(np.mean(avg_runs))
-    # send_log(f"✅ Overall Avg Latency = {overall_avg:.2f} ms", "result")
+    # mark end time
+    run_end = datetime.now().isoformat(timespec="seconds")
 
     # --- Build JSON payload ---
     payload = {
@@ -177,6 +181,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         "kind": "latency_image",
         "dataset": dataset,
         "start_person": start_person,
+        "start_identity": start_person,
         "num_images": len(image_paths),
         "num_runs": num_runs,
         "avg_latency_ms": overall_avg,
@@ -184,6 +189,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         "image_paths": image_paths,
         "frame_paths_all": frame_paths_all,
         "model": model_name,
+        "start_time": run_start,
+        "end_time": run_end,
     }
 
     print(json.dumps(payload))

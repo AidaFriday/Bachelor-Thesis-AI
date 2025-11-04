@@ -753,7 +753,26 @@ class BenchmarkPage(QWidget):
 
             # ✅ Include the originating file name if present in payload
             source_file = data.get("source_file", "unknown")
-            all_run_data = {"source_file": source_file, "runs": []}
+
+            # 🔹 Figure out starting identity for both image + video latency
+            start_identity = data.get("start_identity") or data.get("start_person")
+            subjects = data.get("subjects")
+            if not start_identity and isinstance(subjects, list) and subjects:
+                # video latency uses a list of selected subjects
+                start_identity = subjects[0]
+
+            # 🔹 Build richer report header
+            all_run_data = {
+                "source_file": source_file,
+                "model": model,
+                "dataset": dataset,
+                "start_identity": start_identity,
+                "start_time": data.get(
+                    "start_time"
+                ),  # may be None if script doesn’t send it
+                "end_time": data.get("end_time"),
+                "runs": [],
+            }
 
             problem_files = []
 
