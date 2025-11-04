@@ -1,36 +1,36 @@
 {
-    "source_file": "logic_dataset_image.py",
+    "source_file": "logic_dataset_video.py",
     "model": "deepface",
-    "dataset": "C:/programming/Datasets/LFW\\lfw-deepfunneled",
+    "dataset": "C:/programming/Datasets/YTF",
     "start_identity": "AJ_Cook",
-    "start_time": "2025-11-04T20:58:40",
-    "end_time": "2025-11-04T20:58:44",
+    "start_time": "2025-11-04T21:14:16",
+    "end_time": "2025-11-04T21:15:15",
     "runs": [
         {
             "run": 1,
-            "min_ms": 103.79900003317744,
-            "max_ms": 107.79159993398935,
-            "avg_ms": 105.40727999759838,
-            "min_file": "Aaron_Guiel_0001.jpg",
-            "max_file": "Aaron_Patterson_0001.jpg",
-            "p50_ms": 105.15529999975115,
-            "p90_ms": 107.49585998710245,
-            "p95_ms": 107.6437299605459,
-            "p99_ms": 107.76202593930066,
-            "std_ms": 1.3983276279941868
+            "min_ms": 98.2234999537468,
+            "max_ms": 151.95890003815293,
+            "avg_ms": 106.16380769218704,
+            "min_file": "aligned_detect_2.210.jpg",
+            "max_file": "aligned_detect_2.254.jpg",
+            "p50_ms": 104.34949991758913,
+            "p90_ms": 112.33365994412452,
+            "p95_ms": 115.8347199903801,
+            "p99_ms": 141.89251603092995,
+            "std_ms": 6.8818744499551965
         },
         {
             "run": 2,
-            "min_ms": 99.92039995267987,
-            "max_ms": 111.34259996470064,
-            "avg_ms": 104.76951001910493,
-            "min_file": "Aaron_Patterson_0001.jpg",
-            "max_file": "AJ_Lamas_0001.jpg",
-            "p50_ms": 104.72915001446381,
-            "p90_ms": 107.73027001414448,
-            "p95_ms": 109.53643498942256,
-            "p99_ms": 110.98136696964502,
-            "std_ms": 3.188644166311493
+            "min_ms": 96.38429991900921,
+            "max_ms": 138.77860002685338,
+            "avg_ms": 105.38292197670938,
+            "min_file": "aligned_detect_2.190.jpg",
+            "max_file": "aligned_detect_0.171.jpg",
+            "p50_ms": 104.50330004096031,
+            "p90_ms": 109.90989990532398,
+            "p95_ms": 113.53073997888714,
+            "p99_ms": 131.4465919695794,
+            "std_ms": 5.1383810268275285
         }
     ]
 }

@@ -1,6 +1,7 @@
 # ==== logic_dataset_video.py ====
 import json, sys, time, numpy as np
 import os, cv2
+from datetime import datetime  # ✅ NEW
 from connector import load_model
 
 try:
@@ -39,6 +40,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     if selected_subjects:
         send_log(f"Filtering to selected subjects: {', '.join(selected_subjects)}")
 
+    # ✅ NEW: remember the "starting identity" (first subject chosen in the GUI)
+    start_identity = selected_subjects[0] if selected_subjects else None  # ✅ NEW
+
     # ✅ Gather all frames for these subjects
     image_paths = []
     for root, _, files in os.walk(dataset):
@@ -63,6 +67,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     # ✅ Number of test repetitions
     num_runs = int(os.getenv("YTF_RUNS", "1"))
     send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
+
+    # ✅ NEW: overall benchmark start time
+    run_start = datetime.now().isoformat(timespec="seconds")  # ✅ NEW
 
     # ---- Adaptive Warmup ----
     first_frame = cv2.imread(image_paths[0]) if len(image_paths) > 0 else None
@@ -137,13 +144,19 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
 
     send_log(f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms", "result")
 
-    # ✅ Prepare GUI-compatible payload (latency not FPS)
+    # ✅ NEW: overall benchmark end time
+    run_end = datetime.now().isoformat(timespec="seconds")  # ✅ NEW
 
+    # ✅ JSON payload: now includes model, starting identity, start & end time
     payload = {
-        "source_file": os.path.basename(__file__),  # ✅ Add the file name
-        "kind": "latency",
+        "source_file": os.path.basename(__file__),
+        "kind": "latency_video",  # optional, just to distinguish
         "dataset": dataset,
         "subjects": selected_subjects,
+        "start_identity": start_identity,
+        "start_person": start_identity,
+        "start_time": run_start,
+        "end_time": run_end,  # ✅ add this line
         "num_runs": num_runs,
         "iters": iters,
         "avg_latency_ms": avg_all_ms,
