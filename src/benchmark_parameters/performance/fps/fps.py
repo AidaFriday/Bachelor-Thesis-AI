@@ -7,6 +7,7 @@ import sys
 import time
 import numpy as np
 import cv2
+from datetime import datetime
 
 # ---- Bootstrap sys.path so connector and dataset are importable ----
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -87,16 +88,20 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     if os.path.exists(aligned):
         dataset = aligned
 
+    # ✅ benchmark start time
+    run_start = datetime.now().isoformat(timespec="seconds")
+
     wrapper = load_model(model_name)
     send_log(f"Running FPS benchmark | Model: {model_name} | Dataset: YTF (video)")
 
     # --- Load YTF frames ---
-    selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS")
-    selected_subjects = (
-        set(s.strip() for s in selected_subjects_env.split(",") if s.strip())
-        if selected_subjects_env
-        else None
-    )
+    selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS", "")
+    selected_subjects = [
+        s.strip() for s in selected_subjects_env.split(",") if s.strip()
+    ]
+
+    # First subject chosen in GUI (or None)
+    start_identity = selected_subjects[0] if selected_subjects else None
 
     all_images = YTF.list_all_images(root_dir=dataset, shuffle=False, verbose=False)
 
@@ -213,20 +218,34 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         f"[RESULT] Average FPS over {num_runs} run(s): {avg_fps:.2f}", level="result"
     )
 
+    # ✅ benchmark end time
+    run_end = datetime.now().isoformat(timespec="seconds")
+
     payload = {
         "kind": "fps",
+        "source_file": os.path.basename(__file__),
         "model": model_name,
         "dataset": "YTF (video)",
-        "fps": avg_fps,
-        "runs": all_run_fps,
+        "start_identity": start_identity,
+        "start_time": run_start,
+        "end_time": run_end,
+        "avg_fps_all_runs": avg_fps,  # ✅ overall average
+        "runs": all_run_fps,  # per-run averages
         "fps_series_all": all_run_series,
     }
 
     # --- Save per-run summary JSON ---
     report = {
         "source_file": os.path.basename(__file__),
+        "model": model_name,
+        "dataset": "YTF (video)",
+        "start_identity": start_identity,
+        "start_time": run_start,
+        "end_time": run_end,
+        "avg_fps_all_runs": round(avg_fps, 2),
         "runs": [],
     }
+
     for run_idx, fps_series in enumerate(all_run_series):
         min_idx = int(np.argmin(fps_series))
         max_idx = int(np.argmax(fps_series))

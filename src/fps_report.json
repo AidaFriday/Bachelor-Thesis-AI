@@ -1,13 +1,19 @@
 {
     "source_file": "fps.py",
+    "model": "facenet",
+    "dataset": "YTF (video)",
+    "start_identity": "AJ_Cook",
+    "start_time": "2025-11-04T22:14:14",
+    "end_time": "2025-11-04T22:15:23",
+    "avg_fps_all_runs": 4.86,
     "runs": [
         {
             "run": 1,
-            "min_fps": 1.64,
-            "max_fps": 4.36,
-            "avg_fps": 3.57,
-            "min_file": "aligned_detect_0.155.jpg",
-            "max_file": "aligned_detect_0.127.jpg"
+            "min_fps": 4.0,
+            "max_fps": 6.66,
+            "avg_fps": 4.86,
+            "min_file": "aligned_detect_2.298.jpg",
+            "max_file": "aligned_detect_0.176.jpg"
         }
     ]
 }
