@@ -15,7 +15,7 @@ from connector import load_model
 
 
 # ✅ <<< HARD-CODE YOUR THRESHOLD HERE >>>
-FIXED_THRESHOLD = 0.80
+FIXED_THRESHOLD = 0.50
 
 
 def cosine_similarity(a, b):
