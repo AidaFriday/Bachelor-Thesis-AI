@@ -1509,7 +1509,7 @@ from connector import load_model
 
 
 # ✅ <<< HARD-CODE YOUR THRESHOLD HERE >>>
-FIXED_THRESHOLD = 0.60
+FIXED_THRESHOLD = 0.50
 
 
 def cosine_similarity(a, b):
@@ -2082,6 +2082,10 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     sims = np.array(sims)
     labels = np.array(labels)
 
+    # how many pairs actually evaluated (after skipping failed detections)
+    pos_count = int(np.sum(labels == 1))
+    neg_count = int(np.sum(labels == 0))
+
     # Compute ROC
     fpr, tpr, thresholds = roc_curve(labels, sims)
     roc_auc = auc(fpr, tpr)
@@ -2131,7 +2135,11 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
             "model": model_name,
             "dataset": os.path.basename(dataset_path),
             "test_name": "ROC (Image)",
-            "pairs_evaluated": len(labels),
+            "pairs_evaluated": int(len(labels)),
+            "pos_pairs": pos_count,
+            "neg_pairs": neg_count,
+            "start_identity": start_identity,
+            "timestamp": datetime.now().strftime("%Y%m%d-%H%M%S"),
         },
         "metrics": {
             "auc": float(roc_auc),
@@ -2183,6 +2191,9 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
                 "best_threshold": float(best_threshold),
                 "tar_far_1e3": float(tar_at_far),
                 "pairs_tested": int(len(labels)),
+                "pos_pairs": pos_count,
+                "neg_pairs": neg_count,
+                "start_identity": start_identity,
                 "model": model_name,
                 "dataset": os.path.basename(dataset_path),
             }
