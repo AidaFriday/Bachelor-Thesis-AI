@@ -12,119 +12,23 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
 
-
-def cosine_similarity(a, b):
-    a = np.asarray(a, dtype=np.float32).flatten()
-    b = np.asarray(b, dtype=np.float32).flatten()
-    denom = np.linalg.norm(a) * np.linalg.norm(b)
-    if denom == 0:
-        return 0.0
-    return float(np.dot(a, b) / denom)
-
-
-def _resolve_video_root(dataset_path: str) -> str:
-    if os.path.isdir(os.path.join(dataset_path, "aligned_images_DB")):
-        return os.path.join(dataset_path, "aligned_images_DB")
-    return dataset_path
-
-
-def collect_pairs(
-    dataset_path,
-    start_identity=None,
-    max_pairs=None,
-    max_frames_per_clip=5,
-    max_pos_per_identity=10,
-    max_neg_per_identity=20,
-):
-    """
-    Same deterministic pairing as confusion_matrix_video.
-    """
-
-    root = _resolve_video_root(dataset_path)
-    return_all = start_identity == "__ALL__" or max_pairs is None or max_pairs == -1
-
-    people = sorted(
-        [
-            d
-            for d in os.listdir(root)
-            if os.path.isdir(os.path.join(root, d))
-        ]
+# ---------------------------------------------------------
+# Shared helpers (import from confusion-matrix implementation)
+# ---------------------------------------------------------
+try:
+    # Case 1: imported as part of the package
+    from .logic_confusion_matrix_video import (
+        cosine_similarity,
+        _resolve_video_root,
+        collect_pairs,
     )
-
-    if not return_all and start_identity in people:
-        start_idx = people.index(start_identity)
-        people = people[start_idx:]
-
-    all_person_frames = {}
-    for p in people:
-        person_dir = os.path.join(root, p)
-        clips = sorted(
-            [
-                c
-                for c in os.listdir(person_dir)
-                if os.path.isdir(os.path.join(person_dir, c))
-            ]
-        )
-
-        frames = []
-        for c in clips:
-            clip_dir = os.path.join(person_dir, c)
-            imgs = sorted(
-                f
-                for f in os.listdir(clip_dir)
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            )
-            for f in imgs[:max_frames_per_clip]:
-                frames.append(os.path.join(clip_dir, f))
-
-        if len(frames) >= 2:
-            all_person_frames[p] = frames
-
-    pos_pairs = []
-    neg_pairs = []
-
-    for person in people:
-        frames = all_person_frames.get(person, [])
-        if len(frames) < 2:
-            continue
-
-        limit = min(len(frames) - 1, max_pos_per_identity)
-        for i in range(limit):
-            pos_pairs.append((frames[i], frames[i + 1], 1))
-
-        if not return_all and max_pairs is not None:
-            if len(pos_pairs) >= max_pairs // 2:
-                break
-
-    pos_count = len(pos_pairs)
-    if pos_count == 0:
-        return []
-
-    neg_needed = pos_count
-
-    for i in range(len(people) - 1):
-        p1, p2 = people[i], people[i + 1]
-        f1 = all_person_frames.get(p1, [])
-        f2 = all_person_frames.get(p2, [])
-        if not f1 or not f2:
-            continue
-
-        limit = min(len(f1), len(f2), max_neg_per_identity)
-        for j in range(limit):
-            neg_pairs.append((f1[j], f2[j], 0))
-            if not return_all and len(neg_pairs) >= neg_needed:
-                break
-
-        if not return_all and len(neg_pairs) >= neg_needed:
-            break
-
-    neg_pairs = neg_pairs[:neg_needed]
-    all_pairs = pos_pairs + neg_pairs
-
-    if return_all:
-        return all_pairs
-    else:
-        return all_pairs[:max_pairs]
+except ImportError:
+    # Case 2: executed as a top-level script (no known parent package)
+    from benchmark_parameters.validation_accuracy.video.logic_confusion_matrix_video import (  # type: ignore  # noqa: E501
+        cosine_similarity,
+        _resolve_video_root,
+        collect_pairs,
+    )
 
 
 def run_roc(model_name, dataset_path, start_identity, iters=300):
