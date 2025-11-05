@@ -51,6 +51,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     pair_records = []
 
     total = len(pairs)
+    failed_pairs = 0
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
         # progress for GUI
@@ -59,33 +60,44 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
+        error = False
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
-            continue
+            error = True
+        else:
+            # detect faces
+            faces_a = wrapper.detector.detect(a)
+            faces_b = wrapper.detector.detect(b)
+            if not faces_a or not faces_b:
+                error = True
+            else:
+                # align using landmarks
+                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                if aligned_a is None or aligned_b is None:
+                    error = True
+                else:
+                    emb1 = wrapper.embed(aligned_a)
+                    emb2 = wrapper.embed(aligned_b)
+                    if emb1 is None or emb2 is None:
+                        error = True
 
-        # detect faces
-        faces_a = wrapper.detector.detect(a)
-        faces_b = wrapper.detector.detect(b)
-        if not faces_a or not faces_b:
-            continue
+        if error:
+            failed_pairs += 1
+            # Worst-case scores: always misclassified across [0,1] thresholds
+            if label == 1:
+                sim = -1.0  # positive pair → always below threshold → FN
+            else:
+                sim = 2.0  # negative pair → always above threshold → FP
+        else:
+            sim = cosine_similarity(emb1, emb2)
 
-        # align using landmarks
-        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-        if aligned_a is None or aligned_b is None:
-            continue
-
-        emb1 = wrapper.embed(aligned_a)
-        emb2 = wrapper.embed(aligned_b)
-        if emb1 is None or emb2 is None:
-            continue
-
-        sim = cosine_similarity(emb1, emb2)
         sims.append(sim)
         labels.append(label)
 
-        # track identities used
+        # track identities used (even for failed pairs)
         person1 = os.path.basename(os.path.dirname(os.path.dirname(img1)))
         person2 = os.path.basename(os.path.dirname(os.path.dirname(img2)))
         used_identities.setdefault(person1, set()).add(os.path.basename(img1))
@@ -97,6 +109,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
                 "img2": img2.replace(root + os.sep, ""),
                 "label": "pos" if label == 1 else "neg",
                 "similarity": float(sim),
+                "error": bool(error),
             }
         )
 
@@ -136,7 +149,9 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
             "model": model_name,
             "dataset": os.path.basename(root),
             "test_name": "ROC (Video)",
-            "pairs_evaluated": len(labels),
+            "pairs_evaluated": int(len(labels)),
+            "pairs_built": int(total),
+            "failed_pairs": int(failed_pairs),
         },
         "metrics": {
             "auc": float(roc_auc),
@@ -186,6 +201,8 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
                 "best_threshold": float(best_threshold),
                 "tar_far_1e3": float(tar_at_far),
                 "pairs_tested": int(len(labels)),
+                "pairs_built": int(total),
+                "failed_pairs": int(failed_pairs),
                 "model": model_name,
                 "dataset": os.path.basename(root),
             }

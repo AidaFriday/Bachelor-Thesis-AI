@@ -68,11 +68,7 @@ def collect_pairs(
 
     # --- list identities ---
     people = sorted(
-        [
-            d
-            for d in os.listdir(root)
-            if os.path.isdir(os.path.join(root, d))
-        ]
+        [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
     )
 
     # reorder so we start from a specific identity
@@ -178,6 +174,7 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     used_identities = {}
 
     total = len(pairs)
+    failed_pairs = 0
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
         # progress for GUI
@@ -186,25 +183,42 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
+        error = False
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
-            continue
+            error = True
+        else:
+            emb1 = wrapper.embed(a)
+            emb2 = wrapper.embed(b)
+            if emb1 is None or emb2 is None:
+                error = True
 
-        emb1 = wrapper.embed(a)
-        emb2 = wrapper.embed(b)
-        if emb1 is None or emb2 is None:
-            continue
+        if error:
+            failed_pairs += 1
+            # worst-case similarity so it’s always misclassified at any threshold in [0,1]
+            if label == 1:
+                sim = -1.0  # positive pair → below threshold → FN
+            else:
+                sim = 2.0  # negative pair → above threshold → FP
+        else:
+            sim = cosine_similarity(emb1, emb2)
 
-        sim = cosine_similarity(emb1, emb2)
         sims.append(sim)
         labels.append(label)
 
         # track which identities/images were used (identity = top-level folder)
-        person1 = os.path.basename(os.path.dirname(os.path.dirname(img1))) \
-            if "aligned_images_DB" in img1 else os.path.basename(os.path.dirname(os.path.dirname(img1)))
-        person2 = os.path.basename(os.path.dirname(os.path.dirname(img2))) \
-            if "aligned_images_DB" in img2 else os.path.basename(os.path.dirname(os.path.dirname(img2)))
+        person1 = (
+            os.path.basename(os.path.dirname(os.path.dirname(img1)))
+            if "aligned_images_DB" in img1
+            else os.path.basename(os.path.dirname(os.path.dirname(img1)))
+        )
+        person2 = (
+            os.path.basename(os.path.dirname(os.path.dirname(img2)))
+            if "aligned_images_DB" in img2
+            else os.path.basename(os.path.dirname(os.path.dirname(img2)))
+        )
 
         used_identities.setdefault(person1, set()).add(os.path.basename(img1))
         used_identities.setdefault(person2, set()).add(os.path.basename(img2))
@@ -216,10 +230,11 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
                 "img2": img2.replace(root + os.sep, ""),
                 "label": "pos" if label == 1 else "neg",
                 "similarity": float(sim),
+                "error": bool(error),
             }
         )
 
-    scores = np.array(sims)
+        scores = np.array(sims)
     labels = np.array(labels)
 
     if len(labels) == 0:
@@ -240,17 +255,19 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
 
     accuracy = (tp + tn) / (tp + tn + fp + fn)
     precision = tp / (tp + fp + 1e-9)
-    recall = tp / (tp + fn + 1e-9)        # TAR
+    recall = tp / (tp + fn + 1e-9)  # TAR
     specificity = tn / (tn + fp + 1e-9)
     f1 = 2 * precision * recall / (precision + recall + 1e-9)
-    far = fp / (fp + tn + 1e-9)           # False Accept Rate
-    frr = fn / (fn + tp + 1e-9)           # False Reject Rate
+    far = fp / (fp + tn + 1e-9)  # False Accept Rate
+    frr = fn / (fn + tp + 1e-9)  # False Reject Rate
 
     result = {
         "kind": "confusion_matrix",
         "model": model_name,
         "dataset": os.path.basename(root),
-        "pairs_tested": len(labels),
+        "pairs_tested": int(len(labels)),
+        "pairs_built": int(total),
+        "failed_pairs": int(failed_pairs),
         "tp": tp,
         "tn": tn,
         "fp": fp,
@@ -277,7 +294,9 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
             "dataset": os.path.basename(root),
             "test_name": "Confusion Matrix (Video)",
             "threshold": FIXED_THRESHOLD,
-            "pairs_evaluated": len(labels),
+            "pairs_evaluated": int(len(labels)),
+            "pairs_built": int(total),
+            "failed_pairs": int(failed_pairs),
             "pos_pairs": pos_count,
             "neg_pairs": neg_count,
             "start_identity": start_identity,
