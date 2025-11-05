@@ -135,40 +135,64 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
+        error = False  # assume success, verify step-by-step
+
+        # --- read failure ---
         if a is None or b is None:
-            continue
+            error = True
+        else:
+            # --- detect faces ---
+            faces_a = wrapper.detector.detect(a)
+            faces_b = wrapper.detector.detect(b)
+            if not faces_a or not faces_b:
+                error = True
+            else:
+                # --- align using landmarks ---
+                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                if aligned_a is None or aligned_b is None:
+                    error = True
+                else:
+                    # --- embeddings ---
+                    emb1 = wrapper.embed(aligned_a)
+                    emb2 = wrapper.embed(aligned_b)
+                    if emb1 is None or emb2 is None:
+                        error = True
 
-        # ---- detect faces ----
-        faces_a = wrapper.detector.detect(a)
-        faces_b = wrapper.detector.detect(b)
-        if not faces_a or not faces_b:
-            continue
+        if error:
+            # FORCE a misclassification instead of skipping the pair
+            if label == 1:
+                sim = -1.0  # Positive pair → FN
+            else:
+                sim = 2.0  # Negative pair → FP
+        else:
+            sim = cosine_similarity(emb1, emb2)
 
-        # ---- align using landmarks ----
-        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-
-        if aligned_a is None or aligned_b is None:
-            continue
-
-        # ---- embeddings ----
-        emb1 = wrapper.embed(aligned_a)
-        emb2 = wrapper.embed(aligned_b)
-        if emb1 is None or emb2 is None:
-            continue
-
-        sims.append(cosine_similarity(emb1, emb2))
+        sims.append(sim)
         labels.append(label)
 
-    sims = np.array(sims)
-    labels = np.array(labels)
+    sims = np.array(sims, dtype=np.float32)
+    labels = np.array(labels, dtype=np.int32)
 
-    # how many pairs actually evaluated (after skipping failed detections)
     pos_count = int(np.sum(labels == 1))
     neg_count = int(np.sum(labels == 0))
 
-    # Compute ROC
+    # --- guard: ROC requires both classes ---
+    if pos_count == 0 or neg_count == 0:
+        print(
+            json.dumps(
+                {
+                    "error": "ROC cannot be computed: dataset contains only one class after evaluation.",
+                    "pos_pairs": pos_count,
+                    "neg_pairs": neg_count,
+                }
+            )
+        )
+        return
+
     fpr, tpr, thresholds = roc_curve(labels, sims)
+
     roc_auc = auc(fpr, tpr)
 
     # --- Best Threshold (Youden's J statistic) ---

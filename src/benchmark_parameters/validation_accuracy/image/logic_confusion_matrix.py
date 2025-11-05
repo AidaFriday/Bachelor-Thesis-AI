@@ -151,17 +151,41 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
+        error = False
+
         if a is None or b is None:
-            continue
+            error = True
+        else:
+            faces_a = wrapper.detector.detect(a)
+            faces_b = wrapper.detector.detect(b)
 
-        emb1 = wrapper.embed(a)
-        emb2 = wrapper.embed(b)
-        if emb1 is None or emb2 is None:
-            continue
+            if not faces_a or not faces_b:
+                error = True
+            else:
+                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                if aligned_a is None or aligned_b is None:
+                    error = True
+                else:
+                    emb1 = wrapper.embed(aligned_a)
+                    emb2 = wrapper.embed(aligned_b)
+                    if emb1 is None or emb2 is None:
+                        error = True
 
-        sim = cosine_similarity(emb1, emb2)
+
+        if error:
+            # label stays the same — just forcing classification failure
+            if label == 1:
+                sim = -1.0  # positive pair counted as False Negative
+            else:
+                sim = 2.0   # negative pair counted as False Positive
+        else:
+            sim = cosine_similarity(emb1, emb2)
+
         sims.append(sim)
         labels.append(label)
+
 
         # ✅ Store pair data
         pair_records.append(

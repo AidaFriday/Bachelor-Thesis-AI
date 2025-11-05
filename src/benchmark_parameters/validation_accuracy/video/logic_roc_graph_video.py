@@ -64,25 +64,44 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
+        error = False
+
         if a is None or b is None:
             error = True
         else:
-            # detect faces
-            faces_a = wrapper.detector.detect(a)
-            faces_b = wrapper.detector.detect(b)
+            # --- SAFE DETECTION ---
+            try:
+                faces_a = wrapper.detector.detect(a)
+                faces_b = wrapper.detector.detect(b)
+            except Exception:
+                faces_a, faces_b = [], []
+
             if not faces_a or not faces_b:
                 error = True
             else:
-                # align using landmarks
+                # --- ALIGNMENT ---
                 aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
                 aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
                 if aligned_a is None or aligned_b is None:
                     error = True
                 else:
+                    # --- EMBEDDING ---
                     emb1 = wrapper.embed(aligned_a)
                     emb2 = wrapper.embed(aligned_b)
                     if emb1 is None or emb2 is None:
                         error = True
+
+        # --- FORCE SCORE ON FAIL ---
+        if error:
+            failed_pairs += 1
+            sim = -1.0 if label == 1 else 2.0
+        else:
+            sim = cosine_similarity(emb1, emb2)
+
+        # Keep similarity in a sane numeric range
+        sim = float(np.clip(sim, -1.0, 2.0))
 
         if error:
             failed_pairs += 1

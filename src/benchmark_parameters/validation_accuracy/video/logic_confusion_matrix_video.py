@@ -187,13 +187,31 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
+        error = False
+        emb1 = emb2 = None
+
         if a is None or b is None:
             error = True
         else:
-            emb1 = wrapper.embed(a)
-            emb2 = wrapper.embed(b)
-            if emb1 is None or emb2 is None:
+            # --- DETECT ---
+            faces_a = wrapper.detector.detect(a)
+            faces_b = wrapper.detector.detect(b)
+
+            if not faces_a or not faces_b:
                 error = True
+            else:
+                # --- ALIGN ---
+                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                if aligned_a is None or aligned_b is None:
+                    error = True
+                else:
+                    # --- EMBED ---
+                    emb1 = wrapper.embed(aligned_a)
+                    emb2 = wrapper.embed(aligned_b)
+                    if emb1 is None or emb2 is None:
+                        error = True
 
         if error:
             failed_pairs += 1
