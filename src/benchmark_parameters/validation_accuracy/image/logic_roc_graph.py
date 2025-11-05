@@ -23,6 +23,17 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
+def dataset_needs_alignment(dataset_path):
+    """
+    Return False for aligned datasets (e.g., LFW-deepfunneled),
+    True for raw datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path or "deepfunneled" in path:
+        return False
+    return True
+
+
 def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
     """
     Deterministic pair generation:
@@ -286,7 +297,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     plt.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close()
 
-    print(
+    sys.stdout.write(
         json.dumps(
             {
                 "kind": "roc_image",
@@ -298,12 +309,11 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
                 "pairs_tested": int(len(labels)),
                 "pos_pairs": pos_count,
                 "neg_pairs": neg_count,
-                "start_identity": start_identity,
-                "model": model_name,
-                "dataset": os.path.basename(dataset_path),
             }
         )
+        + "\n"
     )
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
