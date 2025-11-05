@@ -144,39 +144,46 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
+        USE_DETECTION = dataset_needs_alignment(dataset_path)
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
 
-        error = False  # assume success, verify step-by-step
+        error = False
 
-        # --- read failure ---
         if a is None or b is None:
             error = True
         else:
-            # --- detect faces ---
-            faces_a = wrapper.detector.detect(a)
-            faces_b = wrapper.detector.detect(b)
-            if not faces_a or not faces_b:
-                error = True
-            else:
-                # --- align using landmarks ---
-                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-                if aligned_a is None or aligned_b is None:
+            if USE_DETECTION:
+                # ---- DETECT ----
+                faces_a = wrapper.detector.detect(a)
+                faces_b = wrapper.detector.detect(b)
+                if not faces_a or not faces_b:
                     error = True
                 else:
-                    # --- embeddings ---
-                    emb1 = wrapper.embed(aligned_a)
-                    emb2 = wrapper.embed(aligned_b)
-                    if emb1 is None or emb2 is None:
+                    # ---- ALIGN ----
+                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                    if aligned_a is None or aligned_b is None:
                         error = True
+                    else:
+                        emb1 = wrapper.embed(aligned_a)
+                        emb2 = wrapper.embed(aligned_b)
+                        if emb1 is None or emb2 is None:
+                            error = True
+            else:
+                # ✅ SKIP detection & alignment for aligned datasets like LFW-deepfunneled
+                emb1 = wrapper.embed(a)
+                emb2 = wrapper.embed(b)
+                if emb1 is None or emb2 is None:
+                    error = True
 
         if error:
-            # FORCE a misclassification instead of skipping the pair
+            # Force error into FN/FP for ROC consistency
             if label == 1:
-                sim = -1.0  # Positive pair → FN
+                sim = -1.0  # FN
             else:
-                sim = 2.0  # Negative pair → FP
+                sim = 2.0  # FP
         else:
             sim = cosine_similarity(emb1, emb2)
 
