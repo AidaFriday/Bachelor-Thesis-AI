@@ -7,6 +7,7 @@ import sys
 import time
 import numpy as np
 import cv2
+from datetime import datetime
 
 # ---- Bootstrap sys.path so connector and dataset are importable ----
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -87,16 +88,20 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     if os.path.exists(aligned):
         dataset = aligned
 
+    # ✅ benchmark start time
+    run_start = datetime.now().isoformat(timespec="seconds")
+
     wrapper = load_model(model_name)
     send_log(f"Running FPS benchmark | Model: {model_name} | Dataset: YTF (video)")
 
     # --- Load YTF frames ---
-    selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS")
-    selected_subjects = (
-        set(s.strip() for s in selected_subjects_env.split(",") if s.strip())
-        if selected_subjects_env
-        else None
-    )
+    selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS", "")
+    selected_subjects = [
+        s.strip() for s in selected_subjects_env.split(",") if s.strip()
+    ]
+
+    # First subject chosen in GUI (or None)
+    start_identity = selected_subjects[0] if selected_subjects else None
 
     all_images = YTF.list_all_images(root_dir=dataset, shuffle=False, verbose=False)
 
@@ -122,10 +127,10 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
     s, v, f = _ytf_loaded_subset_summary(dataset, images)
     send_log(f"[YTF] Loaded subset: {s} subjects, {v} videos, {f} frames", level="info")
+    frames = []
+    image_map = {}
     if iters <= 0:
         iters = len(images)
-        frames = []
-        image_map = {}
 
     for idx, path in enumerate(images, 1):
         img = cv2.imread(path)
@@ -139,20 +144,48 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     num_runs = int(os.getenv("YTF_RUNS", "1"))
     send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
 
+    # ---- Adaptive Warmup ----
+    first_frame = None
+    if len(images) > 0:
+        first_frame = cv2.imread(images[0])
+    if first_frame is None:
+        send_log("❌ Could not read first frame for warm-up", "error")
+        first_frame = _random_frame(frame_h, frame_w)
+
+    # Decide warm-up count based on device
+    if _HAS_TORCH and torch.cuda.is_available():
+        warmup_iters = 5  # GPUs need more warm-up to stabilize
+        device_name = "GPU"
+    else:
+        warmup_iters = 1  # CPU warm-up mostly negligible
+        device_name = "CPU"
+
+    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
+
+    for _ in range(warmup_iters):
+        _ = wrapper.detect_and_embed(first_frame)
+        _cuda_synchronize_if_needed()
+
+    # --- Initialize data collectors ---
     all_run_fps = []
     all_run_series = []
+    used_filenames_all = []
 
     for run_idx in range(num_runs):
         send_log(f"--- Run {run_idx + 1}/{num_runs} ---")
         times_ms = []
         start = time.time()
 
+        used_filenames = []
+
         for i in range(iters):
-            frame = (
-                frames[i % len(frames)] if frames else _random_frame(frame_h, frame_w)
-            )
+            frame_idx = i % len(frames) if frames else None
+            frame = frames[frame_idx] if frames else _random_frame(frame_h, frame_w)
             t = measure_once(wrapper, frame)
             times_ms.append(t)
+
+            if frames:
+                used_filenames.append(os.path.basename(images[frame_idx]))
 
             # ✅ Progress update every 10 frames or at end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
@@ -167,9 +200,14 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
         elapsed = time.time() - start
         fps_series = [1000.0 / t if t > 0 else float("inf") for t in times_ms]
+        # t = latency of one frame in milliseconds
+        # 1000.0 / t → converts latency (ms) into FPS
+        # FPS = “frames per second” = reciprocal of average per-frame processing time
+
         mean_fps = float(np.mean(fps_series))
         all_run_fps.append(mean_fps)
         all_run_series.append(fps_series)
+        used_filenames_all.append(used_filenames)
 
         send_log(
             f"[Run {run_idx + 1}] {iters} frames → {mean_fps:.2f} FPS", level="result"
@@ -180,28 +218,56 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         f"[RESULT] Average FPS over {num_runs} run(s): {avg_fps:.2f}", level="result"
     )
 
+    # ✅ benchmark end time
+    run_end = datetime.now().isoformat(timespec="seconds")
+
     payload = {
         "kind": "fps",
+        "source_file": os.path.basename(__file__),
         "model": model_name,
         "dataset": "YTF (video)",
-        "fps": avg_fps,
-        "runs": all_run_fps,
+        "start_identity": start_identity,
+        "start_time": run_start,
+        "end_time": run_end,
+        "avg_fps_all_runs": avg_fps,  # ✅ overall average
+        "runs": all_run_fps,  # per-run averages
         "fps_series_all": all_run_series,
     }
 
     # --- Save per-run summary JSON ---
-    report = {"runs": []}
+    report = {
+        "source_file": os.path.basename(__file__),
+        "model": model_name,
+        "dataset": "YTF (video)",
+        "start_identity": start_identity,
+        "start_time": run_start,
+        "end_time": run_end,
+        "avg_fps_all_runs": round(avg_fps, 2),
+        "runs": [],
+    }
+
     for run_idx, fps_series in enumerate(all_run_series):
         min_idx = int(np.argmin(fps_series))
         max_idx = int(np.argmax(fps_series))
+
+        used = used_filenames_all[run_idx] if run_idx < len(used_filenames_all) else []
+
         report["runs"].append(
             {
                 "run": run_idx + 1,
                 "min_fps": round(float(fps_series[min_idx]), 2),
                 "max_fps": round(float(fps_series[max_idx]), 2),
                 "avg_fps": round(all_run_fps[run_idx], 2),
-                "min_file": image_map.get(min_idx + 1, f"frame_{min_idx + 1}"),
-                "max_file": image_map.get(max_idx + 1, f"frame_{max_idx + 1}"),
+                "min_file": (
+                    used[min_idx]
+                    if used and min_idx < len(used)
+                    else f"frame_{min_idx + 1}"
+                ),
+                "max_file": (
+                    used[max_idx]
+                    if used and max_idx < len(used)
+                    else f"frame_{max_idx + 1}"
+                ),
             }
         )
 

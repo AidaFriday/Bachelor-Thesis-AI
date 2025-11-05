@@ -87,7 +87,18 @@ class SettingsPage(QWidget):
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["arcface", "facenet", "insightface"])
+
+        # ✅ Load model list dynamically from model.config if available
+        model_config_path = os.path.join(BASE_DIR, "models", "model.config")
+        try:
+            with open(model_config_path, "r") as f:
+                model_config = json.load(f)
+                model_names = list(model_config.keys())
+        except Exception as e:
+            print(f"[WARN] Could not read model.config: {e}")
+            model_names = ["arcface", "facenet", "insightface"]
+
+        self.model_combo.addItems(model_names)
         idx = self.model_combo.findText(self.model_name)
         if idx >= 0:
             self.model_combo.setCurrentIndex(idx)
@@ -147,13 +158,6 @@ class SettingsPage(QWidget):
         self.dataset_name_label.setText(self.dataset_name.upper())
         self.dataset_path_label.setText(f"Path: {path}")
 
-        # Immediate friendly notice if LFW chosen (so you don't need to hit Save)
-        # if self.dataset_name == "lfw":
-        # QMessageBox.information(
-        # self,
-        # "Dataset Notice",
-        # "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",)
-
     # ===============================================================
     # 🔹 Model & Theme
     # ===============================================================
@@ -186,18 +190,6 @@ class SettingsPage(QWidget):
             f"Path: {self.dataset_path or 'N/A'}\n"
             f"Theme: {self.theme}"
         )
-
-        # Extra warning if user saved with LFW
-        # if self.dataset_name and self.dataset_name.lower() == "lfw":
-        # msg += (
-        # "\n\n⚠️ Note: LFW is an image dataset.\n"
-        # "FPS benchmark requires a video dataset like YTF."
-        # )
-        # QMessageBox.warning(
-        #  self,
-        #  "Dataset Notice",
-        #  "You selected LFW — FPS benchmark requires a video dataset (e.g., YTF).",
-        # )
 
         QMessageBox.information(self, "Settings", msg)
 

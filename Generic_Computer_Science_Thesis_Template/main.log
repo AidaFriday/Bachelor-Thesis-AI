@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  8 OCT 2025 17:27
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  28 OCT 2025 09:32
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1061,7 +1061,7 @@ Package biblatex Info: Reference segment=0 on input line 28.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-<logo.png, id=56, 501.875pt x 282.05376pt>
+<logo.png, id=131, 501.875pt x 282.05376pt>
 File: logo.png Graphic file (type png)
 <use logo.png>
 Package pdftex.def Info: logo.png  used on input line 37.
@@ -1148,7 +1148,7 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 
 
 {c:/texlive/2023/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}]
-<figures/signature.png, id=77, 383.4325pt x 109.40875pt>
+<figures/signature.png, id=152, 383.4325pt x 109.40875pt>
 File: figures/signature.png Graphic file (type png)
 <use figures/signature.png>
 Package pdftex.def Info: figures/signature.png  used on input line 39.
@@ -1184,13 +1184,13 @@ LaTeX Font Info:    External font `lmex10' loaded for size
  [6
 
 
-] (./main.toc)
+] (./main.toc [7
+
+])
 \tf@toc=\write7
 \openout7 = `main.toc'.
 
- [7
-
-]
+ [8]
 Chapter 1.
 (./chapters/introduction.tex
 pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
@@ -1253,25 +1253,22 @@ LaTeX Warning: Citation 'breakout' on page 4 undefined on input line 49.
 
 ) [4]
 Chapter 2.
-(./chapters/related-work.tex) [5
+(./chapters/fundamentals.tex
+
+Package hyperref Warning: The anchor of a bookmark and its parent's must not
+(hyperref)                be the same. Added a new anchor on input line 3.
+
+) [5
 
 ]
 Chapter 3.
 (./chapters/method.tex
-Overfull \hbox (11.35167pt too wide) in paragraph at lines 2--2
-|[]\T1/lmr/bx/n/17.28 Evaluation Setup (CPU vs GPU, data-sets, web-
- []
-
-
-Overfull \hbox (7.617pt too wide) in paragraph at lines 3--3
-|[]\T1/lmr/bx/n/17.28 Application Work-flow (PyQt GUI, in-teg-ra-tion)| 
- []
-
-<figures/duck.jpg, id=153, 1541.76pt x 1027.84pt>
+<figures/duck.jpg, id=252, 1541.76pt x 1027.84pt>
 File: figures/duck.jpg Graphic file (type jpg)
 <use figures/duck.jpg>
-Package pdftex.def Info: figures/duck.jpg  used on input line 15.
+Package pdftex.def Info: figures/duck.jpg  used on input line 19.
 (pdftex.def)             Requested size: 429.3521pt x 286.22488pt.
+
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
@@ -1279,17 +1276,21 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 
 ] [7 <./figures/duck.jpg>]
 Chapter 4.
+(./chapters/results.tex) [8
+
+]
+Chapter 5.
 (./chapters/conclusions.tex)
 
-LaTeX Warning: Empty bibliography on input line 80.
+LaTeX Warning: Empty bibliography on input line 86.
 
 
-Package biblatex Warning: Keyword 'game' not found on input line 83.
+Package biblatex Warning: Keyword 'game' not found on input line 89.
 
 
-LaTeX Warning: Empty bibliography on input line 83.
+LaTeX Warning: Empty bibliography on input line 89.
 
-[8
+[9
 
 ] (./main.aux)
  ***********
@@ -1301,7 +1302,7 @@ L3 programming layer <2023-11-09>
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 5445095834C579464D6766FE4E24E750;2193.
+(rerunfilecheck)             Checksum: 864D2A30F4A7AA0B2884CEA90B3FF562;5355.
 
 Package biblatex Warning: Please (re)run Biber on the file:
 (biblatex)                main
@@ -1312,10 +1313,10 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 25618 strings out of 474267
- 464420 string characters out of 5751464
- 1933558 words of memory out of 5000000
- 47384 multiletter control sequences out of 15000+600000
+ 25664 strings out of 474267
+ 465107 string characters out of 5751464
+ 1937558 words of memory out of 5000000
+ 47407 multiletter control sequences out of 15000+600000
  633757 words of font info for 76 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  98i,12n,145p,1193b,2484s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1327,10 +1328,10 @@ r12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmr7.pfb><c:/texlive/
 s/type1/public/lm/lmri10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/
 lmri12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmtt12.pfb><c:/tex
 live/2023/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on main.pdf (16 pages, 1400135 bytes).
+Output written on main.pdf (18 pages, 1407550 bytes).
 PDF statistics:
- 228 PDF objects out of 1000 (max. 8388607)
- 182 compressed objects within 2 object streams
- 38 named destinations out of 1000 (max. 500000)
- 120 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 334 PDF objects out of 1000 (max. 8388607)
+ 285 compressed objects within 3 object streams
+ 58 named destinations out of 1000 (max. 500000)
+ 272 words of extra memory for PDF output out of 10000 (max. 10000000)
 

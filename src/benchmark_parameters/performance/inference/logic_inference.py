@@ -9,6 +9,57 @@ import numpy as np
 # ---------------------------------------------------------------------
 # 🔹 Load centralized project file index (instead of manual sys.path setup)
 # ---------------------------------------------------------------------
+
+
+# add near the top of logic_inference.py
+try:
+    import torch
+
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+
+def _cuda_sync():
+    if _HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def _get_embed_wh(wrapper):
+    # Prefer explicit (W,H) if wrapper exposes it
+    wh = getattr(wrapper, "_embed_wh", None)
+    if wh and len(wh) == 2:
+        return int(wh[0]), int(wh[1])
+    # Otherwise try _rec_input (varies by libs) and normalize to (W,H)
+    rec = getattr(wrapper, "_rec_input", None)
+    if rec and len(rec) == 2:
+        H, W = int(rec[0]), int(rec[1])  # many libs expose (H, W)
+        return (W, H)
+    # Finally fall back to input_size; treat as (H,W) by convention
+    sz = getattr(wrapper, "input_size", (112, 112))
+    H, W = int(sz[0]), int(sz[1])
+    return (W, H)
+
+
+def measure_embed_only(wrapper, iters=1, size=None):
+    import time, numpy as np, cv2
+
+    if size is None:
+        W, H = _get_embed_wh(wrapper)  # always normalized to (W,H)
+    else:
+        W, H = int(size[0]), int(size[1])
+
+    times = []
+    for _ in range(iters):
+        dummy = np.random.randint(0, 255, (H, W, 3), dtype=np.uint8)
+        _cuda_sync()
+        t0 = time.perf_counter()
+        _ = wrapper.embed(dummy)
+        _cuda_sync()
+        times.append((time.perf_counter() - t0) * 1000.0)
+    return times
+
+
 try:
     from components.utilities.file_indexer import load_file_index
 except ModuleNotFoundError:
@@ -32,7 +83,6 @@ for rel_path in index_data["files"]:
 # 🔹 Import project modules
 # ---------------------------------------------------------------------
 from connector import load_model
-from benchmark_parameters.performance.latency.latency import measure_embed_only
 
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 

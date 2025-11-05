@@ -1,6 +1,7 @@
 # ==== logic_dataset_video.py ====
 import json, sys, time, numpy as np
 import os, cv2
+from datetime import datetime  # ✅ NEW
 from connector import load_model
 
 try:
@@ -39,6 +40,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     if selected_subjects:
         send_log(f"Filtering to selected subjects: {', '.join(selected_subjects)}")
 
+    # ✅ NEW: remember the "starting identity" (first subject chosen in the GUI)
+    start_identity = selected_subjects[0] if selected_subjects else None  # ✅ NEW
+
     # ✅ Gather all frames for these subjects
     image_paths = []
     for root, _, files in os.walk(dataset):
@@ -64,10 +68,29 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     num_runs = int(os.getenv("YTF_RUNS", "1"))
     send_log(f"[CONFIG] Performing {num_runs} run(s) × {iters} frames each")
 
-    # ✅ Warmup
-    warmup = cv2.imread(image_paths[0])
-    _ = wrapper.embed(warmup)
-    _cuda_sync()
+    # ✅ NEW: overall benchmark start time
+    run_start = datetime.now().isoformat(timespec="seconds")  # ✅ NEW
+
+    # ---- Adaptive Warmup ----
+    first_frame = cv2.imread(image_paths[0]) if len(image_paths) > 0 else None
+    if first_frame is None:
+        send_log("❌ Could not read first frame for warm-up", "error")
+        # fallback: create random frame if dataset read fails
+        first_frame = np.random.randint(0, 255, (frame_h, frame_w, 3), dtype=np.uint8)
+
+    # Decide warm-up count based on device
+    if _HAS_TORCH and torch.cuda.is_available():
+        warmup_iters = 5  # GPU needs multiple iterations to stabilize kernels
+        device_name = "GPU"
+    else:
+        warmup_iters = 1  # CPU only needs one iteration
+        device_name = "CPU"
+
+    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
+
+    for _ in range(warmup_iters):
+        _ = wrapper.embed(first_frame)
+        _cuda_sync()
 
     # --- Multiple runs ---
     latency_series_all = []  # per-frame latency per run
@@ -95,10 +118,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
                     "progress": i + 1,
                     "total": iters,
                     "run": r + 1,
-                    "num_runs": num_runs
+                    "num_runs": num_runs,
                 }
                 print(json.dumps(progress_msg), flush=True)
-
 
         if not latencies:
             send_log(f"❌ No valid frames processed in run {r+1}", "error")
@@ -120,14 +142,21 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
     avg_all_ms = float(np.mean(avg_latency_runs))
     avg_all_fps = 1000.0 / avg_all_ms if avg_all_ms > 0 else 0
 
-    send_log
-    (f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms", "result")
+    send_log(f"✅ Overall Avg Latency = {avg_all_ms:.2f} ms", "result")
 
-    # ✅ Prepare GUI-compatible payload (latency not FPS)
+    # ✅ NEW: overall benchmark end time
+    run_end = datetime.now().isoformat(timespec="seconds")  # ✅ NEW
+
+    # ✅ JSON payload: now includes model, starting identity, start & end time
     payload = {
-        "kind": "latency",
+        "source_file": os.path.basename(__file__),
+        "kind": "latency_video",  # optional, just to distinguish
         "dataset": dataset,
         "subjects": selected_subjects,
+        "start_identity": start_identity,
+        "start_person": start_identity,
+        "start_time": run_start,
+        "end_time": run_end,  # ✅ add this line
         "num_runs": num_runs,
         "iters": iters,
         "avg_latency_ms": avg_all_ms,

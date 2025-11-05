@@ -1,74 +1,72 @@
-# ==== models/wrap_facenet.py (optional – behavior unchanged) ====
+# models/wrap_facenet.py
 
-import cv2
-import numpy as np
 import torch
-import os  # ADDED: optional env toggles (kept for symmetry)
-from facenet_pytorch import InceptionResnetV1, MTCNN
+import numpy as np
+import cv2
+from facenet_pytorch import InceptionResnetV1
+from typing import List, Dict
+
+from .wrap_facedetection import FaceDetectorAligner
 
 
 class FaceNetWrapper:
-    """
-    FaceNet wrapper using facenet-pytorch package.
-    """
-
     name = "facenet"
 
-    def __init__(self, device: str = "cpu", input_size=(160, 160)):
-        self.device = torch.device(device)
-        self.input_size = tuple(input_size)
+    def __init__(self, device=None, input_size=(160, 160)):
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        self.input_size = tuple(map(int, input_size))
+        self._embed_wh = (self.input_size[0], self.input_size[1])
 
-        # Load pretrained InceptionResnetV1
+        # ✅ Load pretrained FaceNet weights (L2-normalized embedding output)
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
-        self.detector = MTCNN(image_size=self.input_size[0], device=self.device)
 
-        self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"  # ADDED
+        # ✅ Use your universal aligner
+        self.aligner = FaceDetectorAligner(device=self.device.type)
 
-    def embed(self, bgr: np.ndarray) -> np.ndarray:
+    @torch.no_grad()
+    def embed(self, img):
         """
-        Embedding-only on an already aligned/cropped face (no detection).
+        img: must be (H, W, 3) BGR aligned face
+        returns 512-D embedding (float32, normalized)
         """
-        rgb = cv2.cvtColor(cv2.resize(bgr, self.input_size), cv2.COLOR_BGR2RGB)
-        t = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
-        t = (t - 0.5) / 0.5
-        with torch.inference_mode():
-            emb = self.model(t.unsqueeze(0).to(self.device))
-        return emb[0].cpu().numpy().astype(np.float32)
+        if img is None:
+            raise ValueError("embed() called with None image")
 
-    def detect_and_embed(self, frame: np.ndarray):
+        # Resize and convert to RGB
+        img = cv2.resize(img, self._embed_wh, interpolation=cv2.INTER_AREA)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.astype("float32") / 255.0
+
+        # (H,W,C) -> (1,C,H,W)
+        tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).to(self.device)
+
+        emb = self.model(tensor)
+        emb = emb / emb.norm(dim=1, keepdim=True)
+
+        return emb.cpu().numpy().flatten().astype(np.float32)
+
+    def detect_and_embed(self, frame):
         """
-        Detection path for camera/production (unchanged).
+        Detect faces → align using detected keypoints → embed
         """
-        boxes, probs = self.detector.detect(frame)
-        results = []
-        if boxes is not None:
-            for box in boxes.astype(int):
-                x1, y1, x2, y2 = box
-                crop = frame[y1:y2, x1:x2]
-                if crop.size == 0:
-                    continue
-                results.append(
-                    {
-                        "bbox": box,
-                        "kps": np.zeros((5, 2)),  # MTCNN landmarks optional
-                        "embedding": self.embed(crop),
-                    }
-                )
+        faces = self.aligner.detect(frame)
+        results: List[Dict] = []
+        for f in faces:
+            kps = f.get("kps", None)
+            if kps is None:
+                continue
+
+            crop = self.aligner.align_for(frame, kps)
+            if crop is None:
+                continue
+
+            emb = self.embed(crop)
+            results.append(
+                {
+                    "bbox": f["bbox"],
+                    "embedding": emb,
+                }
+            )
         return results
-
-    def get_embedding(self, img_path: str) -> np.ndarray:
-        frame = cv2.imread(img_path)
-        if frame is None:
-            raise ValueError(f"[FaceNet] Could not read image: {img_path}")
-        faces = self.detect_and_embed(frame)
-        if faces:
-            return faces[0]["embedding"]
-
-        # fallback: center crop
-        h, w = frame.shape[:2]
-        min_dim = min(h, w)
-        crop = frame[
-            (h - min_dim) // 2 : (h + min_dim) // 2,
-            (w - min_dim) // 2 : (w + min_dim) // 2,
-        ]
-        return self.embed(crop)

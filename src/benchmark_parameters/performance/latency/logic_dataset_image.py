@@ -1,5 +1,6 @@
 # ==== logic_dataset_image.py ====
 import json, sys, time, numpy as np, os, cv2
+from datetime import datetime
 from connector import load_model
 
 try:
@@ -21,11 +22,17 @@ def _cuda_sync():
 
 
 def measure_once(wrapper, frame):
-    _cuda_sync()
-    t0 = time.perf_counter()
-    _ = wrapper.embed(frame)
-    _cuda_sync()
-    return (time.perf_counter() - t0) * 1000.0
+    _cuda_sync()  # Ensures all GPU operations are finished before and after the measurement
+    t0 = (
+        time.perf_counter()
+    )  # Records the precise high-resolution time (in seconds) before the embedding operation starts
+    _ = wrapper.embed(
+        frame
+    )  # Runs the actual model inference or feature extraction on a single image/video frame
+    _cuda_sync()  # Waits for all GPU work to finish — ensures we measure complete inference time
+    return (
+        time.perf_counter() - t0
+    ) * 1000.0  # Subtracts start time from end time → elapsed seconds per frame
 
 
 import warnings
@@ -36,6 +43,7 @@ from connector import load_model
 
 # global singleton
 _cached_wrapper = None
+_cached_model_name = None
 
 
 def run_logic(model_name, iters, frame_h, frame_w, dataset):
@@ -44,6 +52,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         _cached_wrapper = load_model(model_name)
         _cached_model_name = model_name
     wrapper = _cached_wrapper
+    # mark overall run start time (ISO 8601)
+    run_start = datetime.now().isoformat(timespec="seconds")
 
     start_person = os.getenv("LFW_START_PERSON", "")
     img_limit = int(os.getenv("LFW_IMAGE_COUNT", "0"))
@@ -100,13 +110,25 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         send_log(f" - {os.path.basename(p)}")
     send_log(f"Total images: {len(image_paths)}")
 
-    # ---- Warmup ----
+    # ---- Adaptive Warmup ----
     first_frame = cv2.imread(image_paths[0])
     if first_frame is None:
-        send_log("Could not read first image", "error")
+        send_log("❌ Could not read first image for warm-up", "error")
         return
-    _ = wrapper.embed(first_frame)
-    _cuda_sync()
+
+    # Decide warm-up count based on device
+    if _HAS_TORCH and torch.cuda.is_available():
+        warmup_iters = 5  # GPUs need more iterations to stabilize kernels
+        device_name = "GPU"
+    else:
+        warmup_iters = 1  # CPU warm-up is mostly negligible
+        device_name = "CPU"
+
+    send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
+
+    for _ in range(warmup_iters):
+        _ = wrapper.embed(first_frame)
+        _cuda_sync()
 
     # ---- Runs ----
     all_runs = []
@@ -150,18 +172,26 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
         return
 
     overall_avg = float(np.mean(avg_runs))
-    # send_log(f"✅ Overall Avg Latency = {overall_avg:.2f} ms", "result")
+    # mark end time
+    run_end = datetime.now().isoformat(timespec="seconds")
 
+    # --- Build JSON payload ---
     payload = {
+        "source_file": os.path.basename(__file__),  # ✅ Add the file name
         "kind": "latency_image",
         "dataset": dataset,
         "start_person": start_person,
+        "start_identity": start_person,
         "num_images": len(image_paths),
         "num_runs": num_runs,
         "avg_latency_ms": overall_avg,
         "latency_series_all": all_runs,
         "image_paths": image_paths,
         "frame_paths_all": frame_paths_all,
+        "model": model_name,
+        "start_time": run_start,
+        "end_time": run_end,
     }
+
     print(json.dumps(payload))
     sys.stdout.flush()

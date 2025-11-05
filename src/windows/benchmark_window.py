@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
     QDialog,
     QListWidget,
     QListWidgetItem,
+    QLabel,
 )
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -57,8 +58,19 @@ class SelectSubjectsDialog(QDialog):
         layout.addWidget(self.list_widget)
 
         btns = QHBoxLayout()
+        select_all_btn = QPushButton("All")
         ok_btn = QPushButton("OK")
         cancel_btn = QPushButton("Cancel")
+
+        select_all_btn.clicked.connect(self._select_all)
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+
+        btns.addWidget(select_all_btn)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
         ok_btn.clicked.connect(self.accept)
         cancel_btn.clicked.connect(self.reject)
         btns.addWidget(ok_btn)
@@ -73,13 +85,60 @@ class SelectSubjectsDialog(QDialog):
         ]
         super().accept()
 
+    def _select_all(self):
+        # special code path: tells caller to process entire dataset
+        self.selected_subjects = ["__ALL__"]
+        super().accept()
+
+
+# ------------------ Simple Metric Selection Dialog ------------------
+class SelectMetricDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Evaluation Method")
+        self.setFixedWidth(360)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(
+            "Which evaluation metric would you like to compute?\n\n"
+            "• ROC Curve (AUC, EER, TAR@FAR)\n"
+            "• Confusion Matrix (TP/TN/FP/FN, Accuracy, Threshold)"
+        )
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        button_layout = QHBoxLayout()
+
+        btn_roc = QPushButton("ROC Curve")
+        btn_cm = QPushButton("Confusion Matrix")
+
+        btn_roc.clicked.connect(lambda: self._choose("roc"))
+        btn_cm.clicked.connect(lambda: self._choose("cm"))
+
+        button_layout.addWidget(btn_roc)
+        button_layout.addWidget(btn_cm)
+
+        layout.addLayout(button_layout)
+        self.selection = None
+
+    def _choose(self, selection):
+        self.selection = selection
+        self.accept()
+
 
 # ------------------ Worker Thread ------------------
 class RunnerThread(QThread):
     output_signal = pyqtSignal(str)
 
     def __init__(
-        self, file_path, model_name, dataset_path=None, test_image=None, iters=50
+        self,
+        file_path,
+        model_name,
+        dataset_path=None,
+        test_image=None,
+        iters=50,
+        extra_args=None,
     ):
         super().__init__()
         self.file_path = file_path
@@ -87,11 +146,13 @@ class RunnerThread(QThread):
         self.dataset_path = dataset_path
         self.test_image = test_image
         self.iters = iters
+        self.extra_args = extra_args or []  # NEW
 
     def run(self):
         try:
             cmd = [
                 sys.executable,
+                "-u",  # <--- add this for unbuffered stdout/stderr
                 self.file_path,
                 "--model",
                 self.model_name,
@@ -102,26 +163,24 @@ class RunnerThread(QThread):
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            if (
-                "validation_accuracy" in os.path.basename(self.file_path)
-                and self.test_image
-            ):
-                cmd.extend(["--test-image", self.test_image])
+            # append any extra CLI arguments (e.g., --start-person, --pos-ratio)
+            if self.extra_args:
+                cmd.extend(self.extra_args)
 
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",  # ✅ force UTF-8 decoding
+                errors="replace",  # ✅ avoid crash on unsupported chars
                 bufsize=1,
             )
 
             for line in process.stdout:
                 self.output_signal.emit(line.strip())
-
             process.stdout.close()
             process.wait()
-
         except Exception as e:
             self.output_signal.emit(json.dumps({"error": str(e)}))
 
@@ -167,7 +226,7 @@ class BenchmarkPage(QWidget):
             QFrame {
                 border: 2px solid #800080;
                 border-radius: 6px;
-                background-color: #fafafa;
+                background-color: #ffffff; /* was #fafafa -> pure white */
             }
         """
         )
@@ -189,7 +248,7 @@ class BenchmarkPage(QWidget):
     def _button_color_for(self, fname):
         if "logic" in fname.lower():
             return "#8e44ad"
-        elif any(x in fname.lower() for x in ["latency", "fps", "inference"]):
+        elif any(x in fname.lower() for x in ["latency", "fps", "Inference"]):
             return "#27ae60"
         elif "validation" in fname.lower() or "accuracy" in fname.lower():
             return "#2980b9"
@@ -265,8 +324,12 @@ class BenchmarkPage(QWidget):
             # Matplotlib page
             page = QWidget()
             layout = QVBoxLayout()
-            fig = Figure(figsize=(5, 4))
+
+            # >>> Pure white figure & canvas
+            fig = Figure(figsize=(5, 4), facecolor="white")
             canvas = FigureCanvas(fig)
+            canvas.setStyleSheet("background-color: white;")
+
             layout.addWidget(canvas)
             progress = QProgressBar()
             layout.addWidget(progress)
@@ -303,6 +366,7 @@ class BenchmarkPage(QWidget):
 
         dataset_lower = (self.dataset_path or "").lower()
         iters = 0
+        extra_args = []
 
         # --- Detect dataset type ---
         is_video_dataset = any(
@@ -312,20 +376,79 @@ class BenchmarkPage(QWidget):
 
         # --- Video datasets (YTF etc.) ---
         if is_video_dataset:
-            ds_for_dialog = self.dataset_path
-            if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
-                ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+            # --- VIDEO VALIDATION ACCURACY (YTF etc.) ---
+            if "validation_accuracy" in os.path.basename(file_path).lower():
 
-            dlg = SelectSubjectsDialog(ds_for_dialog, self)
-            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
-                return
-            os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
-            num_runs, ok = QInputDialog.getInt(
-                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
-            )
-            if not ok:
-                return
-            os.environ["YTF_RUNS"] = str(num_runs)
+                # 1) Ask how many pairs to test
+                num_pairs, ok = QInputDialog.getInt(
+                    self,
+                    "Number of Pairs",
+                    "How many pairs to test?",
+                    600,
+                    100,
+                    6000,
+                    100,
+                )
+                if not ok:
+                    return
+
+                # 2) Metric type (ROC vs Confusion)
+                dlg_metric = SelectMetricDialog(self)
+                if dlg_metric.exec_() != QDialog.Accepted:
+                    return
+
+                if dlg_metric.selection == "roc":
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "video",
+                        "logic_roc_graph_video.py",
+                    )
+                else:
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "video",
+                        "logic_confusion_matrix_video.py",
+                    )
+
+                # 3) Person selection (start identity / ALL) at video root
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+
+                if dlg.selected_subjects[0] == "__ALL__":
+                    start_person = "__ALL__"
+                    iters = -1  # ALL mode
+                else:
+                    start_person = dlg.selected_subjects[0]
+                    iters = num_pairs
+
+                extra_args = ["--start", start_person]
+
+            # --- VIDEO LATENCY / FPS / OTHER ---
+            else:
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "aligned_images_DB")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "aligned_images_DB")
+
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+                os.environ["YTF_SELECTED_SUBJECTS"] = ",".join(dlg.selected_subjects)
+
+                num_runs, ok = QInputDialog.getInt(
+                    self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+                )
+                if not ok:
+                    return
+                os.environ["YTF_RUNS"] = str(num_runs)
 
         # --- Image datasets (LFW etc.) ---
         elif is_image_dataset:
@@ -341,49 +464,108 @@ class BenchmarkPage(QWidget):
                 )
                 return
 
-            # Ask for LFW start person, number of images, and runs
-            # Auto-fix: if the user selected LFW parent folder, go one level deeper
+            # Auto-fix: if user selected LFW parent folder, go one level deeper
             if os.path.isdir(os.path.join(self.dataset_path, "lfw-deepfunneled")):
                 self.dataset_path = os.path.join(self.dataset_path, "lfw-deepfunneled")
 
-            people = sorted(
-                [
-                    d
-                    for d in os.listdir(self.dataset_path)
-                    if os.path.isdir(os.path.join(self.dataset_path, d))
-                ]
-            )
-            if not people:
-                QMessageBox.warning(
-                    self, "No Folders", "No people found in dataset path."
+            # For validation accuracy, skip person selection — script handles pairs internally
+            if "validation_accuracy" in os.path.basename(file_path).lower():
+
+                # Step 1: Ask how many pairs to test
+                num_pairs, ok = QInputDialog.getInt(
+                    self,
+                    "Number of Pairs",
+                    "How many pairs to test?",
+                    600,
+                    100,
+                    6000,
+                    100,
                 )
-                return
+                if not ok:
+                    return
 
-            # ✅ Use the same multi-selection dialog used for YTF
-            dlg = SelectSubjectsDialog(self.dataset_path, self)
-            if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
-                return
+                # ✅ Step 3: Ask which metric to run
+                dlg_metric = SelectMetricDialog(self)
+                if dlg_metric.exec_() != QDialog.Accepted:
+                    return
 
-            # For compatibility, pick the first person as start, but also store all selections
-            selected_people = dlg.selected_subjects
-            start_person = selected_people[0]  # the first checked name
-            os.environ["LFW_SELECTED_PEOPLE"] = ",".join(selected_people)
+                if dlg_metric.selection == "roc":
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "image",
+                        "logic_roc_graph.py",
+                    )
+                else:
+                    file_path = os.path.join(
+                        self.benchmark_dir,
+                        "validation_accuracy",
+                        "image",
+                        "logic_confusion_matrix.py",
+                    )
 
-            img_count, ok2 = QInputDialog.getInt(
-                self, "Image Count", "How many images to include?", 10, 1, 10000, 1
-            )
-            if not ok2:
-                return
+                # extra_args stays [] for VA
 
-            num_runs, ok3 = QInputDialog.getInt(
-                self, "Number of Runs", "How many runs?", 2, 1, 100, 1
-            )
-            if not ok3:
-                return
+                ds_for_dialog = self.dataset_path
+                if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
+                    ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
 
-            os.environ["LFW_START_PERSON"] = start_person
-            os.environ["LFW_IMAGE_COUNT"] = str(img_count)
-            os.environ["LFW_RUNS"] = str(num_runs)
+                dlg = SelectSubjectsDialog(ds_for_dialog, self)
+                dlg.list_widget.setSelectionMode(QListWidget.SingleSelection)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+
+                if dlg.selected_subjects[0] == "__ALL__":
+                    start_person = "__ALL__"
+                    iters = -1  # ✅ tell script to process ALL pairs
+                else:
+                    start_person = dlg.selected_subjects[0]
+                    iters = num_pairs  # ✅ normal limited mode
+
+                extra_args = ["--start", start_person]
+
+                # pass for ROC / Confusion scripts
+                os.environ["LFW_START_PERSON"] = start_person
+                os.environ["POS_RATIO"] = "0.5"
+
+            else:
+                # Show person-selection dialog for latency, inference etc.
+                people = sorted(
+                    [
+                        d
+                        for d in os.listdir(self.dataset_path)
+                        if os.path.isdir(os.path.join(self.dataset_path, d))
+                    ]
+                )
+                if not people:
+                    QMessageBox.warning(
+                        self, "No Folders", "No people found in dataset path."
+                    )
+                    return
+
+                dlg = SelectSubjectsDialog(self.dataset_path, self)
+                if dlg.exec_() != QDialog.Accepted or not dlg.selected_subjects:
+                    return
+
+                selected_people = dlg.selected_subjects
+                start_person = selected_people[0]
+                os.environ["LFW_SELECTED_PEOPLE"] = ",".join(selected_people)
+
+                img_count, ok2 = QInputDialog.getInt(
+                    self, "Image Count", "How many images to include?", 10, 1, 10000, 1
+                )
+                if not ok2:
+                    return
+
+                num_runs, ok3 = QInputDialog.getInt(
+                    self, "Number of Runs", "How many runs?", 2, 1, 100, 1
+                )
+                if not ok3:
+                    return
+
+                os.environ["LFW_START_PERSON"] = start_person
+                os.environ["LFW_IMAGE_COUNT"] = str(img_count)
+                os.environ["LFW_RUNS"] = str(num_runs)
 
         # --- Fallback: if unknown dataset ---
         else:
@@ -398,7 +580,12 @@ class BenchmarkPage(QWidget):
             self.current_thread.terminate()
 
         self.current_thread = RunnerThread(
-            file_path, model_name, self.dataset_path, self.test_image, iters=iters
+            file_path,
+            model_name,
+            self.dataset_path,
+            self.test_image,
+            iters=iters,
+            extra_args=extra_args,
         )
         self.current_thread.output_signal.connect(
             lambda msg: self.handle_output(msg, fig, canvas, progress)
@@ -415,6 +602,11 @@ class BenchmarkPage(QWidget):
         try:
             data = json.loads(msg)
         except Exception:
+            print(f"[SCRIPT LOG] {msg}")
+            return
+
+        if not isinstance(data, dict):
+            # Not a top-level JSON object (likely a line from the pretty block) → ignore
             print(f"[SCRIPT LOG] {msg}")
             return
 
@@ -471,6 +663,74 @@ class BenchmarkPage(QWidget):
         fig.clear()
         ax = fig.add_subplot(111)
 
+        # ===================== CONFUSION MATRIX =====================
+        if data.get("kind") == "confusion_matrix":
+            tp, tn, fp, fn = data["tp"], data["tn"], data["fp"], data["fn"]
+            threshold = data["threshold"]
+            model = data.get("model", "")
+            dataset = data.get("dataset", "")
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
+            im = ax.imshow(cm, cmap="Blues")
+
+            ax.set_xticks([0, 1])
+            ax.set_yticks([0, 1])
+            ax.set_xticklabels(["Pred POS", "Pred NEG"])
+            ax.set_yticklabels(["Actual POS", "Actual NEG"])
+
+            for i in range(2):
+                for j in range(2):
+                    ax.text(
+                        j,
+                        i,
+                        int(cm[i, j]),
+                        ha="center",
+                        va="center",
+                        color="black",
+                        fontsize=12,
+                    )
+
+            ax.set_title(
+                f"Confusion Matrix - {model} on {dataset}\nThr={threshold:.4f}"
+            )
+
+            # Draw confusion matrix colors
+            fig.colorbar(im, ax=ax)
+
+            # ✅ Shift matrix left to make room for metrics box
+            fig.subplots_adjust(right=0.75)
+
+            # ✅ Build metrics text (reads clean and matches terminology)
+            metrics = (
+                f"Accuracy: {data['accuracy']*100:.2f}%\n"
+                f"Precision: {data['precision']*100:.2f}%\n"
+                f"Recall (TAR): {data['recall']*100:.2f}%\n"
+                f"Specificity (TNR): {data['specificity']*100:.2f}%\n"
+                f"F1 Score: {data['f1']*100:.2f}%\n"
+                f"FAR: {data['far']*100:.2f}%\n"
+                f"FRR: {data['frr']*100:.2f}%"
+            )
+
+            # --- Move metrics box into figure coordinate space (not affected by axes or colorbar) ---
+            fig.text(
+                0.75,  # x-position (relative to whole figure)
+                0.70,  # y-position (higher = further from progress bar)
+                metrics,
+                ha="left",
+                va="center",
+                fontsize=10,
+                color="white",
+                bbox=dict(
+                    boxstyle="round,pad=0.4", fc="#1e1e1e", ec="#666666", alpha=0.92
+                ),
+                transform=fig.transFigure,  # ✅ key change
+            )
+
+            canvas.draw()
+            return
+
         # ===================== LATENCY MODE =====================
 
         if kind == "latency" or "latency_series_all" in data:
@@ -491,7 +751,29 @@ class BenchmarkPage(QWidget):
             )
             os.makedirs(base_dir, exist_ok=True)
 
-            all_run_data = {"runs": []}
+            # ✅ Include the originating file name if present in payload
+            source_file = data.get("source_file", "unknown")
+
+            # 🔹 Figure out starting identity for both image + video latency
+            start_identity = data.get("start_identity") or data.get("start_person")
+            subjects = data.get("subjects")
+            if not start_identity and isinstance(subjects, list) and subjects:
+                # video latency uses a list of selected subjects
+                start_identity = subjects[0]
+
+            # 🔹 Build richer report header
+            all_run_data = {
+                "source_file": source_file,
+                "model": model,
+                "dataset": dataset,
+                "start_identity": start_identity,
+                "start_time": data.get(
+                    "start_time"
+                ),  # may be None if script doesn’t send it
+                "end_time": data.get("end_time"),
+                "runs": [],
+            }
+
             problem_files = []
 
             for i, latencies in enumerate(latency_series_all):
@@ -571,8 +853,42 @@ class BenchmarkPage(QWidget):
 
             ax.set_xlabel("Frame Index")
             ax.set_ylabel("Latency (ms)")
-            ax.set_title(f"Per-Frame Latency – {model} ({dataset})")
+
+            # --- format dataset/model names more nicely ---
+            dataset_name = os.path.basename(dataset).replace("-", " ").title()
+            if "lfw" in dataset_name.lower():
+                dataset_name = "LFW (Deepfunneled)"
+            if "ytf" in dataset_name.lower():
+                dataset_name = "YTF (Aligned)"
+            if not model:
+                model = "Unknown Model"
+
+            ax.set_title(f"Per-Frame Latency – {model} on {dataset_name}")
+
             ax.grid(True)
+
+            # ---- Add average latency box ----
+            avg_ms = data.get("avg_latency_ms")
+            if avg_ms is not None:
+                num_runs = data.get("num_runs", 1)
+
+                ax.text(
+                    1.02,
+                    0.85,
+                    f"Average Latency\n{avg_ms:.2f} ms\n({num_runs} run(s))",
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=10,
+                    color="black",
+                    bbox=dict(
+                        boxstyle="round,pad=0.4",
+                        fc="white",
+                        ec="gray",
+                        alpha=0.85,
+                    ),
+                )
+
             canvas.draw()
             return
 
@@ -617,6 +933,280 @@ class BenchmarkPage(QWidget):
             ax.set_ylabel("FPS")
             ax.set_title(f"Frames per Second – {model} ({dataset})")
             ax.grid(True)
+            # --- compute & annotate overall average FPS ---
+            if run_avgs:
+                avg_all = float(np.mean(run_avgs))
+                num_runs = len(run_avgs)
+                ax.text(
+                    1.02,  # ← moved left so it stays visible
+                    0.35,
+                    f"Average FPS over {num_runs} run(s): {avg_all:.2f}",
+                    transform=ax.transAxes,
+                    ha="left",
+                    va="top",
+                    fontsize=10,
+                    color="black",
+                    bbox=dict(
+                        facecolor="white",
+                        edgecolor="gray",
+                        boxstyle="round,pad=0.3",
+                        alpha=0.7,
+                    ),
+                )
+
+            canvas.draw()
+            return
+
+        # ===================== ROC IMAGE RESULT =====================
+        if data.get("kind") == "roc_image":
+            img_path = data.get("path")
+            if not os.path.exists(img_path):
+                print(f"[WARN] ROC image not found at {img_path}")
+                return
+
+            import matplotlib.image as mpimg
+
+            fig.clear()
+            fig.set_facecolor("white")
+            ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
+            img = mpimg.imread(img_path)
+            ax.imshow(img)
+            ax.set_axis_off()
+
+            # ---- NEW METRIC OVERLAY ----
+            auc_val = data.get("auc")
+            eer = data.get("eer")
+            tar = data.get("tar_far_1e3")
+            pairs = data.get("pairs_tested")
+            model = data.get("model")
+            dataset = data.get("dataset")
+
+            # Build annotation text
+            lines = []
+            if model and dataset:
+                lines.append(f"{model} on {dataset}")
+            if auc_val is not None:
+                lines.append(f"AUC: {float(auc_val):.4f}")
+            if eer is not None:
+                lines.append(f"EER: {float(eer)*100:.2f}%")
+            if tar is not None:
+                lines.append(f"TAR@FAR=1e-3: {float(tar)*100:.2f}%")
+            if pairs:
+                lines.append(f"Pairs: {int(pairs)}")
+
+            best_thr = data.get("best_threshold")
+            if best_thr is not None:
+                lines.insert(3, f"Best Thr (Youden J): {float(best_thr):.4f}")
+
+            # Draw overlay (bottom-right)
+            if lines:
+                fig.text(
+                    0.98,
+                    0.04,
+                    "\n".join(lines),
+                    ha="right",
+                    va="bottom",
+                    fontsize=10,
+                    bbox=dict(
+                        boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                    ),
+                )
+
+            canvas.setStyleSheet("background-color: white;")
+            canvas.draw()
+            return
+
+            # ===================== SIMPLE IMAGE ACCURACY =====================
+        if data.get("kind") == "accuracy_image_simple":
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc = float(data.get("accuracy", 0)) * 100.0
+            threshold = float(data.get("threshold", 0))
+            pairs = int(data.get("pairs_tested", 0))
+
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.axis("off")
+
+            text = (
+                f"Model: {model}\n"
+                f"Dataset: {dataset}\n\n"
+                f"Accuracy: {acc:.2f}%\n"
+                f"Best Threshold: {threshold:.4f}\n"
+                f"Pairs Tested: {pairs}"
+            )
+
+            ax.text(
+                0.5,
+                0.5,
+                text,
+                ha="center",
+                va="center",
+                fontsize=12,
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="black", alpha=0.8),
+            )
+
+            canvas.draw()
+            return
+
+        # ===================== VALIDATION ACCURACY (IMAGE) =====================
+        if kind == "accuracy_image":
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc_pct = float(data.get("accuracy", 0)) * 100.0
+            threshold = float(data.get("threshold", 0))
+            elapsed = float(data.get("elapsed_sec", 0))
+            start_person = data.get("start_person") or "N/A"
+            tp = int(data.get("tp", 0))
+            fp = int(data.get("fp", 0))
+            tn = int(data.get("tn", 0))
+            fn = int(data.get("fn", 0))
+
+            # 👉 If we have a ROC image, render it directly (full-bleed, white)
+            roc_png = data.get("roc_png")
+            if roc_png and os.path.isfile(roc_png):
+                import matplotlib.image as mpimg
+
+                img = mpimg.imread(roc_png)
+
+                fig.clear()
+                fig.set_facecolor("white")
+                ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
+                ax.imshow(img)
+                # overlay the fixed-threshold stats on top of the ROC PNG (bottom-right)
+                t_fixed = data.get("threshold")
+                tpr_fixed = data.get("tpr_at_fixed")
+                fpr_fixed = data.get("fpr_at_fixed")
+
+                if (
+                    t_fixed is not None
+                    and tpr_fixed is not None
+                    and fpr_fixed is not None
+                ):
+                    fig.text(
+                        0.98,
+                        0.04,  # move if it overlaps your progress bar
+                        f"TAR@\u03c4={t_fixed:.3f}: {tpr_fixed:.3f}\n"
+                        f"FAR@\u03c4={t_fixed:.3f}: {fpr_fixed:.3f}",
+                        ha="right",
+                        va="bottom",
+                        fontsize=10,
+                        bbox=dict(
+                            boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                        ),
+                        zorder=20,
+                    )
+
+                ax.set_axis_off()
+                for s in ax.spines.values():
+                    s.set_visible(False)
+                canvas.setStyleSheet("background-color: white;")
+                canvas.draw()
+                return
+
+            # (fallback to existing text summary view)
+            ax.set_title(
+                f"Model: {model} – Validation Accuracy (Image) – Start: {start_person}"
+            )
+            ax.text(
+                1.05,
+                0.85,
+                "Confusion Matrix\n"
+                f"True Positive : {tp}\n"
+                f"False Positive: {fp}\n"
+                f"True Negative : {tn}\n"
+                f"False Negative: {fn}",
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=9,
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.75"),
+            )
+            ax.text(
+                1.05,
+                0.55,
+                f"Accuracy: {acc_pct:.2f}%\nThreshold: {threshold:.3f}\nElapsed: {elapsed:.2f}s",
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=11,
+                color="black",
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="0.75", alpha=0.9),
+            )
+            fig.subplots_adjust(right=0.78)
+            ax.set_ylabel("Value")
+            ax.grid(axis="y", linestyle="--", alpha=0.3)
+            canvas.draw()
+            return
+
+        # ===================== VALIDATION ACCURACY (VIDEO) =====================
+        elif kind == "accuracy_video":
+            # Try to display ROC if available (full-bleed, white)
+            roc_png = data.get("roc_png")
+            if roc_png and os.path.isfile(roc_png):
+                import matplotlib.image as mpimg
+
+                img = mpimg.imread(roc_png)
+
+                fig.clear()
+                fig.set_facecolor("white")
+                ax = fig.add_axes([0, 0, 1, 1], frameon=False, facecolor="white")
+                ax.imshow(img)
+                # overlay the fixed-threshold stats on top of the ROC PNG (bottom-right)
+
+                t_fixed = data.get("threshold")
+                tpr_fixed = data.get("tpr_fixed", data.get("tpr_at_fixed"))
+                fpr_fixed = data.get("fpr_fixed", data.get("fpr_at_fixed"))
+
+                if (
+                    t_fixed is not None
+                    and tpr_fixed is not None
+                    and fpr_fixed is not None
+                ):
+                    fig.text(
+                        0.98,
+                        0.04,  # move if it overlaps your progress bar
+                        f"TAR@\u03c4={t_fixed:.3f}: {tpr_fixed:.3f}\n"
+                        f"FAR@\u03c4={t_fixed:.3f}: {fpr_fixed:.3f}",
+                        ha="right",
+                        va="bottom",
+                        fontsize=10,
+                        bbox=dict(
+                            boxstyle="round,pad=0.35", fc="white", ec="0.75", alpha=0.9
+                        ),
+                        zorder=20,
+                    )
+
+                ax.set_axis_off()
+                for s in ax.spines.values():
+                    s.set_visible(False)
+                canvas.setStyleSheet("background-color: white;")
+                canvas.draw()
+                return
+
+            # Fallback: simple text if no ROC image is present
+            model = data.get("model", "Unknown")
+            dataset = data.get("dataset", "Unknown")
+            acc_pct = float(data.get("accuracy", 0)) * 100.0
+            auc = data.get("auc")
+            eer = data.get("eer")
+            ax.set_title(f"Model: {model} – Validation Accuracy (Video)")
+            lines = [f"Accuracy: {acc_pct:.2f}%"]
+            if auc is not None:
+                lines.append(f"AUC: {auc:.4f}")
+            if eer is not None:
+                lines.append(f"EER: {float(eer)*100:.2f}%")
+            ax.text(
+                0.02,
+                0.98,
+                "\n".join(lines),
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=11,
+                bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="0.75", alpha=0.9),
+            )
+            ax.axis("off")
             canvas.draw()
             return
 

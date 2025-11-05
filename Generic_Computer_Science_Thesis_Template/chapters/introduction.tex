@@ -1,9 +1,9 @@
-\section{Background and Motivation}
+\section{Motivation}
 It is worth noting that this document was an \textbf{unofficial} thesis template for the University of Lincoln School of Computer Science. Since then, it has changed to encompass a broad range of theses. A decent template was needed for my thesis, so I made this. Then, other people liked it and decided to use it. Along the way, I've added in small features which people have suggested. If you have any suggestions or issues, please contact me -- my email can be found at the top of \texttt{main.tex}! The following subsection in this document demonstrates some capabilities of the template (such as setting your thesis title, and so forth). I have not covered how to use \LaTeX, as this assumes a working knowledge of the language.
 
 If you are from another institution, then I want to thank you for your interest in my template! I've tried to make the template as lightweight as possible so you can modify it to your needs. You can easily swap out the logo (by changing logo.pdf or using \textbackslash thesisLogoPath) and customise the title page contents using the commands listed on the next page. The template is also lightweight enough to enable you to change the typeface of the entire document. Again, if you have any questions please drop me an email as I love hearing your stories!
 
-\section{Problem Statement and Goals}
+\section{Task}
 The \texttt{csthesis} template has a number of definable variables which can be redefined to change the format of the thesis. These are listed below (on the next page).
 
 \vspace{1cm}
@@ -28,7 +28,7 @@ In addition, \texttt{\textbackslash thesisSubmissionText\{text\}} overrides the 
 
 
 
-\section{Referencing}
+\section{Placeholder}
 If you have included \texttt{[harvard]} in the document class command, then you will be able to cite things inline with parentheses. You can do this by using \texttt{\textbackslash citep\{citekey\}}. It will print out something like this \citep{aad2012observation}. Or alternatively, you can use \texttt{\textbackslash cite\{citekey\}} to cite things like this \cite{chatrchyan2012observation}. If you wish to use numeric style citing, just remove the \texttt{[harvard]} option from the \texttt{\textbackslash documentclass} command.
 
 This template uses Bib\LaTeX~for referencing, with a Biber backend. This is primarily due to the extensive features Bib\LaTeX~provides, along with the option of glossaries. If you want to customise the referencing style, you can either modify the template slightly to use different options, or use \texttt{\textbackslash usepackage} again to reimport it. There's probably some commands to change its options after its been imported too.
