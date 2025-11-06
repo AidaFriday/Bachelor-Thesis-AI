@@ -13,6 +13,7 @@
 .\benchmark_parameters\validation_accuracy\image\logic_confusion_matrix.py
 .\benchmark_parameters\validation_accuracy\image\logic_dataset_image_va.py
 .\benchmark_parameters\validation_accuracy\image\logic_roc_graph.py
+.\benchmark_parameters\validation_accuracy\image\roc_lfw_pairs.py
 .\benchmark_parameters\validation_accuracy\video\logic_confusion_matrix_video.py
 .\benchmark_parameters\validation_accuracy\video\logic_roc_graph_video.py
 .\components\camera.py
@@ -23,6 +24,7 @@
 .\dataset\LFW.py
 .\dataset\manager.py
 .\dataset\YTF.py
+.\models\wrap_adaface.py
 .\models\wrap_arcface.py
 .\models\wrap_deepface.py
 .\models\wrap_facedetection.py
@@ -278,6 +280,8 @@ def load_model(model_name: str, config_path=None):
         "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
         "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
         "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
+        "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),
+
     }
 
     if model_name not in wrappers:
@@ -1547,7 +1551,7 @@ from connector import load_model
 
 
 # ✅ <<< HARD-CODE YOUR THRESHOLD HERE >>>
-FIXED_THRESHOLD = 0.50
+FIXED_THRESHOLD = 0.70
 
 
 def cosine_similarity(a, b):
@@ -1561,6 +1565,17 @@ def cosine_similarity(a, b):
 
 from itertools import combinations
 import random
+
+
+def dataset_needs_alignment(dataset_path):
+    """
+    Return False for aligned datasets (e.g., LFW-deepfunneled),
+    True for raw datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path or "deepfunneled" in path:
+        return False
+    return True
 
 
 def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
@@ -1655,6 +1670,8 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
+    USE_DETECTION = dataset_needs_alignment(dataset_path)
+
     if start_identity == "__ALL__":
         pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
     else:
@@ -1689,35 +1706,41 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
         if a is None or b is None:
             error = True
         else:
-            faces_a = wrapper.detector.detect(a)
-            faces_b = wrapper.detector.detect(b)
-
-            if not faces_a or not faces_b:
-                error = True
-            else:
-                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-                if aligned_a is None or aligned_b is None:
+            if USE_DETECTION:
+                # ---- DETECT ----
+                faces_a = wrapper.detector.detect(a)
+                faces_b = wrapper.detector.detect(b)
+                if not faces_a or not faces_b:
                     error = True
                 else:
-                    emb1 = wrapper.embed(aligned_a)
-                    emb2 = wrapper.embed(aligned_b)
-                    if emb1 is None or emb2 is None:
+                    # ---- ALIGN ----
+                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                    if aligned_a is None or aligned_b is None:
                         error = True
-
+                    else:
+                        emb1 = wrapper.embed(aligned_a)
+                        emb2 = wrapper.embed(aligned_b)
+                        if emb1 is None or emb2 is None:
+                            error = True
+            else:
+                # ---- SKIP DETECTION — DIRECT EMBEDDING ----
+                emb1 = wrapper.embed(a)
+                emb2 = wrapper.embed(b)
+                if emb1 is None or emb2 is None:
+                    error = True
 
         if error:
             # label stays the same — just forcing classification failure
             if label == 1:
                 sim = -1.0  # positive pair counted as False Negative
             else:
-                sim = 2.0   # negative pair counted as False Positive
+                sim = 2.0  # negative pair counted as False Positive
         else:
             sim = cosine_similarity(emb1, emb2)
 
         sims.append(sim)
         labels.append(label)
-
 
         # ✅ Store pair data
         pair_records.append(
@@ -1805,9 +1828,84 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     with open(filepath, "w") as f:
         json.dump(export_data, f, indent=4)
 
-    print(f"\n[EXPORTED] -> {filepath}\n")
+    # ✅ EXPORT FAILED PAIR THUMBNAILS
+    failed_dir = os.path.join(
+        export_dir, f"failed_pairs_{export_data['meta']['timestamp']}"
+    )
+    os.makedirs(failed_dir, exist_ok=True)
 
-    print(json.dumps(result))
+    def make_labeled_thumb(img1, img2, name1, name2, size=(160, 160)):
+        # Resize images
+        i1 = cv2.resize(img1, size, interpolation=cv2.INTER_AREA)
+        i2 = cv2.resize(img2, size, interpolation=cv2.INTER_AREA)
+
+        # Add label bars
+        bar_h = 25
+        h, w, _ = i1.shape
+        bar1 = np.zeros((bar_h, w, 3), dtype=np.uint8)
+        bar2 = np.zeros((bar_h, w, 3), dtype=np.uint8)
+
+        cv2.putText(
+            bar1,
+            name1,
+            (5, bar_h - 7),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            1,
+        )
+        cv2.putText(
+            bar2,
+            name2,
+            (5, bar_h - 7),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            1,
+        )
+
+        i1 = np.vstack((i1, bar1))
+        i2 = np.vstack((i2, bar2))
+
+        return np.hstack((i1, i2))
+
+    fail_index = 0
+
+    for p in pair_records:
+        true_label = 1 if p["label"] == "pos" else 0
+        pred = p["predicted"]
+
+        # Only export misclassified pairs
+        if true_label != pred:
+            img1_full = os.path.join(dataset_path, p["img1"])
+            img2_full = os.path.join(dataset_path, p["img2"])
+
+            img1 = cv2.imread(img1_full)
+            img2 = cv2.imread(img2_full)
+            if img1 is None or img2 is None:
+                continue
+
+            thumb = make_labeled_thumb(
+                img1, img2, os.path.basename(p["img1"]), os.path.basename(p["img2"])
+            )
+
+            fail_index += 1
+
+            # Name file based on mistake type
+            if true_label == 1 and pred == 0:
+                fname = f"FN_{fail_index:04d}.jpg"
+            else:
+                fname = f"FP_{fail_index:04d}.jpg"
+
+            cv2.imwrite(os.path.join(failed_dir, fname), thumb)
+
+    print(f"[FAILED PAIRS EXPORTED] -> {failed_dir}")
+    print(f"[EXPORTED] -> {filepath}\n")
+
+    # ✅ Send result directly so GUI can detect "kind" field
+    sys.stdout.write(json.dumps(result) + "\n")
+    sys.stdout.flush()
+
 
 
 if __name__ == "__main__":
@@ -2004,6 +2102,17 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
+def dataset_needs_alignment(dataset_path):
+    """
+    Return False for aligned datasets (e.g., LFW-deepfunneled),
+    True for raw datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path or "deepfunneled" in path:
+        return False
+    return True
+
+
 def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
     """
     Deterministic pair generation:
@@ -2114,39 +2223,46 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
+        USE_DETECTION = dataset_needs_alignment(dataset_path)
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
 
-        error = False  # assume success, verify step-by-step
+        error = False
 
-        # --- read failure ---
         if a is None or b is None:
             error = True
         else:
-            # --- detect faces ---
-            faces_a = wrapper.detector.detect(a)
-            faces_b = wrapper.detector.detect(b)
-            if not faces_a or not faces_b:
-                error = True
-            else:
-                # --- align using landmarks ---
-                aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-                aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-                if aligned_a is None or aligned_b is None:
+            if USE_DETECTION:
+                # ---- DETECT ----
+                faces_a = wrapper.detector.detect(a)
+                faces_b = wrapper.detector.detect(b)
+                if not faces_a or not faces_b:
                     error = True
                 else:
-                    # --- embeddings ---
-                    emb1 = wrapper.embed(aligned_a)
-                    emb2 = wrapper.embed(aligned_b)
-                    if emb1 is None or emb2 is None:
+                    # ---- ALIGN ----
+                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                    if aligned_a is None or aligned_b is None:
                         error = True
+                    else:
+                        emb1 = wrapper.embed(aligned_a)
+                        emb2 = wrapper.embed(aligned_b)
+                        if emb1 is None or emb2 is None:
+                            error = True
+            else:
+                # ✅ SKIP detection & alignment for aligned datasets like LFW-deepfunneled
+                emb1 = wrapper.embed(a)
+                emb2 = wrapper.embed(b)
+                if emb1 is None or emb2 is None:
+                    error = True
 
         if error:
-            # FORCE a misclassification instead of skipping the pair
+            # Force error into FN/FP for ROC consistency
             if label == 1:
-                sim = -1.0  # Positive pair → FN
+                sim = -1.0  # FN
             else:
-                sim = 2.0  # Negative pair → FP
+                sim = 2.0  # FP
         else:
             sim = cosine_similarity(emb1, emb2)
 
@@ -2267,7 +2383,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     plt.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close()
 
-    print(
+    sys.stdout.write(
         json.dumps(
             {
                 "kind": "roc_image",
@@ -2279,12 +2395,11 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
                 "pairs_tested": int(len(labels)),
                 "pos_pairs": pos_count,
                 "neg_pairs": neg_count,
-                "start_identity": start_identity,
-                "model": model_name,
-                "dataset": os.path.basename(dataset_path),
             }
         )
+        + "\n"
     )
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
@@ -2297,6 +2412,137 @@ if __name__ == "__main__":
     parser.add_argument("--iters", type=int, default=300)
     args = parser.parse_args()
     run_roc(args.model, args.dataset, args.start, args.iters)
+
+
+
+# ==== .\benchmark_parameters\validation_accuracy\image\roc_lfw_pairs.py ====
+
+import os
+import cv2
+import json
+import numpy as np
+from sklearn.metrics import roc_curve, auc
+
+# ✅ Make project root importable
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def load_lfw_pairs(pairs_file, dataset_path):
+    pairs = []
+    with open(pairs_file, "r") as f:
+        lines = f.read().strip().split("\n")
+
+    # first line example: "10 300"
+    _, pairs_per_fold = map(int, lines[0].split())
+    idx = 1
+
+    for _ in range(10):  # 10 folds
+        # positive pairs
+        for _ in range(pairs_per_fold):
+            name, n1, n2 = lines[idx].split()
+            img1 = os.path.join(dataset_path, name, f"{name}_{int(n1):04d}.jpg")
+            img2 = os.path.join(dataset_path, name, f"{name}_{int(n2):04d}.jpg")
+            pairs.append((img1, img2, 1))
+            idx += 1
+
+        # negative pairs
+        for _ in range(pairs_per_fold):
+            name1, n1, name2, n2 = lines[idx].split()
+            img1 = os.path.join(dataset_path, name1, f"{name1}_{int(n1):04d}.jpg")
+            img2 = os.path.join(dataset_path, name2, f"{name2}_{int(n2):04d}.jpg")
+            pairs.append((img1, img2, 0))
+            idx += 1
+
+    return pairs
+
+
+def run_lfw_protocol(model_name, dataset_path, pairs_file):
+    wrapper = load_model(model_name)
+    pairs = load_lfw_pairs(pairs_file, dataset_path)
+
+    sims = []
+    labels = []
+
+    total = len(pairs)
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+
+        # ---- LIVE TERMINAL LOG ----
+        if i % 50 == 0 or i == 1:
+            print(f"[LFW] Pair {i}/{total} ({(i/total)*100:.1f}%)")
+
+        # (optional) GUI progress events, only if you already use GUI messaging elsewhere
+        # sys.stdout.write(json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n")
+        # sys.stdout.flush()
+
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+        error = False
+
+        if a is None or b is None:
+            error = True
+        else:
+            fa = wrapper.detector.detect(a)
+            fb = wrapper.detector.detect(b)
+            if not fa or not fb:
+                error = True
+            else:
+                a = wrapper.detector.align_for(a, fa[0]["kps"])
+                b = wrapper.detector.align_for(b, fb[0]["kps"])
+                if a is None or b is None:
+                    error = True
+                else:
+                    e1 = wrapper.embed(a)
+                    e2 = wrapper.embed(b)
+                    if e1 is None or e2 is None:
+                        error = True
+
+        if error:
+            sim = -1.0 if label == 1 else 2.0
+        else:
+            sim = cosine_similarity(e1, e2)
+
+        sims.append(sim)
+        labels.append(label)
+
+    sims = np.array(sims)
+    labels = np.array(labels)
+
+    fpr, tpr, _ = roc_curve(labels, sims)
+    roc_auc = auc(fpr, tpr)
+
+    # ---- Compute EER ----
+    fnr = 1 - tpr
+    eer_index = np.nanargmin(np.abs(fnr - fpr))
+    eer = (fpr[eer_index] + fnr[eer_index]) / 2.0
+
+    print(f"LFW Official Protocol AUC: {roc_auc:.4f}")
+    print(f"EER: {eer:.4f}")
+
+    return roc_auc
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--pairs", type=str, required=True)
+    args = parser.parse_args()
+
+    run_lfw_protocol(args.model, args.dataset, args.pairs)
 
 
 
@@ -3698,6 +3944,58 @@ def list_images_by_subset(root_dir, subset="A", limit=None, shuffle=False):
 if __name__ == "__main__":
     # Optional quick test — not required for GUI
     pass
+
+
+
+# ==== .\models\wrap_adaface.py ====
+
+import os
+import cv2
+import torch
+import numpy as np
+
+from models.wrap_facedetection import FaceDetectorAligner
+
+
+class AdaFaceWrapper:
+    name = "adaface"
+
+    def __init__(self, device=None, input_size=(112, 112)):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.input_size = tuple(input_size)
+
+        # ---- Load AdaFace Model ----
+        from adaface.model import build_model  # pip install adaface
+
+        ckpt_path = os.path.join("models", "adaface", "adaface_ir101_webface12m.ckpt")
+        checkpoint = torch.load(ckpt_path, map_location=self.device)
+
+        self.model = build_model("ir_101")
+        self.model.load_state_dict(checkpoint["state_dict"])
+        self.model.to(self.device)
+        self.model.eval()
+
+        # ---- Use the same shared detector/alignment you use everywhere ----
+        self.detector = FaceDetectorAligner(device=self.device)
+
+    # ✅ EXACT SAME INTERFACE AS FACENET WRAPPER
+    def embed(self, img_bgr: np.ndarray) -> np.ndarray:
+        img = cv2.resize(img_bgr, self.input_size, interpolation=cv2.INTER_AREA)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype("float32")
+
+        # AdaFace normalization (same as ArcFace)
+        img = (img - 127.5) / 128.0
+        img = np.transpose(img, (2, 0, 1))[None, ...]  # CHW, batch=1
+
+        img = torch.from_numpy(img).float().to(self.device)
+
+        with torch.no_grad():
+            emb, _ = self.model(img)
+
+        emb = emb[0]
+        emb = emb / emb.norm(p=2)  # L2 normalize
+
+        return emb.cpu().numpy().astype(np.float32)
 
 
 

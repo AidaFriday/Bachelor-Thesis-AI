@@ -1,10 +1,12 @@
-import importlib
-import torch
+import os, sys, importlib, torch
 
-# ✅ Add this import
+# Make sure `external/` and project root are importable
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(PROJECT_ROOT)
+sys.path.append(os.path.join(PROJECT_ROOT, "external"))
+
 from models.wrap_facedetection import FaceDetectorAligner
 
-# ✅ Keep one shared detector instance for all models (faster)
 _DETECTOR = None
 
 
@@ -16,29 +18,33 @@ def _get_detector():
     return _DETECTOR
 
 
-def load_model(model_name: str, config_path=None):
-    """Load model wrapper and attach the shared face detector/aligner."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    wrappers = {
-        "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
-        "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
-        "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
-        "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
-        "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
-        "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
-    }
+WRAPPERS = {
+    "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
+    "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
+    "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
+    "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
+    "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
+    "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
+    "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),  # ✅ added
+}
 
-    if model_name not in wrappers:
+
+def available_models():
+    return list(WRAPPERS.keys())
+
+
+def load_model(model_name: str):
+    if model_name not in WRAPPERS:
         raise ValueError(f"Unknown model: {model_name}")
 
-    module_name, class_name = wrappers[model_name]
+    module_name, class_name = WRAPPERS[model_name]
     module = importlib.import_module(module_name)
     wrapper_class = getattr(module, class_name)
 
-    # ✅ Create embedding model
-    wrapper = wrapper_class(device)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    wrapper = wrapper_class(device=device)
 
-    # ✅ Attach detector once (shared)
+    # ✅ Shared detector
     wrapper.detector = _get_detector()
 
     return wrapper

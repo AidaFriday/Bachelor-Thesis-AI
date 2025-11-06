@@ -1,7 +1,7 @@
 {
-    "generated_at": "2025-11-05T19:24:34",
+    "generated_at": "2025-11-06T15:59:10",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
-    "count": 33,
+    "count": 35,
     "files": [
         "arcface_test.py",
         "benchmark_parameters/performance/fps/fps.py",
@@ -12,6 +12,7 @@
         "benchmark_parameters/validation_accuracy/image/logic_confusion_matrix.py",
         "benchmark_parameters/validation_accuracy/image/logic_dataset_image_va.py",
         "benchmark_parameters/validation_accuracy/image/logic_roc_graph.py",
+        "benchmark_parameters/validation_accuracy/image/roc_lfw_pairs.py",
         "benchmark_parameters/validation_accuracy/validation_accuracy.py",
         "benchmark_parameters/validation_accuracy/video/logic_confusion_matrix_video.py",
         "benchmark_parameters/validation_accuracy/video/logic_roc_graph_video.py",
@@ -27,6 +28,7 @@
         "dataset/manager.py",
         "extractor.py",
         "main.py",
+        "models/wrap_adaface.py",
         "models/wrap_arcface.py",
         "models/wrap_deepface.py",
         "models/wrap_facedetection.py",
