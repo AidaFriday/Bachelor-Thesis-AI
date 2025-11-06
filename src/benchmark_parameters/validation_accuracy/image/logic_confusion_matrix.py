@@ -15,7 +15,7 @@ from connector import load_model
 
 
 # ✅ <<< HARD-CODE YOUR THRESHOLD HERE >>>
-FIXED_THRESHOLD = 0.50
+FIXED_THRESHOLD = 0.70
 
 
 def cosine_similarity(a, b):
@@ -29,6 +29,17 @@ def cosine_similarity(a, b):
 
 from itertools import combinations
 import random
+
+
+def dataset_needs_alignment(dataset_path):
+    """
+    Return False for aligned datasets (e.g., LFW-deepfunneled),
+    True for raw datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path or "deepfunneled" in path:
+        return False
+    return True
 
 
 def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
@@ -123,6 +134,8 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
+    USE_DETECTION = dataset_needs_alignment(dataset_path)
+
     if start_identity == "__ALL__":
         pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
     else:
@@ -151,15 +164,45 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
+        error = False
+
         if a is None or b is None:
-            continue
+            error = True
+        else:
+            if USE_DETECTION:
+                # ---- DETECT ----
+                faces_a = wrapper.detector.detect(a)
+                faces_b = wrapper.detector.detect(b)
+                if not faces_a or not faces_b:
+                    error = True
+                else:
+                    # ---- ALIGN ----
+                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                    if aligned_a is None or aligned_b is None:
+                        error = True
+                    else:
+                        emb1 = wrapper.embed(aligned_a)
+                        emb2 = wrapper.embed(aligned_b)
+                        if emb1 is None or emb2 is None:
+                            error = True
+            else:
+                # ---- SKIP DETECTION — DIRECT EMBEDDING ----
+                emb1 = wrapper.embed(a)
+                emb2 = wrapper.embed(b)
+                if emb1 is None or emb2 is None:
+                    error = True
 
-        emb1 = wrapper.embed(a)
-        emb2 = wrapper.embed(b)
-        if emb1 is None or emb2 is None:
-            continue
+        if error:
+            # label stays the same — just forcing classification failure
+            if label == 1:
+                sim = -1.0  # positive pair counted as False Negative
+            else:
+                sim = 2.0  # negative pair counted as False Positive
+        else:
+            sim = cosine_similarity(emb1, emb2)
 
-        sim = cosine_similarity(emb1, emb2)
         sims.append(sim)
         labels.append(label)
 
@@ -249,9 +292,84 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
     with open(filepath, "w") as f:
         json.dump(export_data, f, indent=4)
 
-    print(f"\n[EXPORTED] -> {filepath}\n")
+    # ✅ EXPORT FAILED PAIR THUMBNAILS
+    failed_dir = os.path.join(
+        export_dir, f"failed_pairs_{export_data['meta']['timestamp']}"
+    )
+    os.makedirs(failed_dir, exist_ok=True)
 
-    print(json.dumps(result))
+    def make_labeled_thumb(img1, img2, name1, name2, size=(160, 160)):
+        # Resize images
+        i1 = cv2.resize(img1, size, interpolation=cv2.INTER_AREA)
+        i2 = cv2.resize(img2, size, interpolation=cv2.INTER_AREA)
+
+        # Add label bars
+        bar_h = 25
+        h, w, _ = i1.shape
+        bar1 = np.zeros((bar_h, w, 3), dtype=np.uint8)
+        bar2 = np.zeros((bar_h, w, 3), dtype=np.uint8)
+
+        cv2.putText(
+            bar1,
+            name1,
+            (5, bar_h - 7),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            1,
+        )
+        cv2.putText(
+            bar2,
+            name2,
+            (5, bar_h - 7),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            1,
+        )
+
+        i1 = np.vstack((i1, bar1))
+        i2 = np.vstack((i2, bar2))
+
+        return np.hstack((i1, i2))
+
+    fail_index = 0
+
+    for p in pair_records:
+        true_label = 1 if p["label"] == "pos" else 0
+        pred = p["predicted"]
+
+        # Only export misclassified pairs
+        if true_label != pred:
+            img1_full = os.path.join(dataset_path, p["img1"])
+            img2_full = os.path.join(dataset_path, p["img2"])
+
+            img1 = cv2.imread(img1_full)
+            img2 = cv2.imread(img2_full)
+            if img1 is None or img2 is None:
+                continue
+
+            thumb = make_labeled_thumb(
+                img1, img2, os.path.basename(p["img1"]), os.path.basename(p["img2"])
+            )
+
+            fail_index += 1
+
+            # Name file based on mistake type
+            if true_label == 1 and pred == 0:
+                fname = f"FN_{fail_index:04d}.jpg"
+            else:
+                fname = f"FP_{fail_index:04d}.jpg"
+
+            cv2.imwrite(os.path.join(failed_dir, fname), thumb)
+
+    print(f"[FAILED PAIRS EXPORTED] -> {failed_dir}")
+    print(f"[EXPORTED] -> {filepath}\n")
+
+    # ✅ Send result directly so GUI can detect "kind" field
+    sys.stdout.write(json.dumps(result) + "\n")
+    sys.stdout.flush()
+
 
 
 if __name__ == "__main__":

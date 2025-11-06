@@ -23,6 +23,17 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
+def dataset_needs_alignment(dataset_path):
+    """
+    Return False for aligned datasets (e.g., LFW-deepfunneled),
+    True for raw datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path or "deepfunneled" in path:
+        return False
+    return True
+
+
 def collect_pairs(dataset_path, start_identity=None, max_pairs=None):
     """
     Deterministic pair generation:
@@ -133,42 +144,73 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
+        USE_DETECTION = dataset_needs_alignment(dataset_path)
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
+        error = False
+
         if a is None or b is None:
-            continue
+            error = True
+        else:
+            if USE_DETECTION:
+                # ---- DETECT ----
+                faces_a = wrapper.detector.detect(a)
+                faces_b = wrapper.detector.detect(b)
+                if not faces_a or not faces_b:
+                    error = True
+                else:
+                    # ---- ALIGN ----
+                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                    if aligned_a is None or aligned_b is None:
+                        error = True
+                    else:
+                        emb1 = wrapper.embed(aligned_a)
+                        emb2 = wrapper.embed(aligned_b)
+                        if emb1 is None or emb2 is None:
+                            error = True
+            else:
+                # ✅ SKIP detection & alignment for aligned datasets like LFW-deepfunneled
+                emb1 = wrapper.embed(a)
+                emb2 = wrapper.embed(b)
+                if emb1 is None or emb2 is None:
+                    error = True
 
-        # ---- detect faces ----
-        faces_a = wrapper.detector.detect(a)
-        faces_b = wrapper.detector.detect(b)
-        if not faces_a or not faces_b:
-            continue
+        if error:
+            # Force error into FN/FP for ROC consistency
+            if label == 1:
+                sim = -1.0  # FN
+            else:
+                sim = 2.0  # FP
+        else:
+            sim = cosine_similarity(emb1, emb2)
 
-        # ---- align using landmarks ----
-        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-
-        if aligned_a is None or aligned_b is None:
-            continue
-
-        # ---- embeddings ----
-        emb1 = wrapper.embed(aligned_a)
-        emb2 = wrapper.embed(aligned_b)
-        if emb1 is None or emb2 is None:
-            continue
-
-        sims.append(cosine_similarity(emb1, emb2))
+        sims.append(sim)
         labels.append(label)
 
-    sims = np.array(sims)
-    labels = np.array(labels)
+    sims = np.array(sims, dtype=np.float32)
+    labels = np.array(labels, dtype=np.int32)
 
-    # how many pairs actually evaluated (after skipping failed detections)
     pos_count = int(np.sum(labels == 1))
     neg_count = int(np.sum(labels == 0))
 
-    # Compute ROC
+    # --- guard: ROC requires both classes ---
+    if pos_count == 0 or neg_count == 0:
+        print(
+            json.dumps(
+                {
+                    "error": "ROC cannot be computed: dataset contains only one class after evaluation.",
+                    "pos_pairs": pos_count,
+                    "neg_pairs": neg_count,
+                }
+            )
+        )
+        return
+
     fpr, tpr, thresholds = roc_curve(labels, sims)
+
     roc_auc = auc(fpr, tpr)
 
     # --- Best Threshold (Youden's J statistic) ---
@@ -262,7 +304,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
     plt.savefig(save_path, dpi=200, bbox_inches="tight")
     plt.close()
 
-    print(
+    sys.stdout.write(
         json.dumps(
             {
                 "kind": "roc_image",
@@ -274,12 +316,11 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
                 "pairs_tested": int(len(labels)),
                 "pos_pairs": pos_count,
                 "neg_pairs": neg_count,
-                "start_identity": start_identity,
-                "model": model_name,
-                "dataset": os.path.basename(dataset_path),
             }
         )
+        + "\n"
     )
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
