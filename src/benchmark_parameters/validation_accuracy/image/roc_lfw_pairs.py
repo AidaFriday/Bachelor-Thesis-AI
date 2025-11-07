@@ -1,9 +1,10 @@
+# benchmark_parameters/validation_accuracy/image/roc_lfw_pairs.py
+
 import os
 import cv2
 import json
 import numpy as np
 from sklearn.metrics import roc_curve, auc
-
 import sys
 
 # make project root importable
@@ -70,12 +71,7 @@ def load_lfw_pairs_with_folds(pairs_file, dataset_path):
 # ---------------------------------------------------------------------
 def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
     """
-    Official-style 10-fold evaluation:
-      For each fold k:
-        - train on folds != k → find best threshold (max accuracy)
-        - evaluate on fold k with that threshold
-    Returns:
-      thresholds_per_fold, accuracies_per_fold, mean_acc, std_acc
+    Official-style 10-fold evaluation.
     """
     num_folds = int(fold_ids.max()) + 1
     thresholds = []
@@ -90,7 +86,6 @@ def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
         sims_test = sims[test_mask]
         labels_test = labels[test_mask]
 
-        # candidate thresholds = unique scores on training folds
         cand_thr = np.unique(sims_train)
 
         best_thr = None
@@ -103,7 +98,6 @@ def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
                 best_acc = acc
                 best_thr = t
 
-        # evaluate on held-out fold
         test_preds = (sims_test >= best_thr).astype(np.int32)
         test_acc = np.mean(test_preds == labels_test)
 
@@ -138,7 +132,9 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
     print(f"[LFW] Pairs   : {pairs_file}")
 
     wrapper = load_model(model_name)
-    is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
+    model_name_lower = getattr(wrapper, "name", "").lower()
+    is_arcface = model_name_lower == "arcface"
+    is_adaface = model_name_lower == "adaface"
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
 
@@ -147,6 +143,18 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
 
     total = len(pairs)
     use_detection = dataset_needs_alignment(dataset_path)
+
+    # ✅ For AdaFace we *want* detection+alignment, even on LFW-deepfunneled.
+    if is_adaface:
+        use_detection = True
+
+    # ✅ Only non-ArcFace, non-AdaFace models may use embed_aligned on aligned datasets
+    use_aligned = (
+        (not use_detection)
+        and (not is_arcface)
+        and (not is_adaface)
+        and hasattr(wrapper, "embed_aligned")
+    )
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
         if i == 1 or i % 200 == 0 or i == total:
@@ -161,19 +169,19 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
         if a is None or b is None:
             error = True
         else:
-            if is_arcface:
-                # ✅ use the tested ArcFace pipeline (detection+alignment inside)
-                try:
+            try:
+                if is_arcface:
+                    # ✅ ArcFace: tested path using internal detection/alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
-                    if emb1 is None or emb2 is None:
-                        error = True
-                except Exception:
-                    error = True
-            else:
-                # Facenet / AdaFace
-                if use_detection:
-                    # detect + align with shared detector
+
+                elif use_aligned:
+                    # ✅ Other models that have embed_aligned on aligned datasets
+                    emb1 = wrapper.embed_aligned(a)
+                    emb2 = wrapper.embed_aligned(b)
+
+                elif use_detection:
+                    # ✅ Facenet / AdaFace / others on non-aligned datasets
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
                     if not faces_a or not faces_b:
@@ -186,14 +194,17 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
                         else:
                             emb1 = wrapper.embed(aligned_a)
                             emb2 = wrapper.embed(aligned_b)
-                            if emb1 is None or emb2 is None:
-                                error = True
+
                 else:
-                    # already aligned dataset (lfw-deepfunneled) – embed whole image
+                    # ✅ Fallback: already-aligned dataset, generic embed
                     emb1 = wrapper.embed(a)
                     emb2 = wrapper.embed(b)
-                    if emb1 is None or emb2 is None:
-                        error = True
+
+            except Exception:
+                error = True
+
+        if emb1 is None or emb2 is None:
+            error = True
 
         if error:
             # worst-case scores so they are misclassified for any thr in [0,1]
