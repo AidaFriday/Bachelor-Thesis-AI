@@ -123,13 +123,16 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
 
     wrapper = load_model(model_name)
 
+    # ✅ detect if this is ArcFace
+    is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
+
     # ensure correct LFW path
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    if start_identity == "__ALL__":
+    if start_identity == "__ALL__":  # all identities
         pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
-    else:
+    else:  # limited number of pairs starting from identity
         pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
     sims = []
@@ -144,39 +147,51 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
-        USE_DETECTION = dataset_needs_alignment(dataset_path)
-
         a = cv2.imread(img1)
         b = cv2.imread(img2)
 
         error = False
+        emb1 = emb2 = None
 
         if a is None or b is None:
             error = True
         else:
-            if USE_DETECTION:
-                # ---- DETECT ----
-                faces_a = wrapper.detector.detect(a)
-                faces_b = wrapper.detector.detect(b)
-                if not faces_a or not faces_b:
+            if is_arcface:
+                # ✅ ArcFace: use the tested pipeline (detection + alignment inside)
+                try:
+                    emb1 = wrapper.get_embedding(img1)
+                    emb2 = wrapper.get_embedding(img2)
+                    if emb1 is None or emb2 is None:
+                        error = True
+                except Exception:
                     error = True
-                else:
-                    # ---- ALIGN ----
-                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-                    if aligned_a is None or aligned_b is None:
+            else:
+                # ✅ Facenet / AdaFace: keep your existing logic
+                USE_DETECTION = dataset_needs_alignment(dataset_path)
+
+                if USE_DETECTION:
+                    # ---- DETECT ----
+                    faces_a = wrapper.detector.detect(a)
+                    faces_b = wrapper.detector.detect(b)
+                    if not faces_a or not faces_b:
                         error = True
                     else:
-                        emb1 = wrapper.embed(aligned_a)
-                        emb2 = wrapper.embed(aligned_b)
-                        if emb1 is None or emb2 is None:
+                        # ---- ALIGN ----
+                        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                        if aligned_a is None or aligned_b is None:
                             error = True
-            else:
-                # ✅ SKIP detection & alignment for aligned datasets like LFW-deepfunneled
-                emb1 = wrapper.embed(a)
-                emb2 = wrapper.embed(b)
-                if emb1 is None or emb2 is None:
-                    error = True
+                        else:
+                            emb1 = wrapper.embed(aligned_a)
+                            emb2 = wrapper.embed(aligned_b)
+                            if emb1 is None or emb2 is None:
+                                error = True
+                else:
+                    # aligned datasets (e.g. LFW-deepfunneled) – embed directly
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+                    if emb1 is None or emb2 is None:
+                        error = True
 
         if error:
             # Force error into FN/FP for ROC consistency
@@ -190,6 +205,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         sims.append(sim)
         labels.append(label)
 
+    # ---------- everything below this stays as you had it ----------
     sims = np.array(sims, dtype=np.float32)
     labels = np.array(labels, dtype=np.int32)
 
@@ -210,7 +226,6 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         return
 
     fpr, tpr, thresholds = roc_curve(labels, sims)
-
     roc_auc = auc(fpr, tpr)
 
     # --- Best Threshold (Youden's J statistic) ---

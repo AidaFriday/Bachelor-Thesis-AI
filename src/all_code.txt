@@ -252,13 +252,15 @@ for name, count in sample_counts:
 
 # ==== .\connector.py ====
 
-import importlib
-import torch
+import os, sys, importlib, torch
 
-# ✅ Add this import
+# Make sure `external/` and project root are importable
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(PROJECT_ROOT)
+sys.path.append(os.path.join(PROJECT_ROOT, "external"))
+
 from models.wrap_facedetection import FaceDetectorAligner
 
-# ✅ Keep one shared detector instance for all models (faster)
 _DETECTOR = None
 
 
@@ -270,31 +272,33 @@ def _get_detector():
     return _DETECTOR
 
 
-def load_model(model_name: str, config_path=None):
-    """Load model wrapper and attach the shared face detector/aligner."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    wrappers = {
-        "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
-        "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
-        "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
-        "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
-        "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
-        "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
-        "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),
+WRAPPERS = {
+    "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
+    "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
+    "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
+    "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
+    "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
+    "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
+    "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),  # ✅ added
+}
 
-    }
 
-    if model_name not in wrappers:
+def available_models():
+    return list(WRAPPERS.keys())
+
+
+def load_model(model_name: str):
+    if model_name not in WRAPPERS:
         raise ValueError(f"Unknown model: {model_name}")
 
-    module_name, class_name = wrappers[model_name]
+    module_name, class_name = WRAPPERS[model_name]
     module = importlib.import_module(module_name)
     wrapper_class = getattr(module, class_name)
 
-    # ✅ Create embedding model
-    wrapper = wrapper_class(device)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    wrapper = wrapper_class(device=device)
 
-    # ✅ Attach detector once (shared)
+    # ✅ Shared detector
     wrapper.detector = _get_detector()
 
     return wrapper
@@ -3949,51 +3953,76 @@ if __name__ == "__main__":
 
 # ==== .\models\wrap_adaface.py ====
 
-import os
+import os, sys
+
+# ✅ Make external/adaface_repo importable
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(os.path.join(ROOT, "external"))
+
 import cv2
 import torch
 import numpy as np
 
 from models.wrap_facedetection import FaceDetectorAligner
+from adaface_repo.net import IR_50
 
 
 class AdaFaceWrapper:
     name = "adaface"
 
-    def __init__(self, device=None, input_size=(112, 112)):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, device="cpu", input_size=(112, 112)):
+        self.device = device
         self.input_size = tuple(input_size)
 
-        # ---- Load AdaFace Model ----
-        from adaface.model import build_model  # pip install adaface
+        ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        model_path = os.path.join(
+            ROOT, "external", "adaface_repo", "adaface_ir50_ms1mv2", "model.pt"
+        )
 
-        ckpt_path = os.path.join("models", "adaface", "adaface_ir101_webface12m.ckpt")
-        checkpoint = torch.load(ckpt_path, map_location=self.device)
+        # ✅ Correct backbone load
+        # ✅ Correct backbone load
+        self.model = IR_50(self.input_size)
 
-        self.model = build_model("ir_101")
-        self.model.load_state_dict(checkpoint["state_dict"])
-        self.model.to(self.device)
+        ckpt = torch.load(model_path, map_location=device)
+
+        # Some checkpoints store weights under "net"
+        if "net" in ckpt:
+            ckpt = ckpt["net"]
+
+        # Remove "net." prefix if exists in keys
+        new_state = {}
+        for k, v in ckpt.items():
+            new_key = k.replace("net.", "")  # strip prefix
+            new_state[new_key] = v
+
+        self.model.load_state_dict(new_state, strict=False)
+        self.model.to(device)
         self.model.eval()
 
-        # ---- Use the same shared detector/alignment you use everywhere ----
-        self.detector = FaceDetectorAligner(device=self.device)
+        # Will be overwritten by connector (shared), but safe fallback
+        self.detector = FaceDetectorAligner(device=device)
 
-    # ✅ EXACT SAME INTERFACE AS FACENET WRAPPER
     def embed(self, img_bgr: np.ndarray) -> np.ndarray:
-        img = cv2.resize(img_bgr, self.input_size, interpolation=cv2.INTER_AREA)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype("float32")
+        # ---------- Detect & Align (system-compatible) ----------
+        faces = self.detector.get(img_bgr, out_size=self.input_size)
 
-        # AdaFace normalization (same as ArcFace)
+        if len(faces) == 0:
+            img = cv2.resize(img_bgr, self.input_size)
+        else:
+            img = faces[0]  # Already aligned
+
+        # ---------- Preprocess ----------
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
         img = (img - 127.5) / 128.0
-        img = np.transpose(img, (2, 0, 1))[None, ...]  # CHW, batch=1
-
+        img = img.transpose(2, 0, 1)[None, :]
         img = torch.from_numpy(img).float().to(self.device)
 
+        # ---------- Forward ----------
         with torch.no_grad():
-            emb, _ = self.model(img)
+            emb = self.model(img)[0]
 
-        emb = emb[0]
-        emb = emb / emb.norm(p=2)  # L2 normalize
+        # ---------- Normalize ----------
+        emb = emb / emb.norm(p=2)
 
         return emb.cpu().numpy().astype(np.float32)
 
@@ -4185,7 +4214,6 @@ class DeepFaceWrapper:
 
 # ==== .\models\wrap_facedetection.py ====
 
-# models/wrap_facedetection.py
 import cv2
 import numpy as np
 from typing import Tuple, Dict, Optional, List
@@ -4224,13 +4252,14 @@ class FaceDetectorAligner:
     def __init__(self, device="cpu"):
         ctx_id = 0 if device == "cuda" else -1
 
-        # We only load detection + landmark models (no recognition)
+        # Load only detection + landmark models (no recognition)
         self.det = FaceAnalysis(
             name="buffalo_l", allowed_modules=["detection", "landmark"]
         )
         self.det.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
     def detect(self, frame: np.ndarray) -> List[Dict]:
+        """Return raw detection with bounding boxes + 5-keypoints."""
         faces = self.det.get(frame)
         results = []
         for f in faces:
@@ -4245,14 +4274,11 @@ class FaceDetectorAligner:
     def align_for(
         self, frame: np.ndarray, kps: np.ndarray, out_size=(112, 112)
     ) -> Optional[np.ndarray]:
-        """
-        ✅ New: alignment based on keypoints only (no model name).
-        Used for ArcFace, DeepFace, and modern embeddings.
-        """
+        """Align face using 5 keypoints."""
         aligned = align_5pts(frame, kps, out_size=tuple(out_size))
 
         if aligned is None:
-            # fallback center crop
+            # fallback: center crop
             h, w = frame.shape[:2]
             s = min(h, w)
             y0 = (h - s) // 2
@@ -4261,6 +4287,20 @@ class FaceDetectorAligner:
             aligned = cv2.resize(crop, out_size, interpolation=cv2.INTER_AREA)
 
         return aligned.astype(np.uint8)
+
+    # ✅ Compatibility method for all existing wrappers
+    def get(self, frame: np.ndarray, out_size=(112, 112)) -> List[np.ndarray]:
+        """
+        Detects faces and returns aligned face crops (CHW=HWC BGR).
+        This matches the expected output in ArcFace/Facenet/SphereFace wrappers.
+        """
+        detections = self.detect(frame)
+        crops = []
+        for d in detections:
+            crop = self.align_for(frame, d["kps"], out_size)
+            if crop is not None:
+                crops.append(crop)
+        return crops
 
 
 
