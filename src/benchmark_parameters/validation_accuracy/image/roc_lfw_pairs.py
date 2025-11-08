@@ -1,15 +1,15 @@
-# benchmark_parameters/validation_accuracy/image/roc_lfw_pairs.py
-
 import os
-import cv2
+import sys
 import json
+from datetime import datetime
+
+import cv2
 import numpy as np
 from sklearn.metrics import roc_curve, auc
-import sys
 
 # make project root importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
-from connector import load_model
+from connector import load_model  # noqa: E402
 
 
 def cosine_similarity(a, b):
@@ -71,7 +71,12 @@ def load_lfw_pairs_with_folds(pairs_file, dataset_path):
 # ---------------------------------------------------------------------
 def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
     """
-    Official-style 10-fold evaluation.
+    Official-style 10-fold evaluation:
+      For each fold k:
+        - train on folds != k → find best threshold (max accuracy)
+        - evaluate on fold k with that threshold
+    Returns:
+      thresholds_per_fold, accuracies_per_fold, mean_acc, std_acc
     """
     num_folds = int(fold_ids.max()) + 1
     thresholds = []
@@ -86,6 +91,7 @@ def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
         sims_test = sims[test_mask]
         labels_test = labels[test_mask]
 
+        # candidate thresholds = unique scores on training folds
         cand_thr = np.unique(sims_train)
 
         best_thr = None
@@ -98,6 +104,7 @@ def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
                 best_acc = acc
                 best_thr = t
 
+        # evaluate on held-out fold
         test_preds = (sims_test >= best_thr).astype(np.int32)
         test_acc = np.mean(test_preds == labels_test)
 
@@ -122,7 +129,7 @@ def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
 # ---------------------------------------------------------------------
 # MAIN PROTOCOL
 # ---------------------------------------------------------------------
-def run_lfw_protocol(model_name, dataset_path, pairs_file):
+def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     # if user passed parent LFW folder, go into lfw-deepfunneled
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
@@ -138,17 +145,19 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
 
+    # optional speed-up for debugging
+    if max_pairs is not None and max_pairs < len(pairs):
+        pairs = pairs[:max_pairs]
+        fold_ids = fold_ids[:max_pairs]
+        print(f"[LFW] DEBUG: restricting to first {max_pairs} pairs")
+
     sims = []
     labels = []
 
     total = len(pairs)
     use_detection = dataset_needs_alignment(dataset_path)
 
-    # ✅ For AdaFace we *want* detection+alignment, even on LFW-deepfunneled.
-    if is_adaface:
-        use_detection = True
-
-    # ✅ Only non-ArcFace, non-AdaFace models may use embed_aligned on aligned datasets
+    # only non-ArcFace, non-AdaFace models may use embed_aligned
     use_aligned = (
         (not use_detection)
         and (not is_arcface)
@@ -171,17 +180,23 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
         else:
             try:
                 if is_arcface:
-                    # ✅ ArcFace: tested path using internal detection/alignment
+                    # ArcFace: tested path using internal detection/alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
+                elif is_adaface:
+                    # AdaFace: its own embed() expects an aligned crop.
+                    # For LFW-deepfunneled we can treat the full image as a crop.
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+
                 elif use_aligned:
-                    # ✅ Other models that have embed_aligned on aligned datasets
+                    # Other models that have embed_aligned on aligned datasets
                     emb1 = wrapper.embed_aligned(a)
                     emb2 = wrapper.embed_aligned(b)
 
                 elif use_detection:
-                    # ✅ Facenet / AdaFace / others on non-aligned datasets
+                    # Facenet / others on non-aligned datasets
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
                     if not faces_a or not faces_b:
@@ -194,9 +209,8 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
                         else:
                             emb1 = wrapper.embed(aligned_a)
                             emb2 = wrapper.embed(aligned_b)
-
                 else:
-                    # ✅ Fallback: already-aligned dataset, generic embed
+                    # Fallback: already-aligned dataset, generic embed
                     emb1 = wrapper.embed(a)
                     emb2 = wrapper.embed(b)
 
@@ -225,7 +239,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
     )
 
     # ---------- global ROC / AUC / EER ----------
-    fpr, tpr, _ = roc_curve(labels, sims)
+    fpr, tpr, roc_thresholds = roc_curve(labels, sims)
     roc_auc = auc(fpr, tpr)
 
     fnr = 1.0 - tpr
@@ -235,9 +249,16 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
     print(f"\nGlobal ROC AUC (all pairs): {roc_auc:.4f}")
     print(f"Global EER               : {eer*100:.2f}%")
 
-    # ---------- JSON summary ----------
-    result = {
-        "kind": "lfw_10fold",
+    # ---------- JSON + PNG EXPORTS ----------
+    exports_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(exports_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base_name = f"{model_name_lower}_roc_{timestamp}"
+
+    # JSON summary (metrics + ROC points)
+    roc_json = {
+        "kind": "lfw_10fold_roc",
         "model": model_name,
         "dataset": os.path.basename(dataset_path),
         "pairs": int(len(labels)),
@@ -247,12 +268,41 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file):
         "per_fold_threshold": [float(t) for t in thresholds],
         "auc": float(roc_auc),
         "eer": float(eer),
+        "roc_fpr": [float(x) for x in fpr],
+        "roc_tpr": [float(x) for x in tpr],
+        "roc_thresholds": [float(x) for x in roc_thresholds],
     }
 
-    print("\n[LFW] JSON summary:")
-    print(json.dumps(result, indent=2))
+    json_path = os.path.join(exports_dir, base_name + ".json")
+    with open(json_path, "w") as f:
+        json.dump(roc_json, f, indent=2)
+    print(f"[ROC] Saved ROC JSON to: {json_path}")
 
-    return result
+    # PNG ROC curve
+    try:
+        import matplotlib.pyplot as plt
+
+        plt.figure()
+        plt.plot(fpr, tpr, label=f"{model_name} (AUC={roc_auc:.4f})")
+        plt.plot([0, 1], [0, 1], linestyle="--")  # diagonal
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title(f"ROC Curve - {model_name} on LFW")
+        plt.legend(loc="lower right")
+        plt.grid(True)
+
+        png_path = os.path.join(exports_dir, base_name + ".png")
+        plt.savefig(png_path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"[ROC] Saved ROC PNG to: {png_path}")
+    except Exception as e:
+        print(f"[ROC] WARNING: could not save ROC PNG ({e})")
+
+    # ---------- print JSON summary to console too ----------
+    print("\n[LFW] JSON summary:")
+    print(json.dumps(roc_json, indent=2))
+
+    return roc_json
 
 
 if __name__ == "__main__":
@@ -262,6 +312,12 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--pairs", type=str, required=True)
+    parser.add_argument(
+        "--max_pairs",
+        type=int,
+        default=None,
+        help="(debug) limit number of pairs evaluated",
+    )
     args = parser.parse_args()
 
-    run_lfw_protocol(args.model, args.dataset, args.pairs)
+    run_lfw_protocol(args.model, args.dataset, args.pairs, max_pairs=args.max_pairs)
