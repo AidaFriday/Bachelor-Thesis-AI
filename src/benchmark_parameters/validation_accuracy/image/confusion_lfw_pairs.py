@@ -5,7 +5,6 @@ from datetime import datetime
 
 import cv2
 import numpy as np
-from sklearn.metrics import confusion_matrix
 
 # make project root importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
@@ -189,7 +188,29 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file):
 
     # ---------- confusion matrix at that threshold ----------
     preds = (sims >= best_thr).astype(np.int32)
-    tn, fp, fn, tp = confusion_matrix(labels, preds, labels=[0, 1]).ravel()
+    labels_np = np.asarray(labels, dtype=np.int32)
+
+    # counts
+    tp = int(np.sum((preds == 1) & (labels_np == 1)))
+    tn = int(np.sum((preds == 0) & (labels_np == 0)))
+    fp = int(np.sum((preds == 1) & (labels_np == 0)))
+    fn = int(np.sum((preds == 0) & (labels_np == 1)))
+
+    total_pairs = tp + tn + fp + fn
+
+    # core metrics
+    accuracy = (tp + tn) / total_pairs if total_pairs > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # TPR
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    f1 = (
+        2.0 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
+
+    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
+    fpr = 1.0 - tnr
+    fnr = 1.0 - recall
 
     total_pairs = len(labels)
     tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # recall / sensitivity
@@ -198,11 +219,14 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file):
     fnr = 1.0 - tpr
 
     print("\n[CM] Confusion Matrix (at best threshold)")
-    print(f"        Predicted 0   Predicted 1")
-    print(f"Actual 0    TN={tn:5d}       FP={fp:5d}")
-    print(f"Actual 1    FN={fn:5d}       TP={tp:5d}")
-    print(f"\n[CM] Accuracy : {best_acc*100:.2f}%")
-    print(f"[CM] TPR (recall) : {tpr*100:.2f}%")
+    print("        Predicted 0   Predicted 1")
+    print(f"Actual 0    TN={tn:4d}       FP={fp:4d}")
+    print(f"Actual 1    FN={fn:4d}       TP={tp:4d}\n")
+
+    print(f"[CM] Accuracy  : {accuracy*100:.2f}%")
+    print(f"[CM] Precision : {precision*100:.2f}%")
+    print(f"[CM] Recall    : {recall*100:.2f}%")
+    print(f"[CM] F1-score  : {f1*100:.2f}%")
     print(f"[CM] TNR (specificity) : {tnr*100:.2f}%")
     print(f"[CM] FPR : {fpr*100:.2f}%")
     print(f"[CM] FNR : {fnr*100:.2f}%")

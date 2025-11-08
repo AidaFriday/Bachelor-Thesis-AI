@@ -298,9 +298,16 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     except Exception as e:
         print(f"[ROC] WARNING: could not save ROC PNG ({e})")
 
-    # ---------- print JSON summary to console too ----------
-    print("\n[LFW] JSON summary:")
-    print(json.dumps(roc_json, indent=2))
+    # ---------- print SHORT JSON summary to console ----------
+    print("\n[LFW] JSON summary (no ROC arrays):")
+
+    pretty_json = {
+        k: v
+        for k, v in roc_json.items()
+        if not k.startswith("roc_")  # hide roc_fpr / roc_tpr / roc_thresholds
+    }
+
+    print(json.dumps(pretty_json, indent=2))
 
     return roc_json
 
