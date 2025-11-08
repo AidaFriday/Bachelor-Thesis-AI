@@ -84,7 +84,7 @@ def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
     return float(best_thr), float(best_acc)
 
 
-def run_confusion_protocol(model_name, dataset_path, pairs_file):
+def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     # if user passed parent LFW folder, go into lfw-deepfunneled
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
@@ -99,6 +99,12 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file):
     is_adaface = model_name_lower == "adaface"
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
+
+    # 🔹 NEW: optional limit for faster debugging
+    if max_pairs is not None:
+        print(f"[CM] DEBUG: restricting to first {max_pairs} pairs")
+        pairs = pairs[:max_pairs]
+        fold_ids = fold_ids[:max_pairs]
 
     sims = []
     labels = []
@@ -318,6 +324,17 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--pairs", type=str, required=True)
+    parser.add_argument(
+        "--max_pairs",
+        type=int,
+        default=None,
+        help="(debug) limit number of pairs evaluated",
+    )
     args = parser.parse_args()
 
-    run_confusion_protocol(args.model, args.dataset, args.pairs)
+    run_confusion_protocol(
+        args.model,
+        args.dataset,
+        args.pairs,
+        max_pairs=args.max_pairs,
+    )

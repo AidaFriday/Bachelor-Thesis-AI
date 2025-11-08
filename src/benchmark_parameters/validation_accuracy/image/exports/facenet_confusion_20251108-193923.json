@@ -1,0 +1,16 @@
+{
+  "kind": "confusion_matrix",
+  "model": "facenet",
+  "dataset": "lfw-deepfunneled",
+  "pairs": 1200,
+  "threshold": 0.36172521114349365,
+  "accuracy": 0.9583333333333334,
+  "tp": 565,
+  "tn": 585,
+  "fp": 15,
+  "fn": 35,
+  "tpr": 0.9416666666666667,
+  "tnr": 0.975,
+  "fpr": 0.025000000000000022,
+  "fnr": 0.05833333333333335
+}

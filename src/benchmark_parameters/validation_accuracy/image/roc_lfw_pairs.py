@@ -295,6 +295,22 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         plt.savefig(png_path, dpi=150, bbox_inches="tight")
         plt.close()
         print(f"[ROC] Saved ROC PNG to: {png_path}")
+
+        # Send signal to GUI to display the ROC image ===
+        print(
+            json.dumps(
+                {
+                    "kind": "roc_image",
+                    "path": png_path,
+                    "model": model_name,
+                    "dataset": os.path.basename(dataset_path),
+                    "auc": float(roc_auc),
+                    "eer": float(eer),
+                    "pairs_tested": int(len(labels)),
+                }
+            )
+        )
+
     except Exception as e:
         print(f"[ROC] WARNING: could not save ROC PNG ({e})")
 
