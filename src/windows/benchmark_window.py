@@ -645,7 +645,7 @@ class BenchmarkPage(QWidget):
                 if data.get("progress") == 1:
                     progress.reset()
 
-                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)" + run_str)
+                progress.setFormat(f"Processing {cur}/{tot} items ({pct}%)" + run_str)
 
             except Exception as e:
                 print(f"[WARN] Progress parse failed: {e} | data={data}")
@@ -688,10 +688,13 @@ class BenchmarkPage(QWidget):
             fig.clear()
             ax = fig.add_subplot(111)
             # rows = Actual POS/NEG, cols = Pred POS/NEG
-            cm = np.array([
-                [tp, fn],   # Actual POS → Pred POS / Pred NEG
-                [fp, tn],   # Actual NEG → Pred POS / Pred NEG
-            ], dtype=float)
+            cm = np.array(
+                [
+                    [tp, fn],  # Actual POS → Pred POS / Pred NEG
+                    [fp, tn],  # Actual NEG → Pred POS / Pred NEG
+                ],
+                dtype=float,
+            )
             im = ax.imshow(cm, cmap="Blues")
 
             ax.set_xticks([0, 1])

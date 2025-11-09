@@ -123,7 +123,17 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None)
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
         if i == 1 or i % 200 == 0 or i == total:
+            # human-readable log
             print(f"[CM] Pair {i}/{total} ({(i/total)*100:.1f}%)")
+
+            # --- progress JSON for the GUI ---
+            prog = {
+                "_type": "progress",
+                "progress": i,
+                "total": total,
+            }
+            print(json.dumps(prog))
+
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
