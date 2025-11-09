@@ -85,6 +85,7 @@ def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
 
 
 def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
+    start_time = datetime.now()
     # if user passed parent LFW folder, go into lfw-deepfunneled
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
@@ -283,6 +284,10 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None)
     except Exception as e:
         print(f"[CM] Warning: could not save confusion matrix figure ({e})")
 
+    
+    end_time = datetime.now()
+    elapsed_sec = (end_time - start_time).total_seconds()
+
     # ---------- JSON summary ----------
     result = {
         "kind": "confusion_matrix",
@@ -290,19 +295,35 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None)
         "dataset": os.path.basename(dataset_path),
         "pairs": int(total_pairs),
         "threshold": float(best_thr),
+        # core confusion metrics
         "accuracy": float(best_acc),
         "tp": int(tp),
         "tn": int(tn),
         "fp": int(fp),
         "fn": int(fn),
+        # rates
         "tpr": float(tpr),
         "tnr": float(tnr),
         "fpr": float(fpr),
         "fnr": float(fnr),
+        # extras the GUI expects
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+        "specificity": float(tnr),  # duplicate for readability
+        "far": float(fpr),  # GUI label
+        "frr": float(fnr),  # GUI label
+        # NEW timing fields (JSON only, GUI ignores them)
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+        "elapsed_sec": float(elapsed_sec),
     }
 
     print("\n[CM] JSON summary:")
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2))  # nice for CLI
+
+    # 👉 ONE-LINE JSON FOR THE GUI
+    print(json.dumps(result))
 
     # save JSON next to ROC exports
     exports_dir = os.path.join(os.path.dirname(__file__), "exports")

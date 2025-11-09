@@ -687,7 +687,11 @@ class BenchmarkPage(QWidget):
 
             fig.clear()
             ax = fig.add_subplot(111)
-            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
+            # rows = Actual POS/NEG, cols = Pred POS/NEG
+            cm = np.array([
+                [tp, fn],   # Actual POS → Pred POS / Pred NEG
+                [fp, tn],   # Actual NEG → Pred POS / Pred NEG
+            ], dtype=float)
             im = ax.imshow(cm, cmap="Blues")
 
             ax.set_xticks([0, 1])
