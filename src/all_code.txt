@@ -4,12 +4,14 @@
 .\connector.py
 .\extractor.py
 .\main.py
+.\test_arcface_embeddings.py
 .\benchmark_parameters\performance\fps\fps.py
 .\benchmark_parameters\performance\inference\logic_inference.py
 .\benchmark_parameters\performance\latency\latency.py
 .\benchmark_parameters\performance\latency\logic_dataset_image.py
 .\benchmark_parameters\performance\latency\logic_dataset_video.py
 .\benchmark_parameters\validation_accuracy\validation_accuracy.py
+.\benchmark_parameters\validation_accuracy\image\confusion_lfw_pairs.py
 .\benchmark_parameters\validation_accuracy\image\logic_confusion_matrix.py
 .\benchmark_parameters\validation_accuracy\image\logic_dataset_image_va.py
 .\benchmark_parameters\validation_accuracy\image\logic_roc_graph.py
@@ -227,6 +229,8 @@ def stack_fn(x):
 
 # ==== .\check_lfw_structure.py ====
 
+#test file
+
 import os
 
 dataset_path = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
@@ -380,6 +384,101 @@ def main():
     window = HomeWindow()
     window.show()
     sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# ==== .\test_arcface_embeddings.py ====
+
+# test file
+import os
+import sys
+import numpy as np
+
+# --- make project root importable (same style as your other scripts) ---
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(ROOT)
+
+from connector import load_model  # your central loader
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def main():
+    lfw_root = r"C:\programming\Datasets\LFW\lfw-deepfunneled"
+
+    # --- pick two images from first identity, one from second identity ---
+    # --- automatically pick identities that have enough images ---
+    persons = sorted(
+        d for d in os.listdir(lfw_root) if os.path.isdir(os.path.join(lfw_root, d))
+    )
+    if len(persons) < 2:
+        raise RuntimeError("Need at least two identities in LFW folder.")
+
+    def jpgs_in(person):
+        p = os.path.join(lfw_root, person)
+        return sorted(
+            f
+            for f in os.listdir(p)
+            if f.lower().endswith(".jpg") or f.lower().endswith(".jpeg")
+        )
+
+    personA, imgsA = None, None
+    personB, imgsB = None, None
+
+    for person in persons:
+        imgs = jpgs_in(person)
+
+        # first identity with at least 2 images → A
+        if personA is None and len(imgs) >= 2:
+            personA, imgsA = person, imgs
+            continue
+
+        # another identity (different name) with at least 1 image → B
+        if (
+            personA is not None
+            and personB is None
+            and person != personA
+            and len(imgs) >= 1
+        ):
+            personB, imgsB = person, imgs
+            break
+
+    if personA is None or personB is None:
+        raise RuntimeError(
+            "Could not find suitable identities: "
+            f"personA={personA}, personB={personB}"
+        )
+
+    imgA1 = os.path.join(lfw_root, personA, imgsA[0])
+    imgA2 = os.path.join(lfw_root, personA, imgsA[1])
+    imgB = os.path.join(lfw_root, personB, imgsB[0])
+
+    print("[INFO] Using images:")
+    print("   A1:", imgA1)
+    print("   A2:", imgA2)
+    print("   B :", imgB)
+
+    print("[INFO] loading model: arcface")
+    wrapper = load_model("arcface")
+
+    print("[INFO] computing embeddings...")
+    embA1 = wrapper.get_embedding(imgA1)
+    embA2 = wrapper.get_embedding(imgA2)
+    embB = wrapper.get_embedding(imgB)
+
+    print("same person (A1 vs A2):", cosine_similarity(embA1, embA2))
+    print("different persons (A1 vs B):", cosine_similarity(embA1, embB))
 
 
 if __name__ == "__main__":
@@ -1536,6 +1635,382 @@ if __name__ == "__main__":
 
 
 
+# ==== .\benchmark_parameters\validation_accuracy\image\confusion_lfw_pairs.py ====
+
+import os
+import sys
+import json
+from datetime import datetime
+
+import cv2
+import numpy as np
+
+# make project root importable
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+from connector import load_model
+
+
+def cosine_similarity(a, b):
+    a = np.asarray(a, dtype=np.float32).flatten()
+    b = np.asarray(b, dtype=np.float32).flatten()
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return 0.0
+    return float(np.dot(a, b) / denom)
+
+
+def dataset_needs_alignment(dataset_path: str) -> bool:
+    """
+    Return False for already-aligned datasets (e.g. LFW-deepfunneled),
+    True for "raw" datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path and "deepfunneled" in path:
+        return False
+    return True
+
+
+def load_lfw_pairs_with_folds(pairs_file, dataset_path):
+    """
+    Same loader as in roc_lfw_pairs.py – builds the 6000 pairs for LFW.
+    """
+    pairs = []
+    fold_ids = []
+    with open(pairs_file, "r") as f:
+        lines = f.read().strip().split("\n")
+
+    num_folds, pairs_per_fold = map(int, lines[0].split())
+    idx = 1
+
+    for fold in range(num_folds):  # 0..9
+        # positive pairs
+        for _ in range(pairs_per_fold):
+            name, n1, n2 = lines[idx].split()
+            img1 = os.path.join(dataset_path, name, f"{name}_{int(n1):04d}.jpg")
+            img2 = os.path.join(dataset_path, name, f"{name}_{int(n2):04d}.jpg")
+            pairs.append((img1, img2, 1))
+            fold_ids.append(fold)
+            idx += 1
+
+        # negative pairs
+        for _ in range(pairs_per_fold):
+            name1, n1, name2, n2 = lines[idx].split()
+            img1 = os.path.join(dataset_path, name1, f"{name1}_{int(n1):04d}.jpg")
+            img2 = os.path.join(dataset_path, name2, f"{name2}_{int(n2):04d}.jpg")
+            pairs.append((img1, img2, 0))
+            fold_ids.append(fold)
+            idx += 1
+
+    return pairs, np.array(fold_ids, dtype=np.int32)
+
+
+def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
+    """
+    Scan all unique similarity scores and pick the threshold
+    that maximizes overall accuracy.
+    """
+    cand_thr = np.unique(sims)
+    best_thr = None
+    best_acc = -1.0
+
+    for t in cand_thr:
+        preds = (sims >= t).astype(np.int32)
+        acc = np.mean(preds == labels)
+        if acc > best_acc:
+            best_acc = acc
+            best_thr = t
+
+    return float(best_thr), float(best_acc)
+
+
+def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
+    start_time = datetime.now()
+    # if user passed parent LFW folder, go into lfw-deepfunneled
+    if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
+        dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
+
+    print(f"[CM] Model   : {model_name}")
+    print(f"[CM] Dataset : {dataset_path}")
+    print(f"[CM] Pairs   : {pairs_file}")
+
+    wrapper = load_model(model_name)
+    model_name_lower = getattr(wrapper, "name", "").lower()
+    is_arcface = model_name_lower == "arcface"
+    is_adaface = model_name_lower == "adaface"
+
+    pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
+
+    # 🔹 NEW: optional limit for faster debugging
+    if max_pairs is not None:
+        print(f"[CM] DEBUG: restricting to first {max_pairs} pairs")
+        pairs = pairs[:max_pairs]
+        fold_ids = fold_ids[:max_pairs]
+
+    sims = []
+    labels = []
+
+    total = len(pairs)
+    use_detection = dataset_needs_alignment(dataset_path)
+
+    # only non-ArcFace, non-AdaFace models may use embed_aligned
+    use_aligned = (
+        (not use_detection)
+        and (not is_arcface)
+        and (not is_adaface)
+        and hasattr(wrapper, "embed_aligned")
+    )
+
+    for i, (img1, img2, label) in enumerate(pairs, start=1):
+        if i == 1 or i % 200 == 0 or i == total:
+            # human-readable log
+            print(f"[CM] Pair {i}/{total} ({(i/total)*100:.1f}%)")
+
+            # --- progress JSON for the GUI ---
+            prog = {
+                "_type": "progress",
+                "progress": i,
+                "total": total,
+            }
+            print(json.dumps(prog))
+
+
+        a = cv2.imread(img1)
+        b = cv2.imread(img2)
+
+        error = False
+        emb1 = emb2 = None
+
+        if a is None or b is None:
+            error = True
+        else:
+            try:
+                if is_arcface:
+                    # ArcFace: use its tested path (internal detection/alignment)
+                    emb1 = wrapper.get_embedding(img1)
+                    emb2 = wrapper.get_embedding(img2)
+
+                elif is_adaface:
+                    # AdaFace: use its own embed() which expects an aligned crop
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+
+                elif use_aligned:
+                    # Other models that have embed_aligned on aligned datasets
+                    emb1 = wrapper.embed_aligned(a)
+                    emb2 = wrapper.embed_aligned(b)
+
+                elif use_detection:
+                    # Facenet / others on non-aligned datasets
+                    faces_a = wrapper.detector.detect(a)
+                    faces_b = wrapper.detector.detect(b)
+                    if not faces_a or not faces_b:
+                        error = True
+                    else:
+                        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                        if aligned_a is None or aligned_b is None:
+                            error = True
+                        else:
+                            emb1 = wrapper.embed(aligned_a)
+                            emb2 = wrapper.embed(aligned_b)
+                else:
+                    # Already aligned dataset, generic embed
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+
+            except Exception:
+                error = True
+
+        if emb1 is None or emb2 is None:
+            error = True
+
+        if error:
+            # worst-case scores so they are misclassified for any thr in [0,1]
+            sim = -1.0 if label == 1 else 2.0
+        else:
+            sim = cosine_similarity(emb1, emb2)
+
+        sims.append(sim)
+        labels.append(label)
+
+    sims = np.array(sims, dtype=np.float32)
+    labels = np.array(labels, dtype=np.int32)
+
+    # ---------- choose best global threshold ----------
+    best_thr, best_acc = find_best_global_threshold(sims, labels)
+
+    print(f"\n[CM] Best global threshold: {best_thr:.4f}")
+    print(f"[CM] Accuracy at best thr: {best_acc*100:.2f}%")
+
+    # ---------- confusion matrix at that threshold ----------
+    preds = (sims >= best_thr).astype(np.int32)
+    labels_np = np.asarray(labels, dtype=np.int32)
+
+    # counts
+    tp = int(np.sum((preds == 1) & (labels_np == 1)))
+    tn = int(np.sum((preds == 0) & (labels_np == 0)))
+    fp = int(np.sum((preds == 1) & (labels_np == 0)))
+    fn = int(np.sum((preds == 0) & (labels_np == 1)))
+
+    total_pairs = tp + tn + fp + fn
+
+    # core metrics
+    accuracy = (tp + tn) / total_pairs if total_pairs > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # TPR
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    f1 = (
+        2.0 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
+
+    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
+    fpr = 1.0 - tnr
+    fnr = 1.0 - recall
+
+    total_pairs = len(labels)
+    tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # recall / sensitivity
+    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
+    fpr = 1.0 - tnr
+    fnr = 1.0 - tpr
+
+    print("\n[CM] Confusion Matrix (at best threshold)")
+    print("        Predicted 0   Predicted 1")
+    print(f"Actual 0    TN={tn:4d}       FP={fp:4d}")
+    print(f"Actual 1    FN={fn:4d}       TP={tp:4d}\n")
+
+    print(f"[CM] Accuracy  : {accuracy*100:.2f}%")
+    print(f"[CM] Precision : {precision*100:.2f}%")
+    print(f"[CM] Recall    : {recall*100:.2f}%")
+    print(f"[CM] F1-score  : {f1*100:.2f}%")
+    print(f"[CM] TNR (specificity) : {tnr*100:.2f}%")
+    print(f"[CM] FPR : {fpr*100:.2f}%")
+    print(f"[CM] FNR : {fnr*100:.2f}%")
+
+    # ---------- optional: plot and save confusion matrix ----------
+    try:
+        import matplotlib.pyplot as plt
+
+        cm = np.array([[tn, fp], [fn, tp]], dtype=np.int32)
+        fig, ax = plt.subplots(figsize=(4, 4))
+        im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
+        ax.figure.colorbar(im, ax=ax)
+
+        classes = ["Negative", "Positive"]
+        ax.set(
+            xticks=np.arange(cm.shape[1]),
+            yticks=np.arange(cm.shape[0]),
+            xticklabels=classes,
+            yticklabels=classes,
+            ylabel="Actual label",
+            xlabel="Predicted label",
+            title=f"Confusion Matrix – {model_name}",
+        )
+
+        # write numbers in cells
+        thresh = cm.max() / 2.0
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(
+                    j,
+                    i,
+                    f"{cm[i, j]}",
+                    ha="center",
+                    va="center",
+                    color="white" if cm[i, j] > thresh else "black",
+                )
+
+        fig.tight_layout()
+
+        exports_dir = os.path.join(os.path.dirname(__file__), "exports")
+        os.makedirs(exports_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        png_path = os.path.join(exports_dir, f"{model_name}_confusion_{ts}.png")
+        plt.savefig(png_path, dpi=150)
+        plt.close(fig)
+
+        print(f"[CM] Saved confusion matrix PNG to: {png_path}")
+    except Exception as e:
+        print(f"[CM] Warning: could not save confusion matrix figure ({e})")
+
+    
+    end_time = datetime.now()
+    elapsed_sec = (end_time - start_time).total_seconds()
+
+    # ---------- JSON summary ----------
+    result = {
+        "kind": "confusion_matrix",
+        "model": model_name,
+        "dataset": os.path.basename(dataset_path),
+        "pairs": int(total_pairs),
+        "threshold": float(best_thr),
+        # core confusion metrics
+        "accuracy": float(best_acc),
+        "tp": int(tp),
+        "tn": int(tn),
+        "fp": int(fp),
+        "fn": int(fn),
+        # rates
+        "tpr": float(tpr),
+        "tnr": float(tnr),
+        "fpr": float(fpr),
+        "fnr": float(fnr),
+        # extras the GUI expects
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+        "specificity": float(tnr),  # duplicate for readability
+        "far": float(fpr),  # GUI label
+        "frr": float(fnr),  # GUI label
+        # NEW timing fields (JSON only, GUI ignores them)
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+        "elapsed_sec": float(elapsed_sec),
+    }
+
+    print("\n[CM] JSON summary:")
+    print(json.dumps(result, indent=2))  # nice for CLI
+
+    # 👉 ONE-LINE JSON FOR THE GUI
+    print(json.dumps(result))
+
+    # save JSON next to ROC exports
+    exports_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(exports_dir, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    json_path = os.path.join(exports_dir, f"{model_name}_confusion_{ts}.json")
+    with open(json_path, "w") as f:
+        json.dump(result, f, indent=2)
+
+    print(f"[CM] Saved confusion JSON to: {json_path}")
+
+    return result
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--pairs", type=str, required=True)
+    parser.add_argument(
+        "--max_pairs",
+        type=int,
+        default=None,
+        help="(debug) limit number of pairs evaluated",
+    )
+    args = parser.parse_args()
+
+    run_confusion_protocol(
+        args.model,
+        args.dataset,
+        args.pairs,
+        max_pairs=args.max_pairs,
+    )
+
+
+
 # ==== .\benchmark_parameters\validation_accuracy\image\logic_confusion_matrix.py ====
 
 import os
@@ -2206,13 +2681,16 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
 
     wrapper = load_model(model_name)
 
+    # ✅ detect if this is ArcFace
+    is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
+
     # ensure correct LFW path
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
         dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
 
-    if start_identity == "__ALL__":
+    if start_identity == "__ALL__":  # all identities
         pairs = collect_pairs(dataset_path, start_identity=None, max_pairs=None)
-    else:
+    else:  # limited number of pairs starting from identity
         pairs = collect_pairs(dataset_path, start_identity, max_pairs=iters)
 
     sims = []
@@ -2227,39 +2705,51 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         )
         sys.stdout.flush()
 
-        USE_DETECTION = dataset_needs_alignment(dataset_path)
-
         a = cv2.imread(img1)
         b = cv2.imread(img2)
 
         error = False
+        emb1 = emb2 = None
 
         if a is None or b is None:
             error = True
         else:
-            if USE_DETECTION:
-                # ---- DETECT ----
-                faces_a = wrapper.detector.detect(a)
-                faces_b = wrapper.detector.detect(b)
-                if not faces_a or not faces_b:
+            if is_arcface:
+                # ✅ ArcFace: use the tested pipeline (detection + alignment inside)
+                try:
+                    emb1 = wrapper.get_embedding(img1)
+                    emb2 = wrapper.get_embedding(img2)
+                    if emb1 is None or emb2 is None:
+                        error = True
+                except Exception:
                     error = True
-                else:
-                    # ---- ALIGN ----
-                    aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-                    aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-                    if aligned_a is None or aligned_b is None:
+            else:
+                # ✅ Facenet / AdaFace: keep your existing logic
+                USE_DETECTION = dataset_needs_alignment(dataset_path)
+
+                if USE_DETECTION:
+                    # ---- DETECT ----
+                    faces_a = wrapper.detector.detect(a)
+                    faces_b = wrapper.detector.detect(b)
+                    if not faces_a or not faces_b:
                         error = True
                     else:
-                        emb1 = wrapper.embed(aligned_a)
-                        emb2 = wrapper.embed(aligned_b)
-                        if emb1 is None or emb2 is None:
+                        # ---- ALIGN ----
+                        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                        if aligned_a is None or aligned_b is None:
                             error = True
-            else:
-                # ✅ SKIP detection & alignment for aligned datasets like LFW-deepfunneled
-                emb1 = wrapper.embed(a)
-                emb2 = wrapper.embed(b)
-                if emb1 is None or emb2 is None:
-                    error = True
+                        else:
+                            emb1 = wrapper.embed(aligned_a)
+                            emb2 = wrapper.embed(aligned_b)
+                            if emb1 is None or emb2 is None:
+                                error = True
+                else:
+                    # aligned datasets (e.g. LFW-deepfunneled) – embed directly
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+                    if emb1 is None or emb2 is None:
+                        error = True
 
         if error:
             # Force error into FN/FP for ROC consistency
@@ -2273,6 +2763,7 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         sims.append(sim)
         labels.append(label)
 
+    # ---------- everything below this stays as you had it ----------
     sims = np.array(sims, dtype=np.float32)
     labels = np.array(labels, dtype=np.int32)
 
@@ -2293,7 +2784,6 @@ def run_roc(model_name, dataset_path, start_identity, iters=300):
         return
 
     fpr, tpr, thresholds = roc_curve(labels, sims)
-
     roc_auc = auc(fpr, tpr)
 
     # --- Best Threshold (Youden's J statistic) ---
@@ -2422,16 +2912,17 @@ if __name__ == "__main__":
 # ==== .\benchmark_parameters\validation_accuracy\image\roc_lfw_pairs.py ====
 
 import os
-import cv2
+import sys
 import json
+from datetime import datetime
+
+import cv2
 import numpy as np
 from sklearn.metrics import roc_curve, auc
 
-# ✅ Make project root importable
-import sys
-
+# make project root importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
-from connector import load_model
+from connector import load_model  # noqa: E402
 
 
 def cosine_similarity(a, b):
@@ -2443,22 +2934,37 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-def load_lfw_pairs(pairs_file, dataset_path):
+def dataset_needs_alignment(dataset_path: str) -> bool:
+    """
+    Return False for already-aligned datasets (e.g. LFW-deepfunneled),
+    True for "raw" datasets.
+    """
+    path = dataset_path.lower()
+    if "lfw" in path and "deepfunneled" in path:
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------
+# loader that also returns fold indices for each pair
+# ---------------------------------------------------------------------
+def load_lfw_pairs_with_folds(pairs_file, dataset_path):
     pairs = []
+    fold_ids = []
     with open(pairs_file, "r") as f:
         lines = f.read().strip().split("\n")
 
-    # first line example: "10 300"
-    _, pairs_per_fold = map(int, lines[0].split())
+    num_folds, pairs_per_fold = map(int, lines[0].split())
     idx = 1
 
-    for _ in range(10):  # 10 folds
+    for fold in range(num_folds):  # 0..9
         # positive pairs
         for _ in range(pairs_per_fold):
             name, n1, n2 = lines[idx].split()
             img1 = os.path.join(dataset_path, name, f"{name}_{int(n1):04d}.jpg")
             img2 = os.path.join(dataset_path, name, f"{name}_{int(n2):04d}.jpg")
             pairs.append((img1, img2, 1))
+            fold_ids.append(fold)
             idx += 1
 
         # negative pairs
@@ -2467,74 +2973,272 @@ def load_lfw_pairs(pairs_file, dataset_path):
             img1 = os.path.join(dataset_path, name1, f"{name1}_{int(n1):04d}.jpg")
             img2 = os.path.join(dataset_path, name2, f"{name2}_{int(n2):04d}.jpg")
             pairs.append((img1, img2, 0))
+            fold_ids.append(fold)
             idx += 1
 
-    return pairs
+    return pairs, np.array(fold_ids, dtype=np.int32)
 
 
-def run_lfw_protocol(model_name, dataset_path, pairs_file):
+# ---------------------------------------------------------------------
+# 10-fold LFW accuracy (threshold per fold)
+# ---------------------------------------------------------------------
+def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
+    """
+    Official-style 10-fold evaluation:
+      For each fold k:
+        - train on folds != k → find best threshold (max accuracy)
+        - evaluate on fold k with that threshold
+    Returns:
+      thresholds_per_fold, accuracies_per_fold, mean_acc, std_acc
+    """
+    num_folds = int(fold_ids.max()) + 1
+    thresholds = []
+    accuracies = []
+
+    for k in range(num_folds):
+        train_mask = fold_ids != k
+        test_mask = fold_ids == k
+
+        sims_train = sims[train_mask]
+        labels_train = labels[train_mask]
+        sims_test = sims[test_mask]
+        labels_test = labels[test_mask]
+
+        # candidate thresholds = unique scores on training folds
+        cand_thr = np.unique(sims_train)
+
+        best_thr = None
+        best_acc = -1.0
+
+        for t in cand_thr:
+            preds = (sims_train >= t).astype(np.int32)
+            acc = np.mean(preds == labels_train)
+            if acc > best_acc:
+                best_acc = acc
+                best_thr = t
+
+        # evaluate on held-out fold
+        test_preds = (sims_test >= best_thr).astype(np.int32)
+        test_acc = np.mean(test_preds == labels_test)
+
+        thresholds.append(float(best_thr))
+        accuracies.append(float(test_acc))
+
+        print(f"[Fold {k+1:02d}] thr={best_thr:.4f}, acc={test_acc*100:.2f}%")
+
+    thresholds = np.array(thresholds, dtype=np.float32)
+    accuracies = np.array(accuracies, dtype=np.float32)
+    mean_acc = float(np.mean(accuracies))
+    std_acc = float(np.std(accuracies))
+
+    print(
+        f"\nLFW 10-fold accuracy: {mean_acc*100:.4f}% ± {std_acc*100:.4f}% "
+        f"(mean ± std over {num_folds} folds)"
+    )
+
+    return thresholds, accuracies, mean_acc, std_acc
+
+
+# ---------------------------------------------------------------------
+# MAIN PROTOCOL
+# ---------------------------------------------------------------------
+def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
+    # if user passed parent LFW folder, go into lfw-deepfunneled
+    if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
+        dataset_path = os.path.join(dataset_path, "lfw-deepfunneled")
+
+    print(f"[LFW] Model   : {model_name}")
+    print(f"[LFW] Dataset : {dataset_path}")
+    print(f"[LFW] Pairs   : {pairs_file}")
+
     wrapper = load_model(model_name)
-    pairs = load_lfw_pairs(pairs_file, dataset_path)
+    model_name_lower = getattr(wrapper, "name", "").lower()
+    is_arcface = model_name_lower == "arcface"
+    is_adaface = model_name_lower == "adaface"
+
+    pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
+
+    # optional speed-up for debugging
+    if max_pairs is not None and max_pairs < len(pairs):
+        pairs = pairs[:max_pairs]
+        fold_ids = fold_ids[:max_pairs]
+        print(f"[LFW] DEBUG: restricting to first {max_pairs} pairs")
 
     sims = []
     labels = []
 
     total = len(pairs)
+    use_detection = dataset_needs_alignment(dataset_path)
+
+    # only non-ArcFace, non-AdaFace models may use embed_aligned
+    use_aligned = (
+        (not use_detection)
+        and (not is_arcface)
+        and (not is_adaface)
+        and hasattr(wrapper, "embed_aligned")
+    )
+
     for i, (img1, img2, label) in enumerate(pairs, start=1):
-
-        # ---- LIVE TERMINAL LOG ----
-        if i % 50 == 0 or i == 1:
+        if i == 1 or i % 200 == 0 or i == total:
             print(f"[LFW] Pair {i}/{total} ({(i/total)*100:.1f}%)")
-
-        # (optional) GUI progress events, only if you already use GUI messaging elsewhere
-        # sys.stdout.write(json.dumps({"_type": "progress", "progress": i, "total": total}) + "\n")
-        # sys.stdout.flush()
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
+
         error = False
+        emb1 = emb2 = None
 
         if a is None or b is None:
             error = True
         else:
-            fa = wrapper.detector.detect(a)
-            fb = wrapper.detector.detect(b)
-            if not fa or not fb:
-                error = True
-            else:
-                a = wrapper.detector.align_for(a, fa[0]["kps"])
-                b = wrapper.detector.align_for(b, fb[0]["kps"])
-                if a is None or b is None:
-                    error = True
-                else:
-                    e1 = wrapper.embed(a)
-                    e2 = wrapper.embed(b)
-                    if e1 is None or e2 is None:
+            try:
+                if is_arcface:
+                    # ArcFace: tested path using internal detection/alignment
+                    emb1 = wrapper.get_embedding(img1)
+                    emb2 = wrapper.get_embedding(img2)
+
+                elif is_adaface:
+                    # AdaFace: its own embed() expects an aligned crop.
+                    # For LFW-deepfunneled we can treat the full image as a crop.
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+
+                elif use_aligned:
+                    # Other models that have embed_aligned on aligned datasets
+                    emb1 = wrapper.embed_aligned(a)
+                    emb2 = wrapper.embed_aligned(b)
+
+                elif use_detection:
+                    # Facenet / others on non-aligned datasets
+                    faces_a = wrapper.detector.detect(a)
+                    faces_b = wrapper.detector.detect(b)
+                    if not faces_a or not faces_b:
                         error = True
+                    else:
+                        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+                        if aligned_a is None or aligned_b is None:
+                            error = True
+                        else:
+                            emb1 = wrapper.embed(aligned_a)
+                            emb2 = wrapper.embed(aligned_b)
+                else:
+                    # Fallback: already-aligned dataset, generic embed
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+
+            except Exception:
+                error = True
+
+        if emb1 is None or emb2 is None:
+            error = True
 
         if error:
+            # worst-case scores so they are misclassified for any thr in [0,1]
             sim = -1.0 if label == 1 else 2.0
         else:
-            sim = cosine_similarity(e1, e2)
+            sim = cosine_similarity(emb1, emb2)
 
         sims.append(sim)
         labels.append(label)
 
-    sims = np.array(sims)
-    labels = np.array(labels)
+    sims = np.array(sims, dtype=np.float32)
+    labels = np.array(labels, dtype=np.int32)
+    fold_ids = np.array(fold_ids, dtype=np.int32)
 
-    fpr, tpr, _ = roc_curve(labels, sims)
+    # ---------- 10-fold accuracy ----------
+    thresholds, accs, mean_acc, std_acc = compute_lfw_10fold_accuracy(
+        sims, labels, fold_ids
+    )
+
+    # ---------- global ROC / AUC / EER ----------
+    fpr, tpr, roc_thresholds = roc_curve(labels, sims)
     roc_auc = auc(fpr, tpr)
 
-    # ---- Compute EER ----
-    fnr = 1 - tpr
-    eer_index = np.nanargmin(np.abs(fnr - fpr))
-    eer = (fpr[eer_index] + fnr[eer_index]) / 2.0
+    fnr = 1.0 - tpr
+    eer_idx = np.nanargmin(np.abs(fpr - fnr))
+    eer = 0.5 * (fpr[eer_idx] + fnr[eer_idx])
 
-    print(f"LFW Official Protocol AUC: {roc_auc:.4f}")
-    print(f"EER: {eer:.4f}")
+    print(f"\nGlobal ROC AUC (all pairs): {roc_auc:.4f}")
+    print(f"Global EER               : {eer*100:.2f}%")
 
-    return roc_auc
+    # ---------- JSON + PNG EXPORTS ----------
+    exports_dir = os.path.join(os.path.dirname(__file__), "exports")
+    os.makedirs(exports_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base_name = f"{model_name_lower}_roc_{timestamp}"
+
+    # JSON summary (metrics + ROC points)
+    roc_json = {
+        "kind": "lfw_10fold_roc",
+        "model": model_name,
+        "dataset": os.path.basename(dataset_path),
+        "pairs": int(len(labels)),
+        "mean_accuracy": float(mean_acc),
+        "std_accuracy": float(std_acc),
+        "per_fold_accuracy": [float(a) for a in accs],
+        "per_fold_threshold": [float(t) for t in thresholds],
+        "auc": float(roc_auc),
+        "eer": float(eer),
+        "roc_fpr": [float(x) for x in fpr],
+        "roc_tpr": [float(x) for x in tpr],
+        "roc_thresholds": [float(x) for x in roc_thresholds],
+    }
+
+    json_path = os.path.join(exports_dir, base_name + ".json")
+    with open(json_path, "w") as f:
+        json.dump(roc_json, f, indent=2)
+    print(f"[ROC] Saved ROC JSON to: {json_path}")
+
+    # PNG ROC curve
+    try:
+        import matplotlib.pyplot as plt
+
+        plt.figure()
+        plt.plot(fpr, tpr, label=f"{model_name} (AUC={roc_auc:.4f})")
+        plt.plot([0, 1], [0, 1], linestyle="--")  # diagonal
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title(f"ROC Curve - {model_name} on LFW")
+        plt.legend(loc="lower right")
+        plt.grid(True)
+
+        png_path = os.path.join(exports_dir, base_name + ".png")
+        plt.savefig(png_path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"[ROC] Saved ROC PNG to: {png_path}")
+
+        # Send signal to GUI to display the ROC image ===
+        print(
+            json.dumps(
+                {
+                    "kind": "roc_image",
+                    "path": png_path,
+                    "model": model_name,
+                    "dataset": os.path.basename(dataset_path),
+                    "auc": float(roc_auc),
+                    "eer": float(eer),
+                    "pairs_tested": int(len(labels)),
+                }
+            )
+        )
+
+    except Exception as e:
+        print(f"[ROC] WARNING: could not save ROC PNG ({e})")
+
+    # ---------- print SHORT JSON summary to console ----------
+    print("\n[LFW] JSON summary (no ROC arrays):")
+
+    pretty_json = {
+        k: v
+        for k, v in roc_json.items()
+        if not k.startswith("roc_")  # hide roc_fpr / roc_tpr / roc_thresholds
+    }
+
+    print(json.dumps(pretty_json, indent=2))
+
+    return roc_json
 
 
 if __name__ == "__main__":
@@ -2544,9 +3248,15 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--pairs", type=str, required=True)
+    parser.add_argument(
+        "--max_pairs",
+        type=int,
+        default=None,
+        help="(debug) limit number of pairs evaluated",
+    )
     args = parser.parse_args()
 
-    run_lfw_protocol(args.model, args.dataset, args.pairs)
+    run_lfw_protocol(args.model, args.dataset, args.pairs, max_pairs=args.max_pairs)
 
 
 
@@ -3953,6 +4663,8 @@ if __name__ == "__main__":
 
 # ==== .\models\wrap_adaface.py ====
 
+# models/wrap_adaface.py
+
 import os, sys
 
 # ✅ Make external/adaface_repo importable
@@ -3970,17 +4682,20 @@ from adaface_repo.net import IR_50
 class AdaFaceWrapper:
     name = "adaface"
 
-    def __init__(self, device="cpu", input_size=(112, 112)):
+    def __init__(self, device: str = "cpu", input_size=(112, 112)):
+        """
+        device: "cpu" or "cuda:0" etc.
+        input_size: backbone input resolution (H, W).
+        """
         self.device = device
-        self.input_size = tuple(input_size)
+        self.input_size = tuple(map(int, input_size))
 
         ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         model_path = os.path.join(
             ROOT, "external", "adaface_repo", "adaface_ir50_ms1mv2", "model.pt"
         )
 
-        # ✅ Correct backbone load
-        # ✅ Correct backbone load
+        # ✅ Backbone
         self.model = IR_50(self.input_size)
 
         ckpt = torch.load(model_path, map_location=device)
@@ -3992,53 +4707,106 @@ class AdaFaceWrapper:
         # Remove "net." prefix if exists in keys
         new_state = {}
         for k, v in ckpt.items():
-            new_key = k.replace("net.", "")  # strip prefix
+            new_key = k.replace("net.", "")
             new_state[new_key] = v
 
         self.model.load_state_dict(new_state, strict=False)
         self.model.to(device)
         self.model.eval()
 
-        # Will be overwritten by connector (shared), but safe fallback
+        # ✅ Shared detector/aligner (used by the framework & ROC/LFW script)
         self.detector = FaceDetectorAligner(device=device)
 
-    def embed(self, img_bgr: np.ndarray) -> np.ndarray:
-        # ---------- Detect & Align (system-compatible) ----------
-        faces = self.detector.get(img_bgr, out_size=self.input_size)
+    # ---------- core: embedding for an aligned face crop ----------
+    def _forward_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
+        """
+        Internal helper: assumes img_bgr is a *face crop* (already roughly aligned).
+        Resizes to self.input_size, preprocesses, runs backbone, L2-normalizes.
+        """
+        if img_bgr is None:
+            return None
 
-        if len(faces) == 0:
-            img = cv2.resize(img_bgr, self.input_size)
-        else:
-            img = faces[0]  # Already aligned
+        # Resize to backbone input size
+        img = cv2.resize(img_bgr, self.input_size, interpolation=cv2.INTER_AREA)
 
-        # ---------- Preprocess ----------
+        # BGR -> RGB, float32, AdaFace normalization
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
         img = (img - 127.5) / 128.0
-        img = img.transpose(2, 0, 1)[None, :]
+        img = img.transpose(2, 0, 1)[None, :]  # (1, C, H, W)
         img = torch.from_numpy(img).float().to(self.device)
 
-        # ---------- Forward ----------
+        # Forward
         with torch.no_grad():
             emb = self.model(img)[0]
 
-        # ---------- Normalize ----------
+        # L2-normalize
         emb = emb / emb.norm(p=2)
 
         return emb.cpu().numpy().astype(np.float32)
+
+    # ---------- LFW-style: already aligned crop ----------
+    def embed_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
+        """
+        Embedding for an *already cropped + aligned* face (e.g. LFW-deepfunneled).
+        No detection is performed here.
+        """
+        return self._forward_aligned(img_bgr)
+
+    # ---------- framework: embed(aligned_crop) ----------
+    def embed(self, img_bgr: np.ndarray) -> np.ndarray:
+        """
+        Generic embedding method expected by the rest of your framework.
+        Assumes the input is already a face crop (often aligned by FaceDetectorAligner).
+        """
+        return self._forward_aligned(img_bgr)
+
+    # ---------- convenience: detect + align + embed ----------
+    def detect_and_embed(self, frame: np.ndarray):
+        """
+        Detect faces in a full frame, align them with FaceDetectorAligner,
+        then embed each face.
+
+        Useful for camera / non-benchmark scripts.
+        """
+        faces = self.detector.detect(frame)
+        results = []
+
+        for f in faces:
+            kps = f.get("kps", None)
+            if kps is None:
+                continue
+
+            aligned = self.detector.align_for(frame, kps)
+            if aligned is None:
+                continue
+
+            emb = self.embed(aligned)
+            if emb is None:
+                continue
+
+            results.append(
+                {
+                    "bbox": f["bbox"],
+                    "kps": kps,
+                    "embedding": emb,
+                }
+            )
+
+        return results
 
 
 
 # ==== .\models\wrap_arcface.py ====
 
+import os
 import numpy as np
 import cv2
-import os  # ADDED: for env toggles
 from insightface.app import FaceAnalysis
 
 
 class ArcFaceWrapper:
     """
-    ArcFace wrapper using insightface buffalo_l package models.
+    ArcFace wrapper using insightface buffalo_l models.
     """
 
     name = "arcface"
@@ -4047,64 +4815,92 @@ class ArcFaceWrapper:
         self.device = device
         self.input_size = tuple(input_size)
 
-        # Keep FaceAnalysis for detection paths (camera, etc.)
         ctx_id = 0 if device == "cuda" else -1
-        self.detector = FaceAnalysis(  # CHANGED: allow recognition too
-            name="buffalo_l", allowed_modules=["detection", "recognition"]  # ADDED
-        )
-        self.detector.prepare(ctx_id=ctx_id, det_size=(640, 640))
 
-        # ADDED: optional env toggles (do not break existing code)
-        # FORCE_EMBED_ONLY=1 -> embed() only (no detection). detect_and_embed() unchanged.
-        # FORCE_DETECT=1     -> (not used here; kept for future symmetry)
+        # keep same object but expose it as both app and detector
+        self.app = FaceAnalysis(
+            name="buffalo_l",
+            allowed_modules=["detection", "recognition"],
+        )
+        self.app.prepare(ctx_id=ctx_id, det_size=(640, 640))
+
+        # 👈 this makes old code that uses wrapper.detector still work
+        self.detector = self.app
+
+        # optional env toggle from your older code (no harm keeping it)
         self._force_embed_only = os.getenv("FORCE_EMBED_ONLY", "0") == "1"
 
-        # ADDED: try to get recognition model to embed aligned crops directly
+        # grab recognition model
         self._rec = None
-        try:
-            models = getattr(self.detector, "models", None)
-            if isinstance(models, dict):
-                self._rec = models.get("recognition", None)
-            if self._rec is None and hasattr(self.detector, "model_zoo"):
-                for m in getattr(self.detector, "model_zoo", []):
-                    if getattr(m, "taskname", "") == "recognition":
-                        self._rec = m
-                        break
-        except Exception:
-            self._rec = None
+        models = getattr(self.app, "models", None)
+        if isinstance(models, dict):
+            self._rec = models.get("recognition", None)
 
-        # ADDED: determine recognition input size (fallback to 112x112)
+        # determine recognition input size (fallback to 112x112)
         self._rec_input = self.input_size
-        try:
+        if self._rec is not None:
             ishape = getattr(self._rec, "input_size", None)
             if isinstance(ishape, (tuple, list)) and len(ishape) == 2:
                 self._rec_input = (int(ishape[0]), int(ishape[1]))
-        except Exception:
-            pass
 
-    # --------- unchanged public API for camera etc. ----------
+    # ---------- NEW: embedding for LFW-style aligned faces ----------
+    def embed_aligned(self, bgr: np.ndarray) -> np.ndarray:
+        """
+        Embedding for an already cropped + aligned face (e.g. LFW-deepfunneled).
+        This avoids running detection.
+        """
+        if bgr is None:
+            return None
+
+        if self._rec is None:
+            # fall back to generic embed (which may use detection)
+            return self.embed(bgr)
+
+        W, H = self._rec_input
+        face = cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA)
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+
+        if hasattr(self._rec, "get"):
+            emb = self._rec.get(face)
+        elif hasattr(self._rec, "get_feat"):
+            emb = self._rec.get_feat(face)
+        elif hasattr(self._rec, "forward"):
+            emb = self._rec.forward(face)
+        else:
+            emb = None
+
+        if emb is None:
+            return None
+
+        return np.asarray(emb, dtype=np.float32).reshape(-1)
+
+    # ------- detection + embedding (for camera / misc) ----------
     def detect_and_embed(self, frame: np.ndarray):
-        faces = self.detector.get(frame)
+        faces = self.app.get(frame)
         results = []
         for f in faces:
-            if getattr(f, "embedding", None) is None:
+            emb = getattr(f, "embedding", None)
+            if emb is None:
                 continue
             results.append(
                 {
                     "bbox": f.bbox.astype(int),
                     "kps": f.kps.astype(float),
-                    "embedding": f.embedding.astype(np.float32),
+                    "embedding": emb.astype(np.float32),
                 }
             )
         return results
 
-    # ---------- embedding-only on already aligned/cropped face ----------
+    # ------- generic embed (kept for backwards compatibility) ----------
     def embed(self, bgr: np.ndarray) -> np.ndarray:
         """
-        Return embedding from an ALREADY aligned + cropped face.
-        No detection is run here (fast & low-variance).
+        Embedding for a face crop. Uses the recognition backbone when possible,
+        otherwise falls back to detection.
         """
-        # ADDED: try direct recognition model call
+        if bgr is None:
+            return None
+
+        # try direct recognition first
         if self._rec is not None:
             try:
                 W, H = self._rec_input
@@ -4120,37 +4916,31 @@ class ArcFaceWrapper:
                 else:
                     emb = None
 
-                if emb is None:
-                    return None
-                return np.asarray(emb, dtype=np.float32).reshape(-1)
+                if emb is not None:
+                    return np.asarray(emb, dtype=np.float32).reshape(-1)
             except Exception:
-                # fall back below
+                # fall through to detector
                 pass
 
-        # CHANGED: final fallback — use detector only if direct recognition path failed
-        faces = self.detector.get(bgr)
+        # fallback: run detector and use first face embedding
+        faces = self.app.get(bgr)
         if len(faces) > 0 and getattr(faces[0], "embedding", None) is not None:
             return faces[0].embedding.astype(np.float32)
         return None
 
+    # ------- convenience for path-based tests ----------
     def get_embedding(self, img_path: str) -> np.ndarray:
-        frame = cv2.imread(img_path)
-        if frame is None:
-            raise ValueError(f"[ArcFace] Could not read image: {img_path}")
+        img = cv2.imread(img_path)
+        if img is None:
+            return None
 
-        # keep existing behavior (detection) for convenience callers
-        faces = self.detect_and_embed(frame)
+        # for generic tests we keep old behaviour: detect + embed
+        faces = self.detect_and_embed(img)
         if faces:
             return faces[0]["embedding"]
 
-        # fallback: center crop then embed (assumes the crop is a face)
-        h, w = frame.shape[:2]
-        min_dim = min(h, w)
-        crop = frame[
-            (h - min_dim) // 2 : (h + min_dim) // 2,
-            (w - min_dim) // 2 : (w + min_dim) // 2,
-        ]
-        return self.embed(crop)
+        # fallback: treat whole image as a face crop
+        return self.embed(img)
 
 
 
@@ -4308,6 +5098,7 @@ class FaceDetectorAligner:
 
 # models/wrap_facenet.py
 
+import os
 import torch
 import numpy as np
 import cv2
@@ -4321,29 +5112,34 @@ class FaceNetWrapper:
     name = "facenet"
 
     def __init__(self, device=None, input_size=(160, 160)):
+        # device: "cpu" / "cuda"
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
         self.input_size = tuple(map(int, input_size))
         self._embed_wh = (self.input_size[0], self.input_size[1])
 
-        # ✅ Load pretrained FaceNet weights (L2-normalized embedding output)
+        # ✅ Pretrained FaceNet (VGGFace2)
         self.model = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
 
-        # ✅ Use your universal aligner
+        # ✅ Universal detector / aligner
         self.aligner = FaceDetectorAligner(device=self.device.type)
 
+        # ✅ For framework compatibility (like AdaFace / ArcFace)
+        self.detector = self.aligner
+
+    # ---------- internal: forward on an aligned face crop ----------
     @torch.no_grad()
-    def embed(self, img):
+    def _forward_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
         """
-        img: must be (H, W, 3) BGR aligned face
-        returns 512-D embedding (float32, normalized)
+        Assumes img_bgr is already a face crop (aligned or roughly centered).
+        Resizes, normalizes, runs FaceNet, and L2-normalizes the embedding.
         """
-        if img is None:
-            raise ValueError("embed() called with None image")
+        if img_bgr is None:
+            return None
 
         # Resize and convert to RGB
-        img = cv2.resize(img, self._embed_wh, interpolation=cv2.INTER_AREA)
+        img = cv2.resize(img_bgr, self._embed_wh, interpolation=cv2.INTER_AREA)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = img.astype("float32") / 255.0
 
@@ -4355,9 +5151,25 @@ class FaceNetWrapper:
 
         return emb.cpu().numpy().flatten().astype(np.float32)
 
-    def detect_and_embed(self, frame):
+    # ---------- for LFW / aligned datasets ----------
+    def embed_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
         """
-        Detect faces → align using detected keypoints → embed
+        Embedding for *already cropped + aligned* faces (e.g. LFW-deepfunneled).
+        No detection performed here.
+        """
+        return self._forward_aligned(img_bgr)
+
+    # ---------- generic embed (framework expects this) ----------
+    def embed(self, img_bgr: np.ndarray) -> np.ndarray:
+        """
+        Embedding for a face crop (usually aligned by FaceDetectorAligner).
+        """
+        return self._forward_aligned(img_bgr)
+
+    # ---------- detect → align → embed (for raw images, camera, etc.) ----------
+    def detect_and_embed(self, frame: np.ndarray):
+        """
+        Detect faces in a full frame, align them, and return embeddings.
         """
         faces = self.aligner.detect(frame)
         results: List[Dict] = []
@@ -4371,6 +5183,9 @@ class FaceNetWrapper:
                 continue
 
             emb = self.embed(crop)
+            if emb is None:
+                continue
+
             results.append(
                 {
                     "bbox": f["bbox"],
@@ -4953,7 +5768,7 @@ class RunnerThread(QThread):
         model_name,
         dataset_path=None,
         test_image=None,
-        iters=50,
+        iters=None,
         extra_args=None,
     ):
         super().__init__()
@@ -4968,18 +5783,19 @@ class RunnerThread(QThread):
         try:
             cmd = [
                 sys.executable,
-                "-u",  # <--- add this for unbuffered stdout/stderr
+                "-u",
                 self.file_path,
                 "--model",
                 self.model_name,
-                "--iters",
-                str(self.iters),
             ]
+
+            # only scripts that expect it get --iters
+            if self.iters is not None:
+                cmd.extend(["--iters", str(self.iters)])
 
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # append any extra CLI arguments (e.g., --start-person, --pos-ratio)
             if self.extra_args:
                 cmd.extend(self.extra_args)
 
@@ -4988,8 +5804,8 @@ class RunnerThread(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                encoding="utf-8",  # ✅ force UTF-8 decoding
-                errors="replace",  # ✅ avoid crash on unsupported chars
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             )
 
@@ -5181,7 +5997,7 @@ class BenchmarkPage(QWidget):
             return
 
         dataset_lower = (self.dataset_path or "").lower()
-        iters = 0
+        iters = None
         extra_args = []
 
         # --- Detect dataset type ---
@@ -5268,11 +6084,10 @@ class BenchmarkPage(QWidget):
 
         # --- Image datasets (LFW etc.) ---
         elif is_image_dataset:
+            base_name = os.path.basename(file_path).lower()
+
             # Allow Latency & Accuracy, but block FPS (but don't block latency scripts)
-            if (
-                "fps" in os.path.basename(file_path).lower()
-                and "latency" not in os.path.basename(file_path).lower()
-            ):
+            if "fps" in base_name and "latency" not in base_name:
                 QMessageBox.warning(
                     self,
                     "FPS Unsupported",
@@ -5284,9 +6099,27 @@ class BenchmarkPage(QWidget):
             if os.path.isdir(os.path.join(self.dataset_path, "lfw-deepfunneled")):
                 self.dataset_path = os.path.join(self.dataset_path, "lfw-deepfunneled")
 
-            # For validation accuracy, skip person selection — script handles pairs internally
-            if "validation_accuracy" in os.path.basename(file_path).lower():
+            # ---------- SPECIAL CASE: LFW pair protocols (ROC + Confusion) ----------
+            if "roc_lfw_pairs" in base_name or "confusion_lfw_pairs" in base_name:
+                # Use all pairs from pairs.txt. No dialogs needed.
+                lfw_root = self.dataset_path
+                if os.path.basename(lfw_root).lower() == "lfw-deepfunneled":
+                    lfw_root = os.path.dirname(lfw_root)
 
+                pairs_file = os.path.join(lfw_root, "pairs.txt")
+                if not os.path.isfile(pairs_file):
+                    QMessageBox.warning(
+                        self,
+                        "pairs.txt not found",
+                        f"Could not find pairs.txt next to the LFW folder:\n{pairs_file}",
+                    )
+                    return
+
+                # These scripts don't accept --iters, so leave iters as None.
+                extra_args = ["--pairs", pairs_file]
+
+            # ---------- Generic image VALIDATION ACCURACY (logic_roc_graph / confusion) ----------
+            elif "validation_accuracy" in base_name:
                 # Step 1: Ask how many pairs to test
                 num_pairs, ok = QInputDialog.getInt(
                     self,
@@ -5300,7 +6133,7 @@ class BenchmarkPage(QWidget):
                 if not ok:
                     return
 
-                # ✅ Step 3: Ask which metric to run
+                # Step 2: Ask which metric to run
                 dlg_metric = SelectMetricDialog(self)
                 if dlg_metric.exec_() != QDialog.Accepted:
                     return
@@ -5320,8 +6153,6 @@ class BenchmarkPage(QWidget):
                         "logic_confusion_matrix.py",
                     )
 
-                # extra_args stays [] for VA
-
                 ds_for_dialog = self.dataset_path
                 if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
                     ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
@@ -5333,17 +6164,16 @@ class BenchmarkPage(QWidget):
 
                 if dlg.selected_subjects[0] == "__ALL__":
                     start_person = "__ALL__"
-                    iters = -1  # ✅ tell script to process ALL pairs
+                    iters = -1  # tell script to process ALL pairs
                 else:
                     start_person = dlg.selected_subjects[0]
-                    iters = num_pairs  # ✅ normal limited mode
+                    iters = num_pairs  # limited mode
 
                 extra_args = ["--start", start_person]
-
-                # pass for ROC / Confusion scripts
                 os.environ["LFW_START_PERSON"] = start_person
                 os.environ["POS_RATIO"] = "0.5"
 
+            # ---------- Latency / inference on image datasets ----------
             else:
                 # Show person-selection dialog for latency, inference etc.
                 people = sorted(
@@ -5446,7 +6276,7 @@ class BenchmarkPage(QWidget):
                 if data.get("progress") == 1:
                     progress.reset()
 
-                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)" + run_str)
+                progress.setFormat(f"Processing {cur}/{tot} items ({pct}%)" + run_str)
 
             except Exception as e:
                 print(f"[WARN] Progress parse failed: {e} | data={data}")
@@ -5488,7 +6318,14 @@ class BenchmarkPage(QWidget):
 
             fig.clear()
             ax = fig.add_subplot(111)
-            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
+            # rows = Actual POS/NEG, cols = Pred POS/NEG
+            cm = np.array(
+                [
+                    [tp, fn],  # Actual POS → Pred POS / Pred NEG
+                    [fp, tn],  # Actual NEG → Pred POS / Pred NEG
+                ],
+                dtype=float,
+            )
             im = ax.imshow(cm, cmap="Blues")
 
             ax.set_xticks([0, 1])
