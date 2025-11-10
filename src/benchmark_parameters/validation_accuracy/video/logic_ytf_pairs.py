@@ -25,47 +25,17 @@ except ImportError:
     )
 
 
-def get_video_embedding(wrapper, video_dir: str, max_frames: int = 20):
+def load_precomputed_embs(npz_path: str):
     """
-    Aggregate one embedding per video by averaging embeddings
-    over up to `max_frames` frames.
+    Load precomputed YTF video embeddings from npz.
+
+    Returns a dict:
+        { "Person_X/1": embedding_vector, ... }
     """
-    if not os.path.isdir(video_dir):
-        return None
-
-    frame_files = sorted(
-        f
-        for f in os.listdir(video_dir)
-        if f.lower().endswith((".jpg", ".jpeg", ".png"))
-    )
-    if not frame_files:
-        return None
-
-    frame_files = frame_files[:max_frames]
-
-    embs = []
-    for fname in frame_files:
-        img_path = os.path.join(video_dir, fname)
-        img = cv2.imread(img_path)
-        if img is None:
-            continue
-
-        faces = wrapper.detector.detect(img)
-        if not faces:
-            continue
-
-        aligned = wrapper.detector.align_for(img, faces[0]["kps"])
-        if aligned is None:
-            continue
-
-        emb = wrapper.embed(aligned)
-        if emb is not None:
-            embs.append(emb)
-
-    if not embs:
-        return None
-
-    return np.mean(embs, axis=0)
+    data = np.load(npz_path)
+    names = data["names"]  # array of strings
+    embs = data["embs"]  # array (N, D)
+    return {str(n): e for n, e in zip(names, embs)}
 
 
 def load_ytf_meta(meta_path: str):
@@ -79,28 +49,20 @@ def load_ytf_meta(meta_path: str):
 
 
 def compute_ytf_pairs(
-    wrapper,
-    dataset_path: str,
+    video_embs: dict,
     video_names,
     splits,
     fold_idx: int,
-    max_frames_per_video: int = 100,
 ):
     """
-    Compute similarities for the official YTF 500 video pairs in one fold.
+    Compute similarities for the official YTF 500 video pairs in one fold,
+    using *precomputed* embeddings.
 
-    wrapper: loaded model (from connector.load_model)
-    dataset_path: path to your YTF root (e.g. C:\\programming\\Datasets\\YTF)
+    video_embs: dict { "Person/clip": embedding_vector }
     video_names: array from meta["video_names"]
     splits: array from meta["Splits"]
     fold_idx: which fold to use (0..9)
-    max_frames_per_video: how many frames to sample per video directory
     """
-    # normalize root so it works with both layouts:
-    #   root/person/video/frame.jpg
-    #   root/aligned_images_DB/person/video/frame.jpg
-    root = _resolve_video_root(dataset_path)
-
     fold = splits[:, :, fold_idx]  # shape (500, 3)
     scores = []
     labels = []
@@ -109,20 +71,16 @@ def compute_ytf_pairs(
     for idx1, idx2, is_same in tqdm(fold, desc=f"[YTF] Fold {fold_idx}"):
         idx1 = int(idx1) - 1  # meta is 1-based
         idx2 = int(idx2) - 1
+        label = int(is_same)
 
         # video_names entries look like "Sadie_Frost/1"
-        video_rel1 = video_names[idx1]
-        video_rel2 = video_names[idx2]
+        video_key1 = str(video_names[idx1])
+        video_key2 = str(video_names[idx2])
 
-        video_dir1 = os.path.join(root, video_rel1)
-        video_dir2 = os.path.join(root, video_rel2)
+        emb1 = video_embs.get(video_key1)
+        emb2 = video_embs.get(video_key2)
 
-        emb1 = get_video_embedding(wrapper, video_dir1, max_frames_per_video)
-        emb2 = get_video_embedding(wrapper, video_dir2, max_frames_per_video)
-
-        label = int(is_same)
         labels.append(label)
-
         error = (emb1 is None) or (emb2 is None)
 
         if error:
@@ -135,8 +93,8 @@ def compute_ytf_pairs(
 
         pair_records.append(
             {
-                "video1": str(video_rel1),
-                "video2": str(video_rel2),
+                "video1": video_key1,
+                "video2": video_key2,
                 "label": "same" if label == 1 else "diff",
                 "similarity": float(score),
                 "error": bool(error),
@@ -150,9 +108,15 @@ def compute_ytf_pairs(
     )
 
 
-def export_ytf_pairs(model_name: str, ytf_root: str, meta_path: str, fold: int | None):
+def export_ytf_pairs(
+    model_name: str,
+    ytf_root: str,
+    meta_path: str,
+    embs_path: str,
+    fold: int | None,
+):
     """
-    Export YTF pairs for one fold or all folds.
+    Export YTF pairs for one fold or all folds, using precomputed embeddings.
 
     Saves:
       - <model>_ytf_foldX_<timestamp>_scores.npy
@@ -162,9 +126,11 @@ def export_ytf_pairs(model_name: str, ytf_root: str, meta_path: str, fold: int |
     print(f"[YTF] Model:   {model_name}")
     print(f"[YTF] Dataset: {ytf_root}")
     print(f"[YTF] Meta:    {meta_path}")
+    print(f"[YTF] Embs:    {embs_path}")
 
-    wrapper = load_model(model_name)
+    # we no longer need load_model() here – embeddings are precomputed
     video_names, splits = load_ytf_meta(meta_path)
+    video_embs = load_precomputed_embs(embs_path)
 
     n_folds = splits.shape[2]
 
@@ -182,12 +148,10 @@ def export_ytf_pairs(model_name: str, ytf_root: str, meta_path: str, fold: int |
     for f_idx in fold_list:
         print(f"\n[YTF] ==== Fold {f_idx} ====")
         scores, labels, pair_records = compute_ytf_pairs(
-            wrapper,
-            ytf_root,
+            video_embs,
             video_names,
             splits,
             fold_idx=f_idx,
-            max_frames_per_video=100,
         )
 
         fold_tag = f"fold{f_idx}"
@@ -222,6 +186,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", required=True)
     parser.add_argument("--dataset", required=True, help="Path to YTF root")
     parser.add_argument("--meta", required=True, help="Path to meta_and_splits.mat")
+    parser.add_argument("--embs", required=True, help="Path to precomputed YTF .npz")
     parser.add_argument(
         "--fold",
         type=int,
@@ -231,4 +196,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     fold_arg = None if args.fold < 0 else args.fold
-    export_ytf_pairs(args.model, args.dataset, args.meta, fold_arg)
+    export_ytf_pairs(
+        args.model,
+        args.dataset,
+        args.meta,
+        args.embs,
+        fold_arg,
+    )
