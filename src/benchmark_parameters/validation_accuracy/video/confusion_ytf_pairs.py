@@ -7,22 +7,38 @@ from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.6  # or you can later plug in the ROC-optimal one
+FIXED_THRESHOLD = 0.60
 
 
-def load_scores_labels(base_prefix):
-    """
-    base_prefix is the path returned by export_ytf_pairs()
-    without the _scores/_labels suffix.
-    """
-    base = Path(base_prefix)
-    scores = np.load(base.with_name(base.name + "_scores.npy"))
-    labels = np.load(base.with_name(base.name + "_labels.npy"))
+def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
+    scores_list = []
+    labels_list = []
+
+    for fold in range(10):
+        prefix = f"{model}_ytf_fold{fold}_{stamp}"
+        scores_path = exports_dir / f"{prefix}_scores.npy"
+        labels_path = exports_dir / f"{prefix}_labels.npy"
+
+        if not scores_path.exists() or not labels_path.exists():
+            raise FileNotFoundError(
+                f"Missing files for fold {fold}: {scores_path}, {labels_path}"
+            )
+
+        scores_list.append(np.load(scores_path))
+        labels_list.append(np.load(labels_path))
+
+    scores = np.concatenate(scores_list, axis=0)
+    labels = np.concatenate(labels_list, axis=0)
     return scores, labels
 
 
-def run_confusion_ytf(base_prefix, model_name="unknown"):
-    scores, labels = load_scores_labels(base_prefix)
+def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
+    if exports_dir is None:
+        exports_dir = Path(__file__).resolve().parents[2] / "exports"
+    else:
+        exports_dir = Path(exports_dir)
+
+    scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
 
     preds = (scores >= FIXED_THRESHOLD).astype(int)
 
@@ -58,11 +74,8 @@ def run_confusion_ytf(base_prefix, model_name="unknown"):
         "threshold": float(FIXED_THRESHOLD),
     }
 
-    export_dir = Path(__file__).resolve().parents[2] / "exports"
-    export_dir.mkdir(exist_ok=True, parents=True)
-
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_path = export_dir / f"{model_name}_ytf_confusion_{ts}.json"
+    out_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"
     with open(out_path, "w") as f:
         json.dump(result, f, indent=2)
 
@@ -74,8 +87,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base", required=True, help="Base prefix from logic_ytf_pairs")
-    parser.add_argument("--model", required=True)
+    parser.add_argument(
+        "--model", required=True, help="facenet / adaface / arcface ..."
+    )
+    parser.add_argument(
+        "--stamp", required=True, help="timestamp part, e.g. 20251110-182757"
+    )
+    parser.add_argument(
+        "--exports-dir", default=None, help="override exports dir (optional)"
+    )
     args = parser.parse_args()
 
-    run_confusion_ytf(args.base, args.model)
+    run_confusion_ytf(args.model, args.stamp, args.exports_dir)
