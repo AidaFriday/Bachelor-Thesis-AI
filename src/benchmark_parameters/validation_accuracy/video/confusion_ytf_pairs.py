@@ -1,3 +1,6 @@
+# Computes confusion matrix and evaluation metrics for YTF (all 10 folds)
+# using precomputed scores and labels, and exports JSON + confusion matrix PNG.
+
 import os
 import sys
 import json

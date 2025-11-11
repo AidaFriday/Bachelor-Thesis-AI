@@ -1,3 +1,7 @@
+# Builds deterministic positive/negative image pairs from video folders,
+# runs face detection + alignment + embedding, computes confusion metrics,
+# and exports detailed per-pair JSON results.
+
 import os
 import cv2
 import numpy as np

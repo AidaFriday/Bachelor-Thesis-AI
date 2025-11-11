@@ -1,3 +1,6 @@
+# Computes one embedding per YTF video by averaging multiple frames,
+# then saves embeddings to .npz for fast reuse in evaluation.
+
 import os
 import sys
 from pathlib import Path

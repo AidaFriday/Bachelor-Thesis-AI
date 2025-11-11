@@ -1,3 +1,7 @@
+# Computes ROC metrics for video-based face verification.
+# Builds deterministic positive/negative pairs, computes similarity scores,
+# calculates AUC / EER / best threshold, and exports JSON + ROC curve PNG.
+
 import os
 import cv2
 import json
