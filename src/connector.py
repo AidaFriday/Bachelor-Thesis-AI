@@ -21,11 +21,7 @@ def _get_detector():
 WRAPPERS = {
     "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
     "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
-    "insightface": ("models.wrap_insightface", "InsightFaceWrapper"),
-    "sphereface": ("models.wrap_sphereface", "SphereFaceWrapper"),
-    "lightcnn": ("models.wrap_lightcnn", "LightCNNWrapper"),
-    "deepface": ("models.wrap_deepface", "DeepFaceWrapper"),
-    "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),  # ✅ added
+    "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),  
 }
 
 

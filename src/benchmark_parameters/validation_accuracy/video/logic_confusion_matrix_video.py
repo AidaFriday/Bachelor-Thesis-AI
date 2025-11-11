@@ -247,6 +247,7 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
 
         pair_records.append(
             {
+                "id": i,
                 # store paths relative to ROOT (so reproducible)
                 "img1": img1.replace(root + os.sep, ""),
                 "img2": img2.replace(root + os.sep, ""),
@@ -256,7 +257,7 @@ def run_confusion(model_name, dataset_path, start_identity, iters=300):
             }
         )
 
-        scores = np.array(sims)
+    scores = np.array(sims)
     labels = np.array(labels)
 
     if len(labels) == 0:

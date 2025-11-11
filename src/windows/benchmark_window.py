@@ -71,12 +71,6 @@ class SelectSubjectsDialog(QDialog):
         btns.addWidget(cancel_btn)
         layout.addLayout(btns)
 
-        ok_btn.clicked.connect(self.accept)
-        cancel_btn.clicked.connect(self.reject)
-        btns.addWidget(ok_btn)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-
     def accept(self):
         self.selected_subjects = [
             self.list_widget.item(i).text()

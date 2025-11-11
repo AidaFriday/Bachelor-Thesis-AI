@@ -79,9 +79,12 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     }
 
     # ---------- NEW: draw confusion-matrix PNG ----------
-    cm = np.array([[tp, fn], [fp, tn]])
+    cm = np.array([[tp, fp],
+                    [fn, tn]])
 
-    labels_cm = [["TP", "FN"], ["FP", "TN"]]
+    labels_cm = [["TP", "FP"],
+                ["FN", "TN"]]
+
 
     fig, ax = plt.subplots(figsize=(4, 4))
     im = ax.imshow(cm, cmap="Blues")
