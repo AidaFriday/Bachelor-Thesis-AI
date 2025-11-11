@@ -34,6 +34,10 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
     """
     Aggregate one embedding per video by averaging embeddings
     over up to `max_frames` frames.
+
+    For ArcFace we use wrapper.get_embedding(img_path), which runs
+    its own detect+align pipeline. For other models we keep your
+    generic detect+align + embed code.
     """
     if not os.path.isdir(video_dir):
         return None
@@ -46,25 +50,33 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
     if not frame_files:
         return None
 
-    # use only first max_frames frames to save time
     frame_files = frame_files[:max_frames]
 
     embs = []
+    is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
+
     for fname in frame_files:
         img_path = os.path.join(video_dir, fname)
-        img = cv2.imread(img_path)
-        if img is None:
-            continue
 
-        faces = wrapper.detector.detect(img)
-        if not faces:
-            continue
+        if is_arcface:
+            # Let ArcFace handle detect+align internally
+            emb = wrapper.get_embedding(img_path)
+        else:
+            # Existing pipeline for facenet / adaface
+            img = cv2.imread(img_path)
+            if img is None:
+                continue
 
-        aligned = wrapper.detector.align_for(img, faces[0]["kps"])
-        if aligned is None:
-            continue
+            faces = wrapper.detector.detect(img)
+            if not faces:
+                continue
 
-        emb = wrapper.embed(aligned)
+            aligned = wrapper.detector.align_for(img, faces[0]["kps"])
+            if aligned is None:
+                continue
+
+            emb = wrapper.embed(aligned)
+
         if emb is not None:
             embs.append(emb)
 

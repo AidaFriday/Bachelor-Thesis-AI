@@ -1,0 +1,18 @@
+{
+  "kind": "confusion_matrix_ytf",
+  "model": "arcface",
+  "dataset": "YTF",
+  "pairs": 5000,
+  "tp": 1,
+  "tn": 0,
+  "fp": 2500,
+  "fn": 2499,
+  "accuracy": 0.0002,
+  "precision": 0.00039984006397425037,
+  "recall": 0.00039999999999984,
+  "specificity": 0.0,
+  "f1": 0.0003999195159972858,
+  "far": 0.9999999999996,
+  "frr": 0.9995999999996001,
+  "threshold": 0.6
+}

@@ -1,26 +1,27 @@
 import os
 import sys
-from pathlib import Path
 import json
+from pathlib import Path
 from datetime import datetime
 
 import numpy as np
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 
-# make project root importable (for consistency with rest of project)
+# allow importing from project root if needed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     """
-    Load and concatenate scores/labels for all 10 YTF folds.
+    Load and concatenate scores/labels for all 10 YTF folds for a given model+stamp.
 
-    Expects files like:
+    Expected filenames:
       <model>_ytf_fold0_<stamp>_scores.npy
       <model>_ytf_fold0_<stamp>_labels.npy
       ...
       <model>_ytf_fold9_<stamp>_scores.npy
+      <model>_ytf_fold9_<stamp>_labels.npy
     """
     scores_list = []
     labels_list = []
@@ -44,6 +45,10 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
 
 
 def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
+    """
+    Compute ROC metrics on all 10 folds (5000 pairs) of YTF
+    using precomputed scores/labels.
+    """
     if exports_dir is None:
         exports_dir = Path(__file__).resolve().parents[2] / "exports"
     else:
@@ -51,21 +56,41 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
 
+    # --- basic sanity check ---
+    pos_count = int((labels == 1).sum())
+    neg_count = int((labels == 0).sum())
+    print(f"[YTF ROC] pos_pairs={pos_count}, neg_pairs={neg_count}")
+    print(
+        f"[YTF ROC] scores range: [{float(scores.min()):.4f}, {float(scores.max()):.4f}]"
+    )
+
+    if pos_count == 0 or neg_count == 0:
+        raise ValueError(
+            f"ROC cannot be computed: only one class present "
+            f"(pos={pos_count}, neg={neg_count})."
+        )
+
+    # --- ROC ---
     fpr, tpr, thresholds = roc_curve(labels, scores)
     roc_auc = auc(fpr, tpr)
 
-    # Youden’s J
+    # Best threshold: Youden's J statistic
     j_scores = tpr - fpr
     best_idx = np.argmax(j_scores)
     best_thr = thresholds[best_idx]
 
-    fnr = 1 - tpr
+    # EER
+    fnr = 1.0 - tpr
     eer_idx = np.nanargmin(np.abs(fnr - fpr))
     eer = (fpr[eer_idx] + fnr[eer_idx]) / 2.0
 
+    # TAR @ FAR = 1e-3
     target_far = 1e-3
     idx = np.searchsorted(fpr, target_far, side="right") - 1
-    tar_far_1e3 = tpr[idx] if 0 <= idx < len(tpr) else float("nan")
+    if 0 <= idx < len(tpr):
+        tar_far_1e3 = tpr[idx]
+    else:
+        tar_far_1e3 = float("nan")
 
     metrics = {
         "kind": "roc_ytf",
@@ -76,15 +101,20 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         "best_threshold": float(best_thr),
         "tar_far_1e3": float(tar_far_1e3),
         "pairs": int(len(labels)),
+        "pos_pairs": pos_count,
+        "neg_pairs": neg_count,
     }
 
-    out_dir = exports_dir
+    # --- export JSON ---
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out_dir = exports_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = out_dir / f"{model_name}_ytf_roc_{ts}.json"
     with open(json_path, "w") as f:
         json.dump(metrics, f, indent=2)
 
+    # --- export ROC PNG (overwrites same file each time) ---
     png_path = Path(__file__).with_name("roc_ytf_result.png")
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
@@ -106,13 +136,17 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model", required=True, help="facenet / adaface / arcface ..."
+        "--model", required=True, help="facenet / arcface / adaface ..."
     )
     parser.add_argument(
-        "--stamp", required=True, help="timestamp part, e.g. 20251110-182757"
+        "--stamp",
+        required=True,
+        help="timestamp from export_ytf_pairs (e.g. 20251110-221503)",
     )
     parser.add_argument(
-        "--exports-dir", default=None, help="override exports dir (optional)"
+        "--exports-dir",
+        default=None,
+        help="override exports directory (optional)",
     )
     args = parser.parse_args()
 
