@@ -37,10 +37,6 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
     """
     Aggregate one embedding per video by averaging embeddings
     over up to `max_frames` frames.
-
-    For ArcFace we use wrapper.get_embedding(img_path), which runs
-    its own detect+align pipeline. For other models we keep your
-    generic detect+align + embed code.
     """
     if not os.path.isdir(video_dir):
         return None
@@ -53,41 +49,40 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
     if not frame_files:
         return None
 
-    frame_files = frame_files[:max_frames]
+    # ⚙️ Evenly sample up to max_frames frames (optional but recommended)
+    if len(frame_files) > max_frames:
+        step = len(frame_files) // max_frames
+        frame_files = frame_files[::step][:max_frames]
 
-    embs = []
-    is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
-
+    aligned_faces = []
     for fname in frame_files:
         img_path = os.path.join(video_dir, fname)
+        img = cv2.imread(img_path)
+        if img is None:
+            continue
+        faces = wrapper.detector.detect(img)
+        if not faces:
+            continue
+        aligned = wrapper.detector.align_for(img, faces[0]["kps"])
+        if aligned is not None:
+            aligned_faces.append(aligned)
 
-        if is_arcface:
-            # Let ArcFace handle detect+align internally
-            emb = wrapper.get_embedding(img_path)
-        else:
-            # Existing pipeline for facenet / adaface
-            img = cv2.imread(img_path)
-            if img is None:
-                continue
-
-            faces = wrapper.detector.detect(img)
-            if not faces:
-                continue
-
-            aligned = wrapper.detector.align_for(img, faces[0]["kps"])
-            if aligned is None:
-                continue
-
-            emb = wrapper.embed(aligned)
-
-        if emb is not None:
-            embs.append(emb)
-
-    if not embs:
+    if not aligned_faces:
         return None
 
+    # ⚡ batched GPU embedding
+    embs = wrapper.embed_batch(aligned_faces, batch_size=32)
+
+    if embs is None or len(embs) == 0:
+        return None
+
+    # ✅ Return mean embedding per video
     return np.mean(embs, axis=0)
 
+
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import torch
 
 def precompute_ytf_embeddings(
     model_name: str,
@@ -100,27 +95,38 @@ def precompute_ytf_embeddings(
     print(f"[YTF-PRECOMPUTE] Meta:    {meta_path}")
     print(f"[YTF-PRECOMPUTE] max_frames_per_video = {max_frames}")
 
+    # Speed up CUDA conv kernels
+    torch.backends.cudnn.benchmark = True
+
     wrapper = load_model(model_name)
     video_names = load_ytf_meta(meta_path)
-
     root = _resolve_video_root(ytf_root)
 
     names_list = []
     emb_list = []
     failed = []
 
-    for i, name in enumerate(tqdm(video_names, desc="[YTF] videos")):
+    # helper for one video
+    def process_video(name):
         name_str = str(name)
         video_dir = os.path.join(root, name_str)
-
         emb = get_video_embedding(wrapper, video_dir, max_frames=max_frames)
+        return name_str, emb
 
-        if emb is None:
-            failed.append(name_str)
-            continue
+    # Use multiple threads for reading + preprocessing
+    max_threads = min(8, os.cpu_count() or 4)
+    print(f"[YTF-PRECOMPUTE] Using {max_threads} loader threads")
 
-        names_list.append(name_str)
-        emb_list.append(emb.astype(np.float32))
+    with ThreadPoolExecutor(max_workers=max_threads) as executor:
+        futures = {executor.submit(process_video, name): name for name in video_names}
+
+        for f in tqdm(as_completed(futures), total=len(video_names), desc="[YTF] videos"):
+            name_str, emb = f.result()
+            if emb is None:
+                failed.append(name_str)
+                continue
+            names_list.append(name_str)
+            emb_list.append(emb.astype(np.float32))
 
     if not emb_list:
         print("[YTF-PRECOMPUTE] No embeddings computed, aborting.")

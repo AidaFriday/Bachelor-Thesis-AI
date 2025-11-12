@@ -78,6 +78,44 @@ class AdaFaceWrapper:
         emb = emb / emb.norm(p=2)
 
         return emb.cpu().numpy().astype(np.float32)
+    
+        def embed_batch(self, imgs_bgr: list[np.ndarray], batch_size: int = 32) -> np.ndarray:
+            """
+            Compute embeddings for a list of already-aligned face crops efficiently.
+            Runs multiple frames per forward pass on GPU.
+            """
+            if not imgs_bgr:
+                return np.zeros((0, 512), dtype=np.float32)  # empty result
+
+            processed_batches = []
+
+            # Preprocess all frames first (CPU side)
+            for img_bgr in imgs_bgr:
+                if img_bgr is None:
+                    continue
+                img = cv2.resize(img_bgr, self.input_size, interpolation=cv2.INTER_AREA)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
+                img = (img - 127.5) / 128.0
+                img = img.transpose(2, 0, 1)  # (C,H,W)
+                processed_batches.append(img)
+
+            if not processed_batches:
+                return np.zeros((0, 512), dtype=np.float32)
+
+            imgs_tensor = torch.from_numpy(np.stack(processed_batches)).float().to(self.device)
+
+            all_embs = []
+
+            with torch.no_grad():
+                for i in range(0, len(imgs_tensor), batch_size):
+                    batch = imgs_tensor[i:i + batch_size]
+                    emb = self.model(batch)
+                    emb = emb / emb.norm(p=2, dim=1, keepdim=True)
+                    all_embs.append(emb.cpu())
+
+            all_embs = torch.cat(all_embs, dim=0).numpy().astype(np.float32)
+            return all_embs
+
 
     # ---------- LFW-style: already aligned crop ----------
     def embed_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
