@@ -1,0 +1,86 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.2 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nyt/global//global/global}
+    \entry{gong2023dataquality}{article}{}
+      \name{author}{7}{}{%
+        {{hash=f3ed4bcf2b83dfb1485e159855513b16}{%
+           family={Gong},
+           familyi={G\bibinitperiod},
+           given={Yucheng},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=94499897f3cbdd7771a0d386fd479b5a}{%
+           family={Liu},
+           familyi={L\bibinitperiod},
+           given={Guodong},
+           giveni={G\bibinitperiod}}}%
+        {{hash=92a401ac7ae29a6a6b975cd10e7eb823}{%
+           family={Xue},
+           familyi={X\bibinitperiod},
+           given={Yu},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=45fc0568f15b89712e9e67375ff0d1ca}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Rui},
+           giveni={R\bibinitperiod}}}%
+        {{hash=72b3223870b7d7cda605f53c5357f707}{%
+           family={Meng},
+           familyi={M\bibinitperiod},
+           given={Lingyu},
+           giveni={L\bibinitperiod}}}%
+        {{hash=16e27adac1b31563e17c86920f0c910e}{%
+           family={Zhao},
+           familyi={Z\bibinitperiod},
+           given={Wei},
+           giveni={W\bibinitperiod}}}%
+        {{hash=db0e7511194e298f52190981c8227f2c}{%
+           family={Yu},
+           familyi={Y\bibinitperiod},
+           given={Xiaoyang},
+           giveni={X\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Elsevier}%
+      }
+      \strng{namehash}{62f46a4face4dd91c3351a10d77f4cd5}
+      \strng{fullhash}{4bc1140bc9a4a7f57e281b36e82d5edb}
+      \strng{bibnamehash}{62f46a4face4dd91c3351a10d77f4cd5}
+      \strng{authorbibnamehash}{62f46a4face4dd91c3351a10d77f4cd5}
+      \strng{authornamehash}{62f46a4face4dd91c3351a10d77f4cd5}
+      \strng{authorfullhash}{4bc1140bc9a4a7f57e281b36e82d5edb}
+      \field{sortinit}{G}
+      \field{sortinithash}{32d67eca0634bf53703493fb1090a2e8}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Information and Software Technology}
+      \field{title}{Data quality in machine learning: A survey}
+      \field{volume}{162}
+      \field{year}{2023}
+      \field{pages}{107268}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1016/j.infsof.2023.107268
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+
