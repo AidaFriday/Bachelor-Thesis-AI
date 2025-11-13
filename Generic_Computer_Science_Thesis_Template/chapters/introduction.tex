@@ -1,10 +1,29 @@
 \section{Motivation}
-It is worth noting that this document was an \textbf{unofficial} thesis template for the University of Lincoln School of Computer Science. Since then, it has changed to encompass a broad range of theses. A decent template was needed for my thesis, so I made this. Then, other people liked it and decided to use it. Along the way, I've added in small features which people have suggested. If you have any suggestions or issues, please contact me -- my email can be found at the top of \texttt{main.tex}! The following subsection in this document demonstrates some capabilities of the template (such as setting your thesis title, and so forth). I have not covered how to use \LaTeX, as this assumes a working knowledge of the language.
 
-If you are from another institution, then I want to thank you for your interest in my template! I've tried to make the template as lightweight as possible so you can modify it to your needs. You can easily swap out the logo (by changing logo.pdf or using \textbackslash thesisLogoPath) and customise the title page contents using the commands listed on the next page. The template is also lightweight enough to enable you to change the typeface of the entire document. Again, if you have any questions please drop me an email as I love hearing your stories!
+Face recognition has become an integral component of many modern applications, ranging from smartphone authentication and social media photo tagging to access control and video surveillance. As these systems increasingly influence security–critical and privacy–sensitive domains, the reliability and robustness of the underlying face recognition models are of central importance. Small differences in model performance can have significant practical consequences, for example in terms of false acceptances, false rejections, or biased behaviour across different conditions.
+
+In recent years, a large number of open–source face recognition models have been proposed, such as FaceNet, ArcFace, and AdaFace, many of which provide high accuracy on standard benchmarks. However, these models are often evaluated in isolation, using different experimental setups, datasets, and metrics. This makes it difficult for practitioners to understand the real trade–offs between them, especially when models must operate under realistic constraints such as limited computing resources or the need for real–time processing. A systematic and fair comparison of well–known models, implemented in a common framework such as PyTorch, is therefore needed to support informed model selection for practical applications.:contentReference[oaicite:0]{index=0}
+
+Moreover, existing benchmark results are usually reported offline and do not provide an easy way to explore model behaviour interactively. Developers and researchers who want to test models on their own hardware or with their own data often need to implement ad–hoc scripts and tools, which is time–consuming and error–prone. A user–friendly application that integrates state–of–the–art models, standard datasets, and real–time webcam input into a single interface would lower the barrier to entry and make it easier to study the relationship between accuracy, latency, and resource usage.
+
+This thesis is motivated by the need for transparent, comparable, and practically relevant evaluation of face recognition models. By benchmarking several widely used PyTorch implementations on standard datasets and embedding them into an interactive runtime benchmarking application, the work aims to provide both a systematic empirical study and a tool that can support future research and real–world deployment.
+
 
 \section{Task}
-The \texttt{csthesis} template has a number of definable variables which can be redefined to change the format of the thesis. These are listed below (on the next page).
+The central task of this thesis is to design and implement a framework for systematic benchmarking and real-time analysis of face recognition models. Building on existing PyTorch implementations of well-known open-source models, the work aims to provide both a thorough empirical comparison and a practical tool that can be used to explore their behaviour under realistic conditions.:contentReference[oaicite:0]{index=0}
+
+Concretely, the thesis is structured around three main tasks:
+
+\begin{itemize}
+	\item \textbf{Evaluation of face recognition models:} Implement a unified interface for several pretrained models (e.g.\ FaceNet, ArcFace, AdaFace) in PyTorch and evaluate their performance using standard verification benchmarks. This includes computing common metrics such as accuracy, precision, recall and ROC/AUC on datasets like LFW, CFP-FP and YTF.
+	
+	\item \textbf{Benchmarking of runtime performance:} Measure and compare the computational characteristics of the selected models, including latency per frame, achievable frame rate (FPS) and memory usage on the available hardware. The goal is to understand the trade-offs between recognition accuracy and real-time capability.
+	
+	\item \textbf{Development of a runtime benchmarking application:} Design and implement a PyQt-based desktop application that integrates the selected models and exposes their functionality through a user-friendly graphical interface. The application should allow users to choose a model, load images or enable a webcam stream, and observe both recognition results and live performance metrics in real time.
+\end{itemize}
+
+By completing these tasks, the thesis will deliver (i) a consistent benchmarking setup for face recognition models, (ii) a comparative analysis of their accuracy and runtime properties, and (iii) a reusable application that can support further research and practical deployment decisions.
+
 
 \vspace{1cm}
 \begin{longtable}{l|p{1.3in}|l}
@@ -28,23 +47,4 @@ In addition, \texttt{\textbackslash thesisSubmissionText\{text\}} overrides the 
 
 
 
-\section{Placeholder}
-If you have included \texttt{[harvard]} in the document class command, then you will be able to cite things inline with parentheses. You can do this by using \texttt{\textbackslash citep\{citekey\}}. It will print out something like this \citep{aad2012observation}. Or alternatively, you can use \texttt{\textbackslash cite\{citekey\}} to cite things like this \cite{chatrchyan2012observation}. If you wish to use numeric style citing, just remove the \texttt{[harvard]} option from the \texttt{\textbackslash documentclass} command.
-
-This template uses Bib\LaTeX~for referencing, with a Biber backend. This is primarily due to the extensive features Bib\LaTeX~provides, along with the option of glossaries. If you want to customise the referencing style, you can either modify the template slightly to use different options, or use \texttt{\textbackslash usepackage} again to reimport it. There's probably some commands to change its options after its been imported too.
-
-If you wish to use numeric style citations instead, please remove the \texttt{[harvard]} option from your \texttt{\textbackslash documentclass} command. 
-
-\subsection{Ludography}
-This thesis template also contains an optional ludography. To use this, just put references into your bib file as usual with the game's details. Then, make sure \texttt{keywords} is set to \texttt{\{game\}}. This is what is used to determine which references are games, and which are actual papers. For a more elaborate example, see \texttt{bib/ludography.bib}.
-
-Also, make sure that the \texttt{title} key is actually the author of the game, and the \texttt{author} is the title of the game. The reason this is swapped around is because Bib\LaTeX~likes to print references out with the author first.
-
-Then, just add \texttt{\textbackslash printLudography} with an optional title argument to print out all citations like \texttt{\textbackslash printLudography} or \texttt{\textbackslash printLudography[Games]}.
-
-You can also use the \texttt{ludography} environment if you wish to print out some text before the list of games is printed. An example of this can be seen in \texttt{main.tex}.
-
-To cite games, you can \texttt{\textbackslash cite} it like any other reference. However, if you want it to display the title instead of the standard referencing style, you can use \texttt{\textbackslash citeGame} instead.
-
-Here is an example of a cited game with a normal reference style: ~\cite{spaceinvaders}. Ugh, pretty ugly. Instead, here the two are  cited in the next sentence as games with \texttt{\textbackslash citeGame}. Both \citeGame{spaceinvaders} and \citeGame{breakout} were games made by Atari. Much better!
 
