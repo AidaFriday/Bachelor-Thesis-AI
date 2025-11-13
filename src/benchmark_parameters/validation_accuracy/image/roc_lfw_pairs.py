@@ -1,3 +1,6 @@
+# “Official LFW protocol (6000 pairs, 10 folds).
+
+
 import os
 import sys
 import json
