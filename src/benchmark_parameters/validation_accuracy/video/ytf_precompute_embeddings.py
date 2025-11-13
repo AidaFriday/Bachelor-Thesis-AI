@@ -56,8 +56,12 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
     if not frame_files:
         return None
 
-    # Limit to max_frames frames
-    frame_files = frame_files[:max_frames]
+    # NEW: deterministic uniform sampling across the whole video
+    n = len(frame_files)
+    if n > max_frames:
+        idx = np.linspace(0, n - 1, max_frames, endpoint=True).astype(int)
+        frame_files = [frame_files[i] for i in idx]
+    # else: use all frames
 
     embs = []
     is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
@@ -88,12 +92,15 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
 
 
 # ── main driver ────────────────────────────────────────────────────────────────
-def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, max_frames: int = 10):
+def precompute_ytf_embeddings(
+    model_name: str, ytf_root: str, meta_path: str, max_frames: int = 10
+):
     print("─────────────────────────────────────────────")
     print(f"[YTF-PRECOMPUTE] Model:   {model_name}")
     print(f"[YTF-PRECOMPUTE] Dataset: {ytf_root}")
     print(f"[YTF-PRECOMPUTE] Meta:    {meta_path}")
     print(f"[YTF-PRECOMPUTE] max_frames_per_video = {max_frames}")
+    print(f"[YTF-PRECOMPUTE] sampling = uniform_deterministic")
     print("─────────────────────────────────────────────")
 
     torch.backends.cudnn.benchmark = True
@@ -131,7 +138,10 @@ def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, ma
         # print periodic progress info
         if (i + 1) % 50 == 0:
             elapsed = (time.time() - total_start) / 60
-            print(f"[PROGRESS] {i+1}/{len(video_names)} done, elapsed {elapsed:.1f} min", flush=True)
+            print(
+                f"[PROGRESS] {i+1}/{len(video_names)} done, elapsed {elapsed:.1f} min",
+                flush=True,
+            )
 
     if not emb_list:
         print("[YTF-PRECOMPUTE] No embeddings computed, aborting.")
@@ -155,6 +165,8 @@ def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, ma
     summary = {
         "model": model_name,
         "dataset": "YTF",
+        "sampling": "uniform_deterministic",
+        "max_frames": int(max_frames),
         "max_frames": max_frames,
         "num_videos_meta": int(len(video_names)),
         "num_success": int(len(names_arr)),
@@ -184,7 +196,11 @@ if __name__ == "__main__":
     parser.add_argument("--model", required=True)
     parser.add_argument("--dataset", required=True, help="Path to YTF root")
     parser.add_argument("--meta", required=True, help="Path to meta_and_splits.mat")
-    parser.add_argument("--max-frames", type=int, default=10, help="Frames per video to average")
+    parser.add_argument(
+        "--max-frames", type=int, default=10, help="Frames per video to average"
+    )
     args = parser.parse_args()
 
-    precompute_ytf_embeddings(args.model, args.dataset, args.meta, max_frames=args.max_frames)
+    precompute_ytf_embeddings(
+        args.model, args.dataset, args.meta, max_frames=args.max_frames
+    )
