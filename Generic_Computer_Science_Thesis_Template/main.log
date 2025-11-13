@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  28 OCT 2025 09:32
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2023.11.29)  13 NOV 2025 17:12
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -998,29 +998,10 @@ Package biblatex Info: Data encoding 'utf8' specified.
 \openout3 = `main.bcf'.
 
 Package biblatex Info: Trying to load bibliographic data...
-Package biblatex Info: ... file 'main.bbl' not found.
+Package biblatex Info: ... file 'main.bbl' found.
+ (./main.bbl)
 
-No file main.bbl.
-
-Package biblatex Warning: citation 'aad2012observation'
-(biblatex)                was not found at all in the .bbl file,
-(biblatex)                bibliography labels cannot be generated,
-(biblatex)                please correct the citation.
-
-
-Package biblatex Warning: citation 'chatrchyan2012observation'
-(biblatex)                was not found at all in the .bbl file,
-(biblatex)                bibliography labels cannot be generated,
-(biblatex)                please correct the citation.
-
-
-Package biblatex Warning: citation 'spaceinvaders'
-(biblatex)                was not found at all in the .bbl file,
-(biblatex)                bibliography labels cannot be generated,
-(biblatex)                please correct the citation.
-
-
-Package biblatex Warning: citation 'breakout'
+Package biblatex Warning: citation 'gong2023dataquality'
 (biblatex)                was not found at all in the .bbl file,
 (biblatex)                bibliography labels cannot be generated,
 (biblatex)                please correct the citation.
@@ -1061,7 +1042,7 @@ Package biblatex Info: Reference segment=0 on input line 28.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-<logo.png, id=131, 501.875pt x 282.05376pt>
+<logo.png, id=127, 501.875pt x 282.05376pt>
 File: logo.png Graphic file (type png)
 <use logo.png>
 Package pdftex.def Info: logo.png  used on input line 37.
@@ -1148,7 +1129,7 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 
 
 {c:/texlive/2023/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}]
-<figures/signature.png, id=152, 383.4325pt x 109.40875pt>
+<figures/signature.png, id=148, 383.4325pt x 109.40875pt>
 File: figures/signature.png Graphic file (type png)
 <use figures/signature.png>
 Package pdftex.def Info: figures/signature.png  used on input line 39.
@@ -1197,73 +1178,59 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.10 \begin{longtable}
-                      {l|p{1.3in}|l} [1
+l.8 
+     [1
 
 
 ]
-Underfull \hbox (badness 1546) in paragraph at lines 12--12
+Overfull \hbox (2.42477pt too wide) in paragraph at lines 13--14
+\T1/lmr/m/n/12 ex-plore their be-ha-viour un-der real-istic con-di-tions.:conte
+ntReference[oaicite:0]index=0 
+ []
+
+[2]
+Underfull \hbox (badness 1546) in paragraph at lines 31--31
 \T1/lmr/m/n/12 the logo for the
  []
 
 
-Underfull \hbox (badness 1533) in paragraph at lines 15--15
+Underfull \hbox (badness 1533) in paragraph at lines 34--34
 \T1/lmr/m/n/12 your de-gree pro-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 16--16
+Underfull \hbox (badness 10000) in paragraph at lines 35--35
 \T1/lmr/m/n/12 your su-per-visor
  []
 
 
-Overfull \hbox (74.12433pt too wide) in alignment at lines 10--24
+Overfull \hbox (74.12433pt too wide) in alignment at lines 29--43
  [] [] [] 
  []
 
-[2]
-Overfull \hbox (39.17961pt too wide) in paragraph at lines 26--27
+[3]
+Overfull \hbox (39.17961pt too wide) in paragraph at lines 45--46
 \T1/lmr/m/n/12 though. For ex-ample, if you wish to erase it en-tirely, you can
  use \T1/lmtt/m/n/12 \thesisSubmissionText{}\T1/lmr/m/n/12 .
  []
-
-
-LaTeX Warning: Citation 'aad2012observation' on page 3 undefined on input line 
-32.
-
-
-LaTeX Warning: Citation 'chatrchyan2012observation' on page 3 undefined on inpu
-t line 32.
-
-
-Overfull \hbox (5.7008pt too wide) in paragraph at lines 32--33
-\T1/lmr/m/n/12 able to cite things in-line with par-en-theses. You can do this 
-by us-ing \T1/lmtt/m/n/12 \citep{citekey}\T1/lmr/m/n/12 .
- []
-
-[3]
-
-LaTeX Warning: Citation 'spaceinvaders' on page 4 undefined on input line 49.
-
-
-LaTeX Warning: Citation 'spaceinvaders' on page 4 undefined on input line 49.
-
-
-LaTeX Warning: Citation 'breakout' on page 4 undefined on input line 49.
 
 ) [4]
 Chapter 2.
 (./chapters/fundamentals.tex
 
 Package hyperref Warning: The anchor of a bookmark and its parent's must not
-(hyperref)                be the same. Added a new anchor on input line 3.
+(hyperref)                be the same. Added a new anchor on input line 8.
+
+
+LaTeX Warning: Citation 'gong2023dataquality' on page 5 undefined on input line
+ 18.
 
 ) [5
 
-]
+] [6]
 Chapter 3.
 (./chapters/method.tex
-<figures/duck.jpg, id=252, 1541.76pt x 1027.84pt>
+<figures/duck.jpg, id=251, 1541.76pt x 1027.84pt>
 File: figures/duck.jpg Graphic file (type jpg)
 <use figures/duck.jpg>
 Package pdftex.def Info: figures/duck.jpg  used on input line 19.
@@ -1272,25 +1239,32 @@ Package pdftex.def Info: figures/duck.jpg  used on input line 19.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-) [6
+) [7
 
-] [7 <./figures/duck.jpg>]
+] [8 <./figures/duck.jpg>]
 Chapter 4.
-(./chapters/results.tex) [8
+(./chapters/results.tex) [9
 
 ]
 Chapter 5.
-(./chapters/conclusions.tex)
+(./chapters/conclusions.tex) [10
 
-LaTeX Warning: Empty bibliography on input line 86.
+]
+Chapter 6.
+(./chapters/references.tex)
 
-
-Package biblatex Warning: Keyword 'game' not found on input line 89.
+LaTeX Warning: Empty bibliography on input line 1.
 
 
 LaTeX Warning: Empty bibliography on input line 89.
 
-[9
+
+Package biblatex Warning: Keyword 'game' not found on input line 92.
+
+
+LaTeX Warning: Empty bibliography on input line 92.
+
+[11
 
 ] (./main.aux)
  ***********
@@ -1302,7 +1276,7 @@ L3 programming layer <2023-11-09>
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 864D2A30F4A7AA0B2884CEA90B3FF562;5355.
+(rerunfilecheck)             Checksum: F7AB4976271BAE4D3868C0CD600C3C93;5227.
 
 Package biblatex Warning: Please (re)run Biber on the file:
 (biblatex)                main
@@ -1313,13 +1287,13 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 25664 strings out of 474267
- 465107 string characters out of 5751464
+ 25673 strings out of 474267
+ 465274 string characters out of 5751464
  1937558 words of memory out of 5000000
- 47407 multiletter control sequences out of 15000+600000
+ 47410 multiletter control sequences out of 15000+600000
  633757 words of font info for 76 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 98i,12n,145p,1193b,2484s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 98i,11n,145p,1193b,2484s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmbx12.pfb><c:/texlive/2023
 /texmf-dist/fonts/type1/public/lm/lmbxi10.pfb><c:/texlive/2023/texmf-dist/fonts
 /type1/public/lm/lmr10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lm
@@ -1328,10 +1302,10 @@ r12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmr7.pfb><c:/texlive/
 s/type1/public/lm/lmri10.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/
 lmri12.pfb><c:/texlive/2023/texmf-dist/fonts/type1/public/lm/lmtt12.pfb><c:/tex
 live/2023/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on main.pdf (18 pages, 1407550 bytes).
+Output written on main.pdf (20 pages, 1408709 bytes).
 PDF statistics:
- 334 PDF objects out of 1000 (max. 8388607)
- 285 compressed objects within 3 object streams
- 58 named destinations out of 1000 (max. 500000)
- 272 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 338 PDF objects out of 1000 (max. 8388607)
+ 287 compressed objects within 3 object streams
+ 59 named destinations out of 1000 (max. 500000)
+ 264 words of extra memory for PDF output out of 10000 (max. 10000000)
 
