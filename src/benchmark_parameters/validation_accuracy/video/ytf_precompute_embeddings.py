@@ -19,11 +19,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from connector import load_model  # noqa: E402
 
 try:
-    # When run as part of the package
     from .logic_confusion_matrix_video import _resolve_video_root
 except ImportError:
-    # When run as top-level script
-    from benchmark_parameters.validation_accuracy.video.logic_confusion_matrix_video import (  # type: ignore  # noqa: E501
+    from benchmark_parameters.validation_accuracy.video.logic_confusion_matrix_video import (  # type: ignore
         _resolve_video_root,
     )
 
@@ -35,55 +33,40 @@ def load_ytf_meta(meta_path: str):
     return meta["video_names"]  # (3425,)
 
 
-# ── per-video embedding ────────────────────────────────────────────────────────
+# ── compute embedding for a single YTF video ───────────────────────────────────
 def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
-    """
-    Aggregate one embedding per video by averaging embeddings
-    over up to `max_frames` frames.
-
-    For ArcFace we use wrapper.get_embedding(img_path), which runs
-    its own detect+align pipeline. For other models we use the
-    standard detect+align + embed path.
-    """
     if not os.path.isdir(video_dir):
         return None
 
     frame_files = sorted(
-        f
-        for f in os.listdir(video_dir)
+        f for f in os.listdir(video_dir)
         if f.lower().endswith((".jpg", ".jpeg", ".png"))
     )
     if not frame_files:
         return None
 
-    # NEW: deterministic uniform sampling across the whole video
+    # Sample frames uniformly (max_frames)
     n = len(frame_files)
     if n > max_frames:
         idx = np.linspace(0, n - 1, max_frames, endpoint=True).astype(int)
         frame_files = [frame_files[i] for i in idx]
-    # else: use all frames
 
     embs = []
-    is_arcface = getattr(wrapper, "name", "").lower() == "arcface"
 
     for fname in frame_files:
         img_path = os.path.join(video_dir, fname)
-        if is_arcface:
-            emb = wrapper.get_embedding(img_path)
-        else:
-            img = cv2.imread(img_path)
-            if img is None:
-                continue
-            faces = wrapper.detector.detect(img)
-            if not faces:
-                continue
-            aligned = wrapper.detector.align_for(img, faces[0]["kps"])
-            if aligned is None:
-                continue
-            emb = wrapper.embed(aligned)
 
-        if emb is not None:
-            embs.append(emb)
+        img = cv2.imread(img_path)
+        if img is None:
+            continue
+
+        faces = wrapper.detector.detect(img)
+        if not faces:
+            continue
+
+        aligned = wrapper.detector.align_for(img, faces[0]["kps"])
+        emb = wrapper.embed(aligned)
+        embs.append(emb)
 
     if not embs:
         return None
@@ -109,7 +92,6 @@ def precompute_ytf_embeddings(
     video_names = load_ytf_meta(meta_path)
     root = _resolve_video_root(ytf_root)
 
-    # environment info
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
         print(f"[GPU] Using CUDA device: {torch.cuda.get_device_name(0)}")
@@ -119,35 +101,23 @@ def precompute_ytf_embeddings(
     names_list, emb_list, failed = [], [], []
     total_start = time.time()
 
-    for i, name in enumerate(tqdm(video_names, desc="[YTF] videos", ncols=100)):
+    # Clean progress bar — no spam prints inside loop
+    for name in tqdm(video_names, desc="[YTF] videos", ncols=100):
         name_str = str(name)
         video_dir = os.path.join(root, name_str)
-        t0 = time.time()
 
         emb = get_video_embedding(wrapper, video_dir, max_frames=max_frames)
-        dur = time.time() - t0
 
         if emb is None:
-            print(f"[SKIP] {name_str:40s}  ({dur:6.2f}s)  no face", flush=True)
             failed.append(name_str)
         else:
-            print(f"[OK]   {name_str:40s}  ({dur:6.2f}s)", flush=True)
             names_list.append(name_str)
             emb_list.append(emb.astype(np.float32))
-
-        # print periodic progress info
-        if (i + 1) % 50 == 0:
-            elapsed = (time.time() - total_start) / 60
-            print(
-                f"[PROGRESS] {i+1}/{len(video_names)} done, elapsed {elapsed:.1f} min",
-                flush=True,
-            )
 
     if not emb_list:
         print("[YTF-PRECOMPUTE] No embeddings computed, aborting.")
         return None
 
-    # stack and export
     names_arr = np.array(names_list)
     embs_arr = np.stack(emb_list, axis=0)
 
@@ -167,7 +137,6 @@ def precompute_ytf_embeddings(
         "dataset": "YTF",
         "sampling": "uniform_deterministic",
         "max_frames": int(max_frames),
-        "max_frames": max_frames,
         "num_videos_meta": int(len(video_names)),
         "num_success": int(len(names_arr)),
         "num_failed": int(len(failed)),

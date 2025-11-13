@@ -54,30 +54,35 @@ class AdaFaceWrapper:
 
     # ---------- core: embedding for an aligned face crop ----------
     def _forward_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
-        """
-        Internal helper: assumes img_bgr is a *face crop* (already roughly aligned).
-        Resizes to self.input_size, preprocesses, runs backbone, L2-normalizes.
-        """
+        print("[ADADEBUG] _forward_aligned START", flush=True)
+
         if img_bgr is None:
+            print("[ADADEBUG] img_bgr is None", flush=True)
             return None
 
-        # Resize to backbone input size
+        print("[ADADEBUG] resizing", flush=True)
         img = cv2.resize(img_bgr, self.input_size, interpolation=cv2.INTER_AREA)
 
-        # BGR -> RGB, float32, AdaFace normalization
+        print("[ADADEBUG] color convert + normalize", flush=True)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
         img = (img - 127.5) / 128.0
-        img = img.transpose(2, 0, 1)[None, :]  # (1, C, H, W)
-        img = torch.from_numpy(img).float().to(self.device)
 
-        # Forward
+        print("[ADADEBUG] transpose + torch.from_numpy", flush=True)
+        img = img.transpose(2, 0, 1)[None, :]
+        img = torch.from_numpy(img).float().to(self.device)
+        print(f"[ADADEBUG] tensor device: {img.device}", flush=True)
+
+        print("[ADADEBUG] running model forward", flush=True)
         with torch.no_grad():
             emb = self.model(img)[0]
+        print("[ADADEBUG] forward DONE", flush=True)
 
-        # L2-normalize
+        print("[ADADEBUG] L2 normalize", flush=True)
         emb = emb / emb.norm(p=2)
 
+        print("[ADADEBUG] returning embedding to CPU", flush=True)
         return emb.cpu().numpy().astype(np.float32)
+
 
     # ---------- LFW-style: already aligned crop ----------
     def embed_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
@@ -93,7 +98,11 @@ class AdaFaceWrapper:
         Generic embedding method expected by the rest of your framework.
         Assumes the input is already a face crop (often aligned by FaceDetectorAligner).
         """
-        return self._forward_aligned(img_bgr)
+        print("[ADADEBUG] embed() called", flush=True)
+        out = self._forward_aligned(img_bgr)
+        print("[ADADEBUG] embed() returned", flush=True)
+        return out
+
 
     # ---------- convenience: detect + align + embed ----------
     def detect_and_embed(self, frame: np.ndarray):
