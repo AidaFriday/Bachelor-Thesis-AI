@@ -7,12 +7,11 @@ import json
 from pathlib import Path
 import numpy as np
 from datetime import datetime
-import matplotlib.pyplot as plt  # <-- NEW
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.1517421007156372
-
+FIXED_THRESHOLD = 0.60
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores_list = []
