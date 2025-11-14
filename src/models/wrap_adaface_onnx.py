@@ -52,11 +52,10 @@ class AdaFaceONNX:
     # ----------------------------------------------------------------------
     def _preprocess(self, img_bgr):
         img = cv2.resize(img_bgr, (112, 112))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.astype(np.float32) / 255.0
-        img = (img - 0.5) / 0.5
-        img = img.transpose(2, 0, 1)  # HWC → CHW
-        img = np.expand_dims(img, axis=0)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
+        # EXACTLY like your PyTorch wrapper:
+        img = (img - 127.5) / 128.0
+        img = img.transpose(2, 0, 1)[None, ...]   # (1,3,112,112)
         return img
 
     # ----------------------------------------------------------------------
@@ -65,7 +64,18 @@ class AdaFaceONNX:
     def embed(self, img_bgr):
         inp = self._preprocess(img_bgr)
         out = self.session.run([self.output_name], {self.input_name: inp})[0]
-        return out[0]
+
+        # out can be (1, D) or (D,) depending on the model/export
+        emb = out[0] if out.ndim == 2 else out.squeeze()
+
+        # L2-normalize (VERY important for AdaFace/verification)
+        emb = emb / (np.linalg.norm(emb) + 1e-12)
+        #print("[ADA-ONNX] emb norm =", float(np.linalg.norm(emb)))
+        return emb.astype(np.float32)
+
+        
+
+
 
     # ----------------------------------------------------------------------
     # Full pipeline: detect → align → embed

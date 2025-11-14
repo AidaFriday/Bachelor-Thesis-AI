@@ -1,7 +1,10 @@
 import os
+os.environ["MPLBACKEND"] = "Agg" 
 import sys
 import json
 from datetime import datetime
+import matplotlib.pyplot as plt
+
 
 import cv2
 import numpy as np
