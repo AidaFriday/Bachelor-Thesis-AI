@@ -1,87 +1,134 @@
 import cv2
 import numpy as np
-from typing import Tuple, Dict, Optional, List
-
-from insightface.app import FaceAnalysis
-
-# Standard ArcFace 112×112 reference points
-REF_5PTS_112 = np.float32(
-    [
-        [38.2946, 51.6963],
-        [73.5318, 51.5014],
-        [56.0252, 71.7366],
-        [41.5493, 92.3655],
-        [70.7299, 92.2041],
-    ]
-)
+import onnxruntime as ort
+from pathlib import Path
 
 
-def align_5pts(
-    bgr: np.ndarray, kps: np.ndarray, out_size: Tuple[int, int]
-) -> Optional[np.ndarray]:
-    """Apply 5-point similarity transform to requested resolution."""
-    ref = REF_5PTS_112.copy()
-    scale = out_size[0] / 112.0
-    ref *= scale
+# ----------------------------------------------------------
+# Reference 5 points for alignment (112 and 160)
+# ----------------------------------------------------------
+REF_5PTS_112 = np.float32([
+    [38.2946, 51.6963],
+    [73.5318, 51.5014],
+    [56.0252, 71.7366],
+    [41.5493, 92.3655],
+    [70.7299, 92.2041],
+])
 
-    M, _ = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)
+scale_160 = 160.0 / 112.0
+REF_5PTS_160 = REF_5PTS_112 * scale_160
+
+
+def align_face_5pts(bgr, kps, out_size=(160, 160)):
+    """
+    Align face with 5 keypoints → FaceNet template.
+    """
+    ref = REF_5PTS_160 if out_size[0] == 160 else REF_5PTS_112
+    M = cv2.estimateAffinePartial2D(
+        kps.astype(np.float32), ref, method=cv2.LMEDS
+    )[0]
+
     if M is None:
         return None
 
     return cv2.warpAffine(bgr, M, out_size, flags=cv2.INTER_LINEAR)
 
 
-class FaceDetectorAligner:
+# ----------------------------------------------------------
+# YOLOv5-face ONNX (GPU)
+# ----------------------------------------------------------
+class YOLOv5FaceDetector:
+    def __init__(self, onnx_path, conf_thres=0.5, iou_thres=0.4, providers=None):
+        self.input_size = 640
+        self.conf_thres = conf_thres
+        self.iou_thres = iou_thres
 
-    def __init__(self, device="cpu"):
-        ctx_id = 0 if device == "cuda" else -1
+        if providers is None:
+            providers = [
+                "CUDAExecutionProvider",
+                "TensorrtExecutionProvider",
+                "CPUExecutionProvider",
+            ]
 
-        # Load only detection + landmark models (no recognition)
-        self.det = FaceAnalysis(
-            name="buffalo_l", allowed_modules=["detection", "landmark"]
-        )
-        self.det.prepare(ctx_id=ctx_id, det_size=(640, 640))
+        print(f"[YOLOv5-Face] Providers: {providers}")
 
-    def detect(self, frame: np.ndarray) -> List[Dict]:
-        """Return raw detection with bounding boxes + 5-keypoints."""
-        faces = self.det.get(frame)
-        results = []
-        for f in faces:
-            results.append(
-                {
-                    "bbox": np.array(f.bbox, dtype=np.int32),
-                    "kps": np.array(f.kps, dtype=np.float32),  # (5,2)
-                }
+        try:
+            self.session = ort.InferenceSession(str(onnx_path), providers=providers)
+        except Exception as e:
+            print("[YOLOv5-Face] GPU failed → fallback to CPU:", e)
+            self.session = ort.InferenceSession(
+                str(onnx_path), providers=["CPUExecutionProvider"]
             )
-        return results
 
-    def align_for(
-        self, frame: np.ndarray, kps: np.ndarray, out_size=(112, 112)
-    ) -> Optional[np.ndarray]:
-        """Align face using 5 keypoints."""
-        aligned = align_5pts(frame, kps, out_size=tuple(out_size))
+        self.input_name = self.session.get_inputs()[0].name
 
-        if aligned is None:
-            # fallback: center crop
-            h, w = frame.shape[:2]
-            s = min(h, w)
-            y0 = (h - s) // 2
-            x0 = (w - s) // 2
-            crop = frame[y0 : y0 + s, x0 : x0 + s]
-            aligned = cv2.resize(crop, out_size, interpolation=cv2.INTER_AREA)
+    def _preprocess(self, img):
+        h, w = img.shape[:2]
+        r = self.input_size / max(h, w)
 
-        return aligned.astype(np.uint8)
+        resized = cv2.resize(img, (int(w * r), int(h * r)))
+        canvas = np.zeros((self.input_size, self.input_size, 3), dtype=np.uint8)
+        canvas[:resized.shape[0], :resized.shape[1]] = resized
 
-    # ✅ Compatibility method for all existing wrappers
-    def get(self, frame: np.ndarray, out_size=(112, 112)) -> List[np.ndarray]:
-        """
-        Detects faces and returns aligned face crops (CHW=HWC BGR).
-        This matches the expected output in ArcFace/Facenet/SphereFace wrappers.
-        """
-        detections = self.detect(frame)
-        crops = []
-        for d in detections:
-            crop = self.align_for(frame, d["kps"], out_size)
-            if crop is not None:
-                crops.append(crop)
-        return crops
+        blob = canvas[:, :, ::-1].transpose(2, 0, 1)
+        blob = blob.astype(np.float32) / 255.0
+        blob = np.expand_dims(blob, 0)
+        return blob, r
+
+    def detect(self, frame):
+        blob, r = self._preprocess(frame)
+        preds = self.session.run(None, {self.input_name: blob})[0][0]
+
+        detections = []
+        for det in preds:
+            conf = det[4]
+            if conf < self.conf_thres:
+                continue
+
+            x, y, w, h = det[:4]
+
+            x1 = int(x / r - w / (2 * r))
+            y1 = int(y / r - h / (2 * r))
+            x2 = int(x / r + w / (2 * r))
+            y2 = int(y / r + h / (2 * r))
+
+            kps = np.array([
+                [det[5] / r, det[6] / r],
+                [det[7] / r, det[8] / r],
+                [det[9] / r, det[10] / r],
+                [det[11] / r, det[12] / r],
+                [det[13] / r, det[14] / r],
+            ], dtype=np.float32)
+
+            detections.append({
+                "bbox": (x1, y1, x2, y2),
+                "kps": kps,
+                "conf": float(conf)
+            })
+
+        return detections
+
+
+# ----------------------------------------------------------
+# Unified detector+aligner used by all models
+# ----------------------------------------------------------
+class FaceDetectorAligner:
+    def __init__(self, device="cpu"):
+        ROOT = Path(__file__).resolve().parents[2]
+        model_path = ROOT / "external" / "FaceNet_onnx" / "yolov5s-face.onnx"
+
+        providers = (
+            ["CUDAExecutionProvider", "TensorrtExecutionProvider", "CPUExecutionProvider"]
+            if device.startswith("cuda")
+            else ["CPUExecutionProvider"]
+        )
+
+        print(f"[FaceDetectorAligner] Device={device}, Providers={providers}")
+
+        self.detector = YOLOv5FaceDetector(model_path, providers=providers)
+
+    def detect(self, frame):
+        return self.detector.detect(frame)
+
+    def align_for(self, frame, kps, out_size=(160, 160)):
+        return align_face_5pts(frame, kps, out_size)

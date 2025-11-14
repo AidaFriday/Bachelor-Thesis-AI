@@ -1,5 +1,5 @@
 # Computes one embedding per YTF video by averaging multiple frames,
-# using FACENET **CPU ONLY** (because GPU is unsupported on RTX-5070 for PyTorch)
+# using FACENET **ON GPU** when available.
 
 import os
 import sys
@@ -14,16 +14,15 @@ from scipy.io import loadmat
 from tqdm import tqdm
 import torch
 
-# ── FORCE CPU ALWAYS ───────────────────────────────────────────────
-os.environ["CUDA_VISIBLE_DEVICES"] = ""     # disables GPU globally
-torch.backends.cudnn.enabled = False        # no GPU kernels
-torch.set_num_threads(4)                    # optional: avoid CPU overload
+# ───────────────────────────────────────────────────────────────
+#   GPU ENABLED — NO MORE CPU FORCE
+# ───────────────────────────────────────────────────────────────
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"\n[INFO] Using device: {device}\n")
 
-print("\n[INFO] Running FACENET strictly on CPU.\n")
-
-# ── make project root importable ───────────────────────────────────────────────
+# add project root
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
-from connector import load_model  # noqa: E402
+from connector import load_model
 
 try:
     from .logic_confusion_matrix_video import _resolve_video_root
@@ -32,22 +31,19 @@ except ImportError:
         _resolve_video_root,
     )
 
-
-# ── metadata loader ────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────
 def load_ytf_meta(meta_path: str):
     meta = loadmat(str(meta_path), squeeze_me=True)
     return meta["video_names"]
 
-
-# ── per-video embedding ────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────
 def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
     if not os.path.isdir(video_dir):
         return None
 
-    frame_files = sorted(
-        f for f in os.listdir(video_dir)
-        if f.lower().endswith((".jpg", ".jpeg", ".png"))
-    )
+    frame_files = sorted(f for f in os.listdir(video_dir)
+                         if f.lower().endswith((".jpg", ".jpeg", ".png")))
+
     if not frame_files:
         return None
 
@@ -56,7 +52,6 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
 
     for fname in frame_files:
         img_path = os.path.join(video_dir, fname)
-
         img = cv2.imread(img_path)
         if img is None:
             continue
@@ -69,9 +64,7 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
         if aligned is None:
             continue
 
-        # IMPORTANT: CPU-ONLY embedding call
         emb = wrapper.embed(aligned)
-
         if emb is not None:
             embs.append(emb)
 
@@ -80,25 +73,18 @@ def get_video_embedding(wrapper, video_dir: str, max_frames: int = 10):
 
     return np.mean(embs, axis=0)
 
-
-# ── main driver ────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────
 def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, max_frames: int = 10):
+
     print("─────────────────────────────────────────────")
     print(f"[YTF-PRECOMPUTE] Model:   {model_name}")
     print(f"[YTF-PRECOMPUTE] Dataset: {ytf_root}")
     print(f"[YTF-PRECOMPUTE] Meta:    {meta_path}")
     print(f"[YTF-PRECOMPUTE] max_frames_per_video = {max_frames}")
     print("─────────────────────────────────────────────")
+    print(f"[INFO] Device for compute: {device}\n")
 
-    print("[CPU] Using CPU for ALL operations.\n")
-
-    # always CPU
-    device = torch.device("cpu")
-
-    wrapper = load_model(model_name)
-    wrapper.device = "cpu"      # enforce CPU inside wrapper
-    if hasattr(wrapper, "model"):
-        wrapper.model = wrapper.model.to("cpu")
+    wrapper = load_model(model_name, device=device)
 
     video_names = load_ytf_meta(meta_path)
     root = _resolve_video_root(ytf_root)
@@ -122,10 +108,6 @@ def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, ma
             names_list.append(name_str)
             emb_list.append(emb.astype(np.float32))
 
-        if (i + 1) % 50 == 0:
-            elapsed = (time.time() - total_start) / 60
-            print(f"[PROGRESS] {i+1}/{len(video_names)} done, elapsed {elapsed:.1f} min")
-
     if not emb_list:
         print("[YTF-PRECOMPUTE] No embeddings computed, aborting.")
         return None
@@ -137,7 +119,7 @@ def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, ma
     export_dir.mkdir(exist_ok=True, parents=True)
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    base = f"{model_name}_ytf_video_embs_cpu_maxf{max_frames}_{ts}"
+    base = f"{model_name}_ytf_video_embs_{device}_maxf{max_frames}_{ts}"
     npz_path = export_dir / f"{base}.npz"
     json_path = export_dir / f"{base}.json"
 
@@ -153,6 +135,7 @@ def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, ma
         "failed_videos": failed,
         "runtime_min": runtime_min,
         "timestamp": ts,
+        "device": device
     }
 
     with open(json_path, "w") as f:
@@ -162,12 +145,12 @@ def precompute_ytf_embeddings(model_name: str, ytf_root: str, meta_path: str, ma
     print(f"[YTF-PRECOMPUTE] Saved embeddings → {npz_path}")
     print(f"[YTF-PRECOMPUTE] Summary JSON →     {json_path}")
     print(f"[YTF-PRECOMPUTE] Total time: {runtime_min} min")
+    print(f"[YTF-PRECOMPUTE] Used device: {device}")
     print("─────────────────────────────────────────────\n")
 
     return str(npz_path)
 
-
-# ── CLI ────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────
 if __name__ == "__main__":
     import argparse
 
