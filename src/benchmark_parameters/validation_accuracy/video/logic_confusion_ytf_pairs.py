@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt  # <-- NEW
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.60
+FIXED_THRESHOLD = 0.1517421007156372
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
@@ -79,12 +79,9 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     }
 
     # ---------- NEW: draw confusion-matrix PNG ----------
-    cm = np.array([[tp, fp],
-                    [fn, tn]])
+    cm = np.array([[tp, fp], [fn, tn]])
 
-    labels_cm = [["TP", "FP"],
-                ["FN", "TN"]]
-
+    labels_cm = [["TP", "FP"], ["FN", "TN"]]
 
     fig, ax = plt.subplots(figsize=(4, 4))
     im = ax.imshow(cm, cmap="Blues")

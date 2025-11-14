@@ -1,3 +1,4 @@
+# confusion_lfw_pairs.py
 import os
 import sys
 import json
@@ -71,6 +72,11 @@ def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
     that maximizes overall accuracy.
     """
     cand_thr = np.unique(sims)
+    if cand_thr.size == 1:
+        t = float(cand_thr[0])
+        acc = float(np.mean((sims >= t).astype(np.int32) == labels))
+        return t, acc
+    
     best_thr = None
     best_acc = -1.0
 
@@ -84,7 +90,9 @@ def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
     return float(best_thr), float(best_acc)
 
 
-def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
+def run_confusion_protocol(
+    model_name, dataset_path, pairs_file, max_pairs=None, threshold: float | None = None
+):
     start_time = datetime.now()
     # if user passed parent LFW folder, go into lfw-deepfunneled
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
@@ -133,7 +141,6 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None)
                 "total": total,
             }
             print(json.dumps(prog))
-
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
@@ -197,11 +204,22 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None)
     sims = np.array(sims, dtype=np.float32)
     labels = np.array(labels, dtype=np.int32)
 
-    # ---------- choose best global threshold ----------
-    best_thr, best_acc = find_best_global_threshold(sims, labels)
+    # ---------- choose threshold ----------
+    if threshold is None:
+        best_thr, best_acc = find_best_global_threshold(
+            sims, labels
+        )  # pooled best-by-accuracy
+        thr_source = "pooled best-by-accuracy"
+        msg = "best threshold"
+    else:
+        best_thr = float(threshold)
+        preds_tmp = (sims >= best_thr).astype(np.int32)
+        best_acc = float(np.mean(preds_tmp == labels))
+        thr_source = "user-provided (--threshold)"
+        msg = "provided threshold"
 
-    print(f"\n[CM] Best global threshold: {best_thr:.4f}")
-    print(f"[CM] Accuracy at best thr: {best_acc*100:.2f}%")
+    print(f"\n[CM] Threshold: {best_thr:.6f} ({thr_source})")
+    print(f"[CM] Accuracy at {msg}: {best_acc*100:.2f}%")
 
     # ---------- confusion matrix at that threshold ----------
     preds = (sims >= best_thr).astype(np.int32)
@@ -294,7 +312,6 @@ def run_confusion_protocol(model_name, dataset_path, pairs_file, max_pairs=None)
     except Exception as e:
         print(f"[CM] Warning: could not save confusion matrix figure ({e})")
 
-    
     end_time = datetime.now()
     elapsed_sec = (end_time - start_time).total_seconds()
 
@@ -361,6 +378,13 @@ if __name__ == "__main__":
         default=None,
         help="(debug) limit number of pairs evaluated",
     )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="(optional) decision threshold to use; "
+        "if omitted, use pooled best-by-accuracy",
+    )
     args = parser.parse_args()
 
     run_confusion_protocol(
@@ -368,4 +392,5 @@ if __name__ == "__main__":
         args.dataset,
         args.pairs,
         max_pairs=args.max_pairs,
+        threshold=args.threshold,
     )
