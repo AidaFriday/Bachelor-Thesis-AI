@@ -1,0 +1,18 @@
+{
+  "kind": "confusion_matrix_ytf",
+  "model": "adaface",
+  "dataset": "YTF",
+  "pairs": 5000,
+  "tp": 533,
+  "tn": 2497,
+  "fp": 3,
+  "fn": 1967,
+  "accuracy": 0.606,
+  "precision": 0.9944029850727717,
+  "recall": 0.2131999999999147,
+  "specificity": 0.9987999999996005,
+  "f1": 0.3511198943071664,
+  "far": 0.00119999999999952,
+  "frr": 0.7867999999996853,
+  "threshold": 0.6
+}
