@@ -20,22 +20,15 @@ REF_5PTS_160 = REF_5PTS_112 * scale_160
 
 
 def align_face_5pts(bgr, kps, out_size=(160, 160)):
-    """
-    Align face with 5 keypoints → FaceNet template.
-    """
     ref = REF_5PTS_160 if out_size[0] == 160 else REF_5PTS_112
-    M = cv2.estimateAffinePartial2D(
-        kps.astype(np.float32), ref, method=cv2.LMEDS
-    )[0]
-
+    M = cv2.estimateAffinePartial2D(kps.astype(np.float32), ref, method=cv2.LMEDS)[0]
     if M is None:
         return None
-
     return cv2.warpAffine(bgr, M, out_size, flags=cv2.INTER_LINEAR)
 
 
 # ----------------------------------------------------------
-# YOLOv5-face ONNX (GPU)
+# YOLOv5-face ONNX (GPU only)
 # ----------------------------------------------------------
 class YOLOv5FaceDetector:
     def __init__(self, onnx_path, conf_thres=0.5, iou_thres=0.4, providers=None):
@@ -44,29 +37,18 @@ class YOLOv5FaceDetector:
         self.iou_thres = iou_thres
 
         if providers is None:
-            providers = [
-                "CUDAExecutionProvider",
-                "TensorrtExecutionProvider",
-                "CPUExecutionProvider",
-            ]
+            providers = ["CPUExecutionProvider"]
 
         print(f"[YOLOv5-Face] Providers: {providers}")
 
-        try:
-            self.session = ort.InferenceSession(str(onnx_path), providers=providers)
-        except Exception as e:
-            print("[YOLOv5-Face] GPU failed → fallback to CPU:", e)
-            self.session = ort.InferenceSession(
-                str(onnx_path), providers=["CPUExecutionProvider"]
-            )
-
+        self.session = ort.InferenceSession(str(onnx_path), providers=providers)
         self.input_name = self.session.get_inputs()[0].name
 
     def _preprocess(self, img):
         h, w = img.shape[:2]
         r = self.input_size / max(h, w)
-
         resized = cv2.resize(img, (int(w * r), int(h * r)))
+
         canvas = np.zeros((self.input_size, self.input_size, 3), dtype=np.uint8)
         canvas[:resized.shape[0], :resized.shape[1]] = resized
 
@@ -110,7 +92,7 @@ class YOLOv5FaceDetector:
 
 
 # ----------------------------------------------------------
-# Unified detector+aligner used by all models
+# Unified detector + aligner
 # ----------------------------------------------------------
 class FaceDetectorAligner:
     def __init__(self, device="cpu"):
@@ -118,7 +100,7 @@ class FaceDetectorAligner:
         model_path = ROOT / "external" / "FaceNet_onnx" / "yolov5s-face.onnx"
 
         providers = (
-            ["CUDAExecutionProvider", "TensorrtExecutionProvider", "CPUExecutionProvider"]
+            ["CUDAExecutionProvider", "CPUExecutionProvider"]
             if device.startswith("cuda")
             else ["CPUExecutionProvider"]
         )
