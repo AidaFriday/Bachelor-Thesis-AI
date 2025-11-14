@@ -249,6 +249,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     print(f"\nGlobal ROC AUC (all pairs): {roc_auc:.4f}")
     print(f"Global EER               : {eer*100:.2f}%")
 
+    # --- Best global threshold (Youden's J statistic) ---
+    j_scores = tpr - fpr
+    best_idx = int(np.argmax(j_scores))
+    best_threshold = float(roc_thresholds[best_idx])
+    print(f"[ROC] Best global threshold (Youden J): {best_threshold:.6f}")
+
     # ---------- JSON + PNG EXPORTS ----------
     exports_dir = os.path.join(os.path.dirname(__file__), "exports")
     os.makedirs(exports_dir, exist_ok=True)
@@ -271,6 +277,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "roc_fpr": [float(x) for x in fpr],
         "roc_tpr": [float(x) for x in tpr],
         "roc_thresholds": [float(x) for x in roc_thresholds],
+        "best_threshold": float(best_threshold),
     }
 
     json_path = os.path.join(exports_dir, base_name + ".json")
