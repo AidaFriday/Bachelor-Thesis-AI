@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 
 FIXED_THRESHOLD = 0.60
 
+
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores_list = []
     labels_list = []
