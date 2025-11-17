@@ -16,16 +16,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from connector import load_model
 
 
-# ---------------------------------------------------------------------
-# Dataset alignment detection
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Detect if dataset is already aligned (YTF or LFW)
+# ---------------------------------------------------------
 def dataset_is_aligned(dataset_path: str) -> bool:
     p = dataset_path.lower().replace("\\", "/")
     last_dir = p.rstrip("/").split("/")[-1]
 
     if "aligned" in p:
         return True
-    if last_dir == "ytf" or last_dir == "aligned":
+    if last_dir in ("ytf", "aligned"):
         return True
     if "lfw" in p and "deepfunneled" in p:
         return True
@@ -33,7 +33,9 @@ def dataset_is_aligned(dataset_path: str) -> bool:
     return False
 
 
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Uniform frame sampling for videos
+# ---------------------------------------------------------
 def sample_uniform(files, max_frames):
     if len(files) <= max_frames:
         return files
@@ -41,15 +43,17 @@ def sample_uniform(files, max_frames):
     return [files[i] for i in idx]
 
 
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Load YTF metadata
+# ---------------------------------------------------------
 def load_ytf_meta(meta_path: str):
     meta = loadmat(str(meta_path), squeeze_me=True)
     return meta["video_names"]
 
 
-# ---------------------------------------------------------------------
-# Compute embedding per video
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Main embedding extractor
+# ---------------------------------------------------------
 def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
     if not os.path.isdir(video_dir):
         return None
@@ -69,24 +73,25 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
 
     is_arcface = model_name == "arcface"
     is_adaface = model_name == "adaface"
-    is_facenet = model_name == "facenet" or model_name == "facenet_onnx"
+    is_facenet = model_name in ("facenet", "facenet_onnx")
 
     for fname in frame_files:
         img_path = os.path.join(video_dir, fname)
 
-        # ------------------------------
-        # ARC FACE → full internal pipeline
-        # ------------------------------
+        # -------------------------------------------------
+        # ARC FACE → FULL INTERNAL PIPELINE
+        # -------------------------------------------------
         if is_arcface:
             emb = wrapper.get_embedding(img_path)
             if emb is None:
                 continue
+
             emb = emb.astype(np.float32)
             emb /= np.linalg.norm(emb) + 1e-6
             embs.append(emb)
             continue
 
-        # Load image (for non-ArcFace)
+        # load image
         img = cv2.imread(img_path)
         if img is None:
             continue
@@ -94,30 +99,42 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
         emb = None
 
         try:
-            # ------------------------------
-            # FACENET-ONNX → NO DETECTOR, NO ALIGNMENT
-            # YTF is already aligned
-            # ------------------------------
-            if is_facenet:
-                emb = wrapper.embed(img)
 
-            # ------------------------------
-            # ADAFACE → embed aligned image
-            # ------------------------------
+            # -------------------------------------------------
+            # FACENET → MUST USE DETECT + ALIGN + 160×160
+            # This restores correct performance (95% LFW)
+            # -------------------------------------------------
+            if is_facenet:
+                faces = wrapper.detector.detect(img)
+                if not faces:
+                    continue
+
+                aligned = wrapper.detector.align_for(img, faces[0]["kps"])
+                if aligned is None:
+                    continue
+
+                emb = wrapper.embed(aligned)
+
+            # -------------------------------------------------
+            # ADAFACE → Direct embedding (YTF already aligned)
+            # -------------------------------------------------
             elif is_adaface:
                 emb = wrapper.embed(img)
 
-            # ------------------------------
-            # All other models
-            # ------------------------------
+            # -------------------------------------------------
+            # OTHER MODELS → Optional detect + align
+            # -------------------------------------------------
             elif USE_DETECTION:
                 faces = wrapper.detector.detect(img)
                 if not faces:
                     continue
+
                 aligned = wrapper.detector.align_for(img, faces[0]["kps"])
                 if aligned is None:
                     continue
+
                 emb = wrapper.embed(aligned)
+
             else:
                 emb = wrapper.embed(img)
 
@@ -127,25 +144,30 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
         if emb is None:
             continue
 
-        # L2-normalize
+        # -------------------------------------------------
+        # Per-frame L2 normalization
+        # -------------------------------------------------
         emb = emb.astype(np.float32)
         emb /= np.linalg.norm(emb) + 1e-6
-
         embs.append(emb)
 
     if not embs:
         return None
 
+    # ---------------------------------------------------------
+    # Mean pooling across frames
+    # ---------------------------------------------------------
     v = np.mean(embs, axis=0)
     v /= np.linalg.norm(v) + 1e-6
     return v.astype(np.float32)
 
 
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Main YTF loop
+# ---------------------------------------------------------
 def precompute_ytf_embeddings(
     model_name: str, ytf_root: str, meta_path: str, max_frames: int = 10
 ):
-
     print("─────────────────────────────────────────────")
     print(f"[YTF] Model:        {model_name}")
     print(f"[YTF] Dataset root: {ytf_root}")
@@ -153,22 +175,24 @@ def precompute_ytf_embeddings(
     print(f"[YTF] max_frames:   {max_frames}")
     print("─────────────────────────────────────────────")
 
-    # Load model wrapper (ArcFace / AdaFace / FaceNet ONNX)
     wrapper = load_model(model_name)
 
+    # -------------------------------
     # GPU support for PyTorch models
+    # -------------------------------
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[DEVICE] Using {device}")
+
     if device.type == "cuda" and hasattr(wrapper, "model"):
         try:
             wrapper.model = wrapper.model.to(device)
         except Exception:
             print("[WARN] Could not move model to CUDA")
 
-    # Load meta
+    # load meta
     names = load_ytf_meta(meta_path)
 
-    # YTF root detection
+    # detect YTF aligned folder
     if os.path.isdir(os.path.join(ytf_root, "aligned")):
         video_root = os.path.join(ytf_root, "aligned")
     else:
@@ -238,7 +262,7 @@ def precompute_ytf_embeddings(
     return str(npz_path)
 
 
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
 if __name__ == "__main__":
     import argparse
 
