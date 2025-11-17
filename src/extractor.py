@@ -1,43 +1,50 @@
 import os
+from pathlib import Path
 
 
 def collect_python_code(
-    root_dir=".", output_file="all_code.txt", exclude_folder="pretrained_models"
+    root_dir=".",
+    output_file="all_code.txt",
+    exclude_folder="pretrained_models"
 ):
+    root = Path(root_dir).resolve()
+    output_file = Path(output_file).resolve()
+
     python_files = []
 
-    # First, collect all file paths
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        # Skip excluded folder
-        if exclude_folder in dirpath.split(os.sep):
+    # ---------------------------------------------------------
+    # Collect all .py files (excluding specific folder)
+    # ---------------------------------------------------------
+    for path in root.rglob("*.py"):
+        if exclude_folder in path.parts:
             continue
+        python_files.append(path)
 
-        for filename in filenames:
-            if filename.endswith(".py"):
-                file_path = os.path.join(dirpath, filename)
-                python_files.append(file_path)
+    # Sort results for stable ordering
+    python_files = sorted(python_files)
 
+    # ---------------------------------------------------------
+    # Write output file
+    # ---------------------------------------------------------
     with open(output_file, "w", encoding="utf-8") as out:
-        # Write file list header
         out.write("# ==== Collected Python Files ====\n")
-        for path in python_files:
-            out.write(path + "\n")
+
+        for p in python_files:
+            out.write(str(p) + "\n")
+
         out.write("\n\n# ==== File Contents Below ====\n")
 
-        # Write each file’s content
-        for file_path in python_files:
+        # Write contents
+        for p in python_files:
+            out.write(f"\n\n# ==== {p} ====\n\n")
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    code = f.read()
-                out.write(f"\n\n# ==== {file_path} ====\n\n")
-                out.write(code)
-                out.write("\n")
+                with open(p, "r", encoding="utf-8") as f:
+                    out.write(f.read())
             except Exception as e:
-                print(f"Skipping {file_path}: {e}")
+                out.write(f"\n# ERROR reading file: {e}\n")
+
+    print(f"✅ All Python code collected into: {output_file}")
 
 
 if __name__ == "__main__":
     collect_python_code()
-    print(
-        "✅ All Python code has been collected into all_code.txt (excluding pretrained_models)"
-    )

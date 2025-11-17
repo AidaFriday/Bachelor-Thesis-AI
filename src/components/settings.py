@@ -171,6 +171,9 @@ class SettingsPage(QWidget):
     # ===============================================================
     # 🔹 Save & Load
     # ===============================================================
+    # ===============================================================
+    # 🔹 Save & Load
+    # ===============================================================
     def save_settings(self):
         data = {
             "model": self.model_name,
@@ -221,3 +224,19 @@ class SettingsPage(QWidget):
 
             except Exception as e:
                 print(f"[WARN] Could not load settings.json: {e}")
+
+        # If widgets already exist, sync UI with loaded values
+        if hasattr(self, "dataset_name_label"):
+            self.dataset_name_label.setText(self.dataset_name or "Not selected")
+        if hasattr(self, "dataset_path_label"):
+            self.dataset_path_label.setText(
+                f"Path: {self.dataset_path or 'Not selected'}"
+            )
+        if hasattr(self, "model_combo"):
+            idx = self.model_combo.findText(self.model_name)
+            if idx >= 0:
+                self.model_combo.setCurrentIndex(idx)
+        if hasattr(self, "theme_combo"):
+            idx = self.theme_combo.findText(self.theme)
+            if idx >= 0:
+                self.theme_combo.setCurrentIndex(idx)

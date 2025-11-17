@@ -71,12 +71,6 @@ class SelectSubjectsDialog(QDialog):
         btns.addWidget(cancel_btn)
         layout.addLayout(btns)
 
-        ok_btn.clicked.connect(self.accept)
-        cancel_btn.clicked.connect(self.reject)
-        btns.addWidget(ok_btn)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-
     def accept(self):
         self.selected_subjects = [
             self.list_widget.item(i).text()
@@ -137,7 +131,7 @@ class RunnerThread(QThread):
         model_name,
         dataset_path=None,
         test_image=None,
-        iters=50,
+        iters=None,
         extra_args=None,
     ):
         super().__init__()
@@ -152,18 +146,19 @@ class RunnerThread(QThread):
         try:
             cmd = [
                 sys.executable,
-                "-u",  # <--- add this for unbuffered stdout/stderr
+                "-u",
                 self.file_path,
                 "--model",
                 self.model_name,
-                "--iters",
-                str(self.iters),
             ]
+
+            # only scripts that expect it get --iters
+            if self.iters is not None:
+                cmd.extend(["--iters", str(self.iters)])
 
             if self.dataset_path:
                 cmd.extend(["--dataset", self.dataset_path])
 
-            # append any extra CLI arguments (e.g., --start-person, --pos-ratio)
             if self.extra_args:
                 cmd.extend(self.extra_args)
 
@@ -172,8 +167,8 @@ class RunnerThread(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                encoding="utf-8",  # ✅ force UTF-8 decoding
-                errors="replace",  # ✅ avoid crash on unsupported chars
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             )
 
@@ -365,7 +360,7 @@ class BenchmarkPage(QWidget):
             return
 
         dataset_lower = (self.dataset_path or "").lower()
-        iters = 0
+        iters = None
         extra_args = []
 
         # --- Detect dataset type ---
@@ -452,11 +447,10 @@ class BenchmarkPage(QWidget):
 
         # --- Image datasets (LFW etc.) ---
         elif is_image_dataset:
+            base_name = os.path.basename(file_path).lower()
+
             # Allow Latency & Accuracy, but block FPS (but don't block latency scripts)
-            if (
-                "fps" in os.path.basename(file_path).lower()
-                and "latency" not in os.path.basename(file_path).lower()
-            ):
+            if "fps" in base_name and "latency" not in base_name:
                 QMessageBox.warning(
                     self,
                     "FPS Unsupported",
@@ -468,9 +462,27 @@ class BenchmarkPage(QWidget):
             if os.path.isdir(os.path.join(self.dataset_path, "lfw-deepfunneled")):
                 self.dataset_path = os.path.join(self.dataset_path, "lfw-deepfunneled")
 
-            # For validation accuracy, skip person selection — script handles pairs internally
-            if "validation_accuracy" in os.path.basename(file_path).lower():
+            # ---------- SPECIAL CASE: LFW pair protocols (ROC + Confusion) ----------
+            if "roc_lfw_pairs" in base_name or "confusion_lfw_pairs" in base_name:
+                # Use all pairs from pairs.txt. No dialogs needed.
+                lfw_root = self.dataset_path
+                if os.path.basename(lfw_root).lower() == "lfw-deepfunneled":
+                    lfw_root = os.path.dirname(lfw_root)
 
+                pairs_file = os.path.join(lfw_root, "pairs.txt")
+                if not os.path.isfile(pairs_file):
+                    QMessageBox.warning(
+                        self,
+                        "pairs.txt not found",
+                        f"Could not find pairs.txt next to the LFW folder:\n{pairs_file}",
+                    )
+                    return
+
+                # These scripts don't accept --iters, so leave iters as None.
+                extra_args = ["--pairs", pairs_file]
+
+            # ---------- Generic image VALIDATION ACCURACY (logic_roc_graph / confusion) ----------
+            elif "validation_accuracy" in base_name:
                 # Step 1: Ask how many pairs to test
                 num_pairs, ok = QInputDialog.getInt(
                     self,
@@ -484,7 +496,7 @@ class BenchmarkPage(QWidget):
                 if not ok:
                     return
 
-                # ✅ Step 3: Ask which metric to run
+                # Step 2: Ask which metric to run
                 dlg_metric = SelectMetricDialog(self)
                 if dlg_metric.exec_() != QDialog.Accepted:
                     return
@@ -504,8 +516,6 @@ class BenchmarkPage(QWidget):
                         "logic_confusion_matrix.py",
                     )
 
-                # extra_args stays [] for VA
-
                 ds_for_dialog = self.dataset_path
                 if os.path.isdir(os.path.join(ds_for_dialog, "lfw-deepfunneled")):
                     ds_for_dialog = os.path.join(ds_for_dialog, "lfw-deepfunneled")
@@ -517,17 +527,16 @@ class BenchmarkPage(QWidget):
 
                 if dlg.selected_subjects[0] == "__ALL__":
                     start_person = "__ALL__"
-                    iters = -1  # ✅ tell script to process ALL pairs
+                    iters = -1  # tell script to process ALL pairs
                 else:
                     start_person = dlg.selected_subjects[0]
-                    iters = num_pairs  # ✅ normal limited mode
+                    iters = num_pairs  # limited mode
 
                 extra_args = ["--start", start_person]
-
-                # pass for ROC / Confusion scripts
                 os.environ["LFW_START_PERSON"] = start_person
                 os.environ["POS_RATIO"] = "0.5"
 
+            # ---------- Latency / inference on image datasets ----------
             else:
                 # Show person-selection dialog for latency, inference etc.
                 people = sorted(
@@ -630,7 +639,7 @@ class BenchmarkPage(QWidget):
                 if data.get("progress") == 1:
                     progress.reset()
 
-                progress.setFormat(f"Processing {cur}/{tot} frames ({pct}%)" + run_str)
+                progress.setFormat(f"Processing {cur}/{tot} items ({pct}%)" + run_str)
 
             except Exception as e:
                 print(f"[WARN] Progress parse failed: {e} | data={data}")
@@ -672,7 +681,14 @@ class BenchmarkPage(QWidget):
 
             fig.clear()
             ax = fig.add_subplot(111)
-            cm = np.array([[tp, fp], [fn, tn]], dtype=float)
+            # rows = Actual POS/NEG, cols = Pred POS/NEG
+            cm = np.array(
+                [
+                    [tp, fn],  # Actual POS → Pred POS / Pred NEG
+                    [fp, tn],  # Actual NEG → Pred POS / Pred NEG
+                ],
+                dtype=float,
+            )
             im = ax.imshow(cm, cmap="Blues")
 
             ax.set_xticks([0, 1])
