@@ -9,17 +9,28 @@ import numpy as np
 from scipy.io import loadmat
 from tqdm import tqdm
 
-# make project root importable
+# === FIX PACKAGE PATH ISSUE ===
+current_file = Path(__file__).resolve()
+project_root = current_file.parents[3]  # <project>/src
+sys.path.insert(0, str(project_root))
+# =================================
+
+# make project root importable (kept for safety)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model  # noqa: E402
 
+
+# re-use helpers from your existing video logic
 # re-use helpers from your existing video logic
 try:
     # When run as part of the package
-    from .logic_confusion_matrix_video import cosine_similarity, _resolve_video_root
+    from .legacy.logic_confusion_matrix_video import (
+        cosine_similarity,
+        _resolve_video_root,
+    )
 except ImportError:
     # When run as a top-level script from project root
-    from benchmark_parameters.validation_accuracy.video.logic_confusion_matrix_video import (  # type: ignore  # noqa: E501
+    from benchmark_parameters.validation_accuracy.video.legacy.logic_confusion_matrix_video import (
         cosine_similarity,
         _resolve_video_root,
     )
