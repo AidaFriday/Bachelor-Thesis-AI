@@ -4,27 +4,34 @@ import subprocess
 from pathlib import Path
 
 # ======================================================================
-# 🔧 *** USER CONFIG — SET YOUR EMBEDDING FILE HERE ***
-# Use absolute path or just filename if it is inside exports/
-USE_EMB_FILE = "facenet_ytf_video_embs_20251117-131203.npz"
+# USER SETTING — PICK ANY NPZ FILE YOU WANT
+# Example:
+# USE_EMB_FILE = "facenet_ytf_video_embs_20251117-131203.npz"
+# USE_EMB_FILE = "arcface_ytf_video_embs_20251117-122752.npz"
+# USE_EMB_FILE = "adaface_ytf_video_embs_20251117-163005.npz"
+
+USE_EMB_FILE = "arcface_ytf_video_embs_20251117-122752.npz"
 # ======================================================================
 
 
-# Path to logic_ytf_pairs.py (absolute)
+# Extract the model name automatically:
+# "facenet_ytf_video_embs_20251117-131203.npz" → "facenet"
+model_name = USE_EMB_FILE.split("_")[0]
+
+# Path to logic_ytf_pairs.py
 SCRIPT = Path(__file__).parent / "logic_ytf_pairs.py"
 
-# Detect OS
 os_name = platform.system().lower()
 print(f"[run_ytf_pairs] Detected OS: {os_name}")
 
 if os_name == "windows":
+
     DATASET = r"C:\programming\Datasets\YTF"
     META = r"C:\programming\Datasets\meta_data\meta_and_splits.mat"
 
-    # Path to the REAL exports folder (2 levels up)
+    # real exports folder
     exports_dir = Path(__file__).resolve().parents[2] / "exports"
 
-    # Allow user to specify absolute path OR just filename
     emb_path = Path(USE_EMB_FILE)
     if not emb_path.is_absolute():
         emb_path = exports_dir / USE_EMB_FILE
@@ -34,8 +41,6 @@ if os_name == "windows":
 
     EMBS = str(emb_path)
 
-
-# === Linux / WSL ===
 else:
     DATASET = "/home/aida/Datasets/YTF"
     META = "/home/aida/Datasets/metadata/meta_and_splits.mat"
@@ -54,7 +59,7 @@ cmd = [
     "python",
     str(SCRIPT),
     "--model",
-    "adaface",
+    model_name,
     "--dataset",
     DATASET,
     "--meta",
