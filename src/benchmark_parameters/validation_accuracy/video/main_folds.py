@@ -54,7 +54,7 @@ cmd = [
     "python",
     str(SCRIPT),
     "--model",
-    "facenet",
+    "adaface",
     "--dataset",
     DATASET,
     "--meta",
