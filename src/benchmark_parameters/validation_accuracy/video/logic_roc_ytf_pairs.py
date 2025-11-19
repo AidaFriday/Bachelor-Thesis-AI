@@ -1,3 +1,5 @@
+# logic_roc_ytf_pairs.py
+#
 # Computes ROC metrics for YTF (YouTube Faces) across all 10 official folds
 # using precomputed similarity scores and labels. Exports ROC metrics JSON
 # and saves a ROC curve PNG.

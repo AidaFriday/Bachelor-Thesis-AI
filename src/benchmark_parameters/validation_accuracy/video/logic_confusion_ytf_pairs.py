@@ -1,3 +1,4 @@
+# logic_confusion_ytf_pairs.py
 # Computes confusion matrix and evaluation metrics for YTF (all 10 folds)
 # using precomputed scores and labels, and exports JSON + confusion matrix PNG.
 
@@ -11,7 +12,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.15370836853981018
+FIXED_THRESHOLD = 0.66
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
