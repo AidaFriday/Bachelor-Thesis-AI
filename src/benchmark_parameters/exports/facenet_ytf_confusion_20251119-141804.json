@@ -1,0 +1,18 @@
+{
+  "kind": "confusion_matrix_ytf",
+  "model": "facenet",
+  "dataset": "YTF",
+  "pairs": 5000,
+  "tp": 2171,
+  "tn": 2357,
+  "fp": 143,
+  "fn": 329,
+  "accuracy": 0.9056,
+  "precision": 0.9382022471906057,
+  "recall": 0.8683999999996527,
+  "specificity": 0.9427999999996228,
+  "f1": 0.9019526376391336,
+  "far": 0.05719999999997712,
+  "frr": 0.13159999999994737,
+  "threshold": 0.4
+}
