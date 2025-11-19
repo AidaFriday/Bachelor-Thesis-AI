@@ -1,5 +1,7 @@
+# roc_lfw_pairs.py
 import os
-os.environ["MPLBACKEND"] = "Agg" 
+
+os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
 from datetime import datetime
