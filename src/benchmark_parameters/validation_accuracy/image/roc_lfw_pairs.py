@@ -184,40 +184,40 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
             error = True
         else:
             try:
+                # ---------------------------------------------------
+                # 1️⃣ ArcFace — ALWAYS use .get_embedding(path)
+                # ---------------------------------------------------
                 if is_arcface:
-                    # ArcFace: tested path using internal detection/alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
-                elif is_adaface:
-                    # AdaFace: its own embed() expects an aligned crop.
-                    # For LFW-deepfunneled we can treat the full image as a crop.
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
-
-                elif use_aligned:
-                    # Other models that have embed_aligned on aligned datasets
+                # ---------------------------------------------------
+                # 2️⃣ Dataset aligned (LFW-deepfunneled)
+                # Use embed_aligned() for Facenet + AdaFace
+                # ---------------------------------------------------
+                elif not use_detection and hasattr(wrapper, "embed_aligned"):
                     emb1 = wrapper.embed_aligned(a)
                     emb2 = wrapper.embed_aligned(b)
 
-                elif use_detection:
-                    # Facenet / others on non-aligned datasets
+                # ---------------------------------------------------
+                # 3️⃣ Raw LFW (not deepfunneled)
+                # Detect → align → embed
+                # ---------------------------------------------------
+                else:
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
+
                     if not faces_a or not faces_b:
                         error = True
                     else:
                         aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
                         aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
                         if aligned_a is None or aligned_b is None:
                             error = True
                         else:
                             emb1 = wrapper.embed(aligned_a)
                             emb2 = wrapper.embed(aligned_b)
-                else:
-                    # Fallback: already-aligned dataset, generic embed
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
 
             except Exception:
                 error = True

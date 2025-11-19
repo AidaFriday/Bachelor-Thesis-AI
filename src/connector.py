@@ -19,6 +19,10 @@ from models.wrap_facedetection import FaceDetectorAligner
 # --- Model registry (hardcoded). Remove model.config check since unused.
 WRAPPERS = {
     "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
+    # PyTorch versions (used for LFW)
+    "facenet": ("models.wrap_facenet", "FaceNetWrapper"),
+    "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),
+    # ONNX versions (used for YTF only)
     "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),  # ✅ USE ONNX VERSION
     "adaface": ("models.wrap_adaface_onnx", "AdaFaceONNX"),
 }

@@ -1,3 +1,4 @@
+# wrap_adaface_onnx.py
 import os
 import cv2
 import numpy as np
@@ -13,7 +14,7 @@ class AdaFaceONNX:
         # ------------------------------------------------------------------
         # Resolve ONNX model path RELATIVE to repo root
         # ------------------------------------------------------------------
-        ROOT = Path(__file__).resolve().parents[2]   # → Bachelor-Thesis-AI/
+        ROOT = Path(__file__).resolve().parents[2]  # → Bachelor-Thesis-AI/
         onnx_path = ROOT / "external" / "adaface_onnx" / "adaface.onnx"
 
         if not onnx_path.exists():
@@ -24,7 +25,9 @@ class AdaFaceONNX:
         # ------------------------------------------------------------------
         # Select device
         # ------------------------------------------------------------------
-        self.device = "cuda" if (device == "cuda" and torch.cuda.is_available()) else "cpu"
+        self.device = (
+            "cuda" if (device == "cuda" and torch.cuda.is_available()) else "cpu"
+        )
 
         providers = (
             ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -55,7 +58,7 @@ class AdaFaceONNX:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
         # EXACTLY like your PyTorch wrapper:
         img = (img - 127.5) / 128.0
-        img = img.transpose(2, 0, 1)[None, ...]   # (1,3,112,112)
+        img = img.transpose(2, 0, 1)[None, ...]  # (1,3,112,112)
         return img
 
     # ----------------------------------------------------------------------
@@ -70,12 +73,8 @@ class AdaFaceONNX:
 
         # L2-normalize (VERY important for AdaFace/verification)
         emb = emb / (np.linalg.norm(emb) + 1e-12)
-        #print("[ADA-ONNX] emb norm =", float(np.linalg.norm(emb)))
+        # print("[ADA-ONNX] emb norm =", float(np.linalg.norm(emb)))
         return emb.astype(np.float32)
-
-        
-
-
 
     # ----------------------------------------------------------------------
     # Full pipeline: detect → align → embed

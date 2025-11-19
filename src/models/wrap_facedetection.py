@@ -1,3 +1,4 @@
+# wrap_facedetection.py
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -7,13 +8,15 @@ from pathlib import Path
 # ----------------------------------------------------------
 # Reference 5 points for alignment (112 and 160)
 # ----------------------------------------------------------
-REF_5PTS_112 = np.float32([
-    [38.2946, 51.6963],
-    [73.5318, 51.5014],
-    [56.0252, 71.7366],
-    [41.5493, 92.3655],
-    [70.7299, 92.2041],
-])
+REF_5PTS_112 = np.float32(
+    [
+        [38.2946, 51.6963],
+        [73.5318, 51.5014],
+        [56.0252, 71.7366],
+        [41.5493, 92.3655],
+        [70.7299, 92.2041],
+    ]
+)
 
 scale_160 = 160.0 / 112.0
 REF_5PTS_160 = REF_5PTS_112 * scale_160
@@ -50,7 +53,7 @@ class YOLOv5FaceDetector:
         resized = cv2.resize(img, (int(w * r), int(h * r)))
 
         canvas = np.zeros((self.input_size, self.input_size, 3), dtype=np.uint8)
-        canvas[:resized.shape[0], :resized.shape[1]] = resized
+        canvas[: resized.shape[0], : resized.shape[1]] = resized
 
         blob = canvas[:, :, ::-1].transpose(2, 0, 1)
         blob = blob.astype(np.float32) / 255.0
@@ -74,19 +77,20 @@ class YOLOv5FaceDetector:
             x2 = int(x / r + w / (2 * r))
             y2 = int(y / r + h / (2 * r))
 
-            kps = np.array([
-                [det[5] / r, det[6] / r],
-                [det[7] / r, det[8] / r],
-                [det[9] / r, det[10] / r],
-                [det[11] / r, det[12] / r],
-                [det[13] / r, det[14] / r],
-            ], dtype=np.float32)
+            kps = np.array(
+                [
+                    [det[5] / r, det[6] / r],
+                    [det[7] / r, det[8] / r],
+                    [det[9] / r, det[10] / r],
+                    [det[11] / r, det[12] / r],
+                    [det[13] / r, det[14] / r],
+                ],
+                dtype=np.float32,
+            )
 
-            detections.append({
-                "bbox": (x1, y1, x2, y2),
-                "kps": kps,
-                "conf": float(conf)
-            })
+            detections.append(
+                {"bbox": (x1, y1, x2, y2), "kps": kps, "conf": float(conf)}
+            )
 
         return detections
 

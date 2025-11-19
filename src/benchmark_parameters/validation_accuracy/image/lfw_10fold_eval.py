@@ -1,3 +1,6 @@
+# trying to fix roc_lfw_pairs.py code, because results for facenet and adaface are really low
+
+
 import os
 import sys
 import json
