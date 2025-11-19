@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.40
+FIXED_THRESHOLD = 0.39875417947769165
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
