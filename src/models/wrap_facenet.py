@@ -1,3 +1,5 @@
+# old good facenet wrapper
+
 # models/wrap_facenet.py
 
 import os
