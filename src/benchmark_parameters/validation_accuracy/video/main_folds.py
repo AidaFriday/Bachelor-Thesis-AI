@@ -10,7 +10,7 @@ from pathlib import Path
 # USE_EMB_FILE = "arcface_ytf_video_embs_20251117-122752.npz"
 # USE_EMB_FILE = "adaface_ytf_video_embs_20251117-163005.npz"
 
-USE_EMB_FILE = "facenet_ytf_video_embs_20251117-204352.npz"
+USE_EMB_FILE = "adaface_ytf_video_embs_20251119-172425.npz"
 # ======================================================================
 
 

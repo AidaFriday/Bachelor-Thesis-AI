@@ -1,12 +1,9 @@
-# roc_lfw_pairs.py
-import os
+# Updated roc_lfw_pairs.py just max_pairs was added to be able to test from terminal
 
-os.environ["MPLBACKEND"] = "Agg"
+import os
 import sys
 import json
 from datetime import datetime
-import matplotlib.pyplot as plt
-
 
 import cv2
 import numpy as np
@@ -184,40 +181,40 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
             error = True
         else:
             try:
-                # ---------------------------------------------------
-                # 1️⃣ ArcFace — ALWAYS use .get_embedding(path)
-                # ---------------------------------------------------
                 if is_arcface:
+                    # ArcFace: tested path using internal detection/alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
-                # ---------------------------------------------------
-                # 2️⃣ Dataset aligned (LFW-deepfunneled)
-                # Use embed_aligned() for Facenet + AdaFace
-                # ---------------------------------------------------
-                elif not use_detection and hasattr(wrapper, "embed_aligned"):
+                elif is_adaface:
+                    # AdaFace: its own embed() expects an aligned crop.
+                    # For LFW-deepfunneled we can treat the full image as a crop.
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
+
+                elif use_aligned:
+                    # Other models that have embed_aligned on aligned datasets
                     emb1 = wrapper.embed_aligned(a)
                     emb2 = wrapper.embed_aligned(b)
 
-                # ---------------------------------------------------
-                # 3️⃣ Raw LFW (not deepfunneled)
-                # Detect → align → embed
-                # ---------------------------------------------------
-                else:
+                elif use_detection:
+                    # Facenet / others on non-aligned datasets
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
-
                     if not faces_a or not faces_b:
                         error = True
                     else:
                         aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
                         aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-
                         if aligned_a is None or aligned_b is None:
                             error = True
                         else:
                             emb1 = wrapper.embed(aligned_a)
                             emb2 = wrapper.embed(aligned_b)
+                else:
+                    # Fallback: already-aligned dataset, generic embed
+                    emb1 = wrapper.embed(a)
+                    emb2 = wrapper.embed(b)
 
             except Exception:
                 error = True
@@ -254,12 +251,6 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     print(f"\nGlobal ROC AUC (all pairs): {roc_auc:.4f}")
     print(f"Global EER               : {eer*100:.2f}%")
 
-    # --- Best global threshold (Youden's J statistic) ---
-    j_scores = tpr - fpr
-    best_idx = int(np.argmax(j_scores))
-    best_threshold = float(roc_thresholds[best_idx])
-    print(f"[ROC] Best global threshold (Youden J): {best_threshold:.6f}")
-
     # ---------- JSON + PNG EXPORTS ----------
     exports_dir = os.path.join(os.path.dirname(__file__), "exports")
     os.makedirs(exports_dir, exist_ok=True)
@@ -282,7 +273,6 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "roc_fpr": [float(x) for x in fpr],
         "roc_tpr": [float(x) for x in tpr],
         "roc_thresholds": [float(x) for x in roc_thresholds],
-        "best_threshold": float(best_threshold),
     }
 
     json_path = os.path.join(exports_dir, base_name + ".json")
@@ -307,35 +297,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         plt.savefig(png_path, dpi=150, bbox_inches="tight")
         plt.close()
         print(f"[ROC] Saved ROC PNG to: {png_path}")
-
-        # Send signal to GUI to display the ROC image ===
-        print(
-            json.dumps(
-                {
-                    "kind": "roc_image",
-                    "path": png_path,
-                    "model": model_name,
-                    "dataset": os.path.basename(dataset_path),
-                    "auc": float(roc_auc),
-                    "eer": float(eer),
-                    "pairs_tested": int(len(labels)),
-                }
-            )
-        )
-
     except Exception as e:
         print(f"[ROC] WARNING: could not save ROC PNG ({e})")
 
-    # ---------- print SHORT JSON summary to console ----------
-    print("\n[LFW] JSON summary (no ROC arrays):")
-
-    pretty_json = {
-        k: v
-        for k, v in roc_json.items()
-        if not k.startswith("roc_")  # hide roc_fpr / roc_tpr / roc_thresholds
-    }
-
-    print(json.dumps(pretty_json, indent=2))
+    # ---------- print JSON summary to console too ----------
+    print("\n[LFW] JSON summary:")
+    print(json.dumps(roc_json, indent=2))
 
     return roc_json
 
