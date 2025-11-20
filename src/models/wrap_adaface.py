@@ -48,6 +48,8 @@ class AdaFaceWrapper:
         self.model.load_state_dict(new_state, strict=False)
         self.model.to(device)
         self.model.eval()
+        # disable detector for aligned datasets (LFW-deepfunneled)
+        self.detector = None
 
         # ✅ Shared detector/aligner (used by the framework & ROC/LFW script)
         self.detector = FaceDetectorAligner(device=device)

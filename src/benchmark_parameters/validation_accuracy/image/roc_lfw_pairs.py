@@ -1,5 +1,8 @@
+# roc_lfw_pairs.py
+
 import os
-os.environ["MPLBACKEND"] = "Agg" 
+
+os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
 from datetime import datetime
@@ -142,6 +145,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     print(f"[LFW] Pairs   : {pairs_file}")
 
     wrapper = load_model(model_name)
+
     model_name_lower = getattr(wrapper, "name", "").lower()
     is_arcface = model_name_lower == "arcface"
     is_adaface = model_name_lower == "adaface"
@@ -190,6 +194,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                 elif is_adaface:
                     # AdaFace: its own embed() expects an aligned crop.
                     # For LFW-deepfunneled we can treat the full image as a crop.
+                    # Always treat LFW as aligned
                     emb1 = wrapper.embed(a)
                     emb2 = wrapper.embed(b)
 
