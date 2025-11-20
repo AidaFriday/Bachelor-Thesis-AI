@@ -1,4 +1,4 @@
-#ytf_precompute_embeddings.py
+# ytf_precompute_embeddings.py
 import os
 import sys
 import json
@@ -236,7 +236,7 @@ def precompute_ytf_embeddings(
         base_root = Path(__file__).resolve().parents[2] / "exports"
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    export_dir = base_root / f"YTF_Video_{timestamp}"
+    export_dir = base_root / f"YTF_Video_{model_name}_{timestamp}"
     export_dir.mkdir(parents=True, exist_ok=True)
 
     base = f"{model_name}_ytf_video_embs"
