@@ -227,11 +227,19 @@ def precompute_ytf_embeddings(
         print("[ERROR] No embeddings computed.")
         return None
 
-    export_dir = Path(__file__).resolve().parents[2] / "exports"
+    # ---------------------------------------------------------
+    # CUSTOM LINUX OUTPUT DIRECTORY
+    # ---------------------------------------------------------
+    if sys.platform.startswith("linux"):
+        base_root = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
+    else:
+        base_root = Path(__file__).resolve().parents[2] / "exports"
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    export_dir = base_root / f"YTF_Video_{timestamp}"
     export_dir.mkdir(parents=True, exist_ok=True)
 
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    base = f"{model_name}_ytf_video_embs_{ts}"
+    base = f"{model_name}_ytf_video_embs"
 
     npz_path = export_dir / f"{base}.npz"
     json_path = export_dir / f"{base}.json"
@@ -248,7 +256,7 @@ def precompute_ytf_embeddings(
         "num_failed": len(failed),
         "failed": failed,
         "runtime_min": round((time.time() - total_start) / 60, 2),
-        "timestamp": ts,
+        "timestamp": timestamp,
     }
 
     with open(json_path, "w") as f:

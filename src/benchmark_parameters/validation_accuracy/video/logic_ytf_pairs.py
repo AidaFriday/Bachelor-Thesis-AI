@@ -153,7 +153,12 @@ def export_ytf_pairs(
         fold_list = [fold]
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    export_dir = Path(__file__).resolve().parents[2] / "exports"
+    # if main_folds.py passes an output directory, use it
+    if hasattr(export_ytf_pairs, "outdir") and export_ytf_pairs.outdir is not None:
+        export_dir = Path(export_ytf_pairs.outdir)
+    else:
+        export_dir = Path(__file__).resolve().parents[2] / "exports"
+
     export_dir.mkdir(parents=True, exist_ok=True)
 
     for f_idx in fold_list:
@@ -204,9 +209,20 @@ if __name__ == "__main__":
         default=-1,
         help="-1 = all folds, otherwise 0..9",
     )
+
+    parser.add_argument(
+    "--outdir",
+    required=False,
+    default=None,
+    help="Optional output directory for saving fold results",
+    )
+
     args = parser.parse_args()
 
     fold_arg = None if args.fold < 0 else args.fold
+    # pass outdir to the function via attribute (minimal change)
+    export_ytf_pairs.outdir = args.outdir
+
     export_ytf_pairs(
         args.model,
         args.dataset,

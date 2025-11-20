@@ -1,3 +1,5 @@
+
+
 import os
 import platform
 import subprocess
@@ -10,7 +12,7 @@ from pathlib import Path
 # USE_EMB_FILE = "arcface_ytf_video_embs_20251117-122752.npz"
 # USE_EMB_FILE = "adaface_ytf_video_embs_20251117-163005.npz"
 
-USE_EMB_FILE = "facenet_ytf_video_embs_20251117-204352.npz"
+USE_EMB_FILE = "facenet_ytf_video_embs_20251120-130052.npz"
 # ======================================================================
 
 
@@ -43,16 +45,37 @@ if os_name == "windows":
 
 else:
     DATASET = "/home/aida/Datasets/YTF"
-    META = "/home/aida/Datasets/metadata/meta_and_splits.mat"
+    META = "/home/aida/Datasets/meta_data/meta_and_splits.mat"
 
-    emb_path = Path(USE_EMB_FILE)
-    if not emb_path.is_absolute():
-        emb_path = Path(__file__).parent / USE_EMB_FILE
+    # =================================================================
+    # NEW: SEARCH FOR THE EMBEDDING FILE IN Test_YTF/*/<USE_EMB_FILE>
+    # =================================================================
+    EXPORT_ROOT = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
 
-    if not emb_path.exists():
-        raise FileNotFoundError(f"Embedding file not found:\n{emb_path}")
+    found = None
+    for sub in EXPORT_ROOT.iterdir():
+        if sub.is_dir():
+            candidate = sub / USE_EMB_FILE
+            if candidate.exists():
+                found = candidate
+                break
 
-    EMBS = str(emb_path)
+    if found is None:
+        raise FileNotFoundError(f"Could not find {USE_EMB_FILE} in {EXPORT_ROOT}")
+
+    EMBS = str(found)
+    emb_path = found
+    # =================================================================
+
+
+# ======================================================================
+# NEW: CREATE A "folds" DIRECTORY NEXT TO THE FOUND .NPZ FILE
+# ======================================================================
+output_dir = emb_path.parent / "folds"
+output_dir.mkdir(exist_ok=True)
+
+print(f"[run_ytf_pairs] Output folder for this run: {output_dir}")
+# ======================================================================
 
 
 cmd = [
@@ -68,6 +91,8 @@ cmd = [
     EMBS,
     "--fold",
     "-1",
+    "--outdir",
+    str(output_dir)   # <--- pass output folder
 ]
 
 print("[run_ytf_pairs] Running command:")
