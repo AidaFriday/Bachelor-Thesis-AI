@@ -92,13 +92,21 @@ def compute_ytf_pairs(
         emb2 = video_embs.get(video_key2)
 
         labels.append(label)
-        error = (emb1 is None) or (emb2 is None)
 
-        if error:
-            # force always-wrong scores so these pairs are counted as failures
+        # Handle missing embeddings
+        if emb1 is None or emb2 is None:
             score = -1.0 if label == 1 else 2.0
+            misclassified = True
         else:
             score = cosine_similarity(emb1, emb2)
+
+            # REAL misclassification logic using the ROC best threshold
+            THRESHOLD = 0.39875417947769165
+
+            if label == 1:  # same
+                misclassified = score < THRESHOLD
+            else:  # diff
+                misclassified = score > THRESHOLD
 
         scores.append(score)
 
@@ -108,7 +116,7 @@ def compute_ytf_pairs(
                 "video2": video_key2,
                 "label": "same" if label == 1 else "diff",
                 "similarity": float(score),
-                "error": bool(error),
+                "misclassified": bool(misclassified),
             }
         )
 
@@ -211,10 +219,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-    "--outdir",
-    required=False,
-    default=None,
-    help="Optional output directory for saving fold results",
+        "--outdir",
+        required=False,
+        default=None,
+        help="Optional output directory for saving fold results",
     )
 
     args = parser.parse_args()
