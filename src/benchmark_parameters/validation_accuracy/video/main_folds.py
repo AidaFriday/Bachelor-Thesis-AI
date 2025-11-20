@@ -1,5 +1,3 @@
-
-
 import os
 import platform
 import subprocess
@@ -12,7 +10,7 @@ from pathlib import Path
 # USE_EMB_FILE = "arcface_ytf_video_embs_20251117-122752.npz"
 # USE_EMB_FILE = "adaface_ytf_video_embs_20251117-163005.npz"
 
-USE_EMB_FILE = "facenet_ytf_video_embs_20251120-130052.npz"
+USE_EMB_FILE = "adaface_ytf_video_embs_20251120-102111.npz"
 # ======================================================================
 
 
@@ -31,17 +29,23 @@ if os_name == "windows":
     DATASET = r"C:\programming\Datasets\YTF"
     META = r"C:\programming\Datasets\meta_data\meta_and_splits.mat"
 
-    # real exports folder
-    exports_dir = Path(__file__).resolve().parents[2] / "exports"
+    # Search for .npz file inside Test_YTF folders (same logic as Linux)
+    TEST_YTF = Path(r"C:\programming\BA_Utilites\BA_tests\Test_YTF")
 
-    emb_path = Path(USE_EMB_FILE)
-    if not emb_path.is_absolute():
-        emb_path = exports_dir / USE_EMB_FILE
+    found = None
+    for sub in TEST_YTF.iterdir():
+        if sub.is_dir():
+            candidate = sub / USE_EMB_FILE
+            if candidate.exists():
+                found = candidate
+                break
 
-    if not emb_path.exists():
-        raise FileNotFoundError(f"Embedding file not found:\n{emb_path}")
+    if found is None:
+        raise FileNotFoundError(f"Could not find {USE_EMB_FILE} in {TEST_YTF}")
 
-    EMBS = str(emb_path)
+    EMBS = str(found)
+    emb_path = found
+
 
 else:
     DATASET = "/home/aida/Datasets/YTF"
@@ -92,7 +96,7 @@ cmd = [
     "--fold",
     "-1",
     "--outdir",
-    str(output_dir)   # <--- pass output folder
+    str(output_dir),  # <--- pass output folder
 ]
 
 print("[run_ytf_pairs] Running command:")
