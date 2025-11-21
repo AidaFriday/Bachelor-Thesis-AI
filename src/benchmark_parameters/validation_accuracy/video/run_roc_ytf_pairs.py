@@ -2,11 +2,13 @@
 # logic_roc_ytf_pairs.py
 # Auto-detects YTF fold output folders on Windows or Linux.
 
+# run_roc_ytf_pairs.py
+# Auto-detects the correct model-specific YTF fold directory.
+
 import os
 import sys
 import json
 from pathlib import Path
-from datetime import datetime
 
 import numpy as np
 from sklearn.metrics import roc_curve, auc
@@ -15,54 +17,51 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
 
-def auto_find_exports(model: str, stamp: str) -> Path:
+def find_ytf_export_dir(model_name: str) -> Path:
     """
-    Searches for a folder that contains:
-      <model>_ytf_fold0_<stamp>_scores.npy
-      ...
-      <model>_ytf_fold9_<stamp>_scores.npy
+    Auto-detect the newest *model-specific* YTF folder.
 
-    Looks inside BA_tests/Test_YTF on BOTH Windows & Linux.
+    Priority:
+      1. YTF_Video_<model>_*
+      2. fallback: newest YTF_Video_*
     """
 
-    # 1. Try Windows-style path
-    win_root = Path("C:/programming/BA_Utilites/BA_tests/Test_YTF")
+    # Windows or Linux dirs
+    base = None
 
-    # 2. Try Linux-style path
-    lin_root = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
+    if sys.platform.startswith("linux"):
+        base = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
+    else:
+        base = Path("C:/programming/BA_Utilites/BA_tests/Test_YTF")
 
-    roots = [win_root, lin_root]
+    if not base.exists():
+        raise FileNotFoundError(f"[ERROR] YTF folder path does not exist: {base}")
 
-    for root in roots:
-        if not root.exists():
-            continue
+    # --- Step 1: find model-specific folders ---
+    model_folders = [
+        d
+        for d in base.iterdir()
+        if d.is_dir() and d.name.lower().startswith(f"ytf_video_{model_name.lower()}_")
+    ]
 
-        for sub in root.iterdir():
-            if not sub.is_dir():
-                continue
+    if model_folders:
+        newest = max(model_folders, key=lambda d: d.stat().st_mtime)
+        print(f"[AUTO] Found model-specific YTF folder: {newest}")
+        return newest / "folds"
 
-            candidate = sub / "folds"
-            if not candidate.exists():
-                continue
+    # --- Step 2: fallback: any YTF_Video_* folder ---
+    generic = [
+        d
+        for d in base.iterdir()
+        if d.is_dir() and d.name.lower().startswith("ytf_video_")
+    ]
 
-            # Check if all 10 folds exist
-            ok = True
-            for fold in range(10):
-                prefix = f"{model}_ytf_fold{fold}_{stamp}"
-                if not (candidate / f"{prefix}_scores.npy").exists():
-                    ok = False
-                    break
-                if not (candidate / f"{prefix}_labels.npy").exists():
-                    ok = False
-                    break
+    if not generic:
+        raise FileNotFoundError("[ERROR] No YTF_Video_* folders found.")
 
-            if ok:
-                print(f"[AUTO] Found YTF fold directory: {candidate}")
-                return candidate
-
-    raise FileNotFoundError(
-        f"Could not auto-detect YTF exports for model={model}, stamp={stamp}"
-    )
+    newest = max(generic, key=lambda d: d.stat().st_mtime)
+    print(f"[AUTO] WARNING: Using generic folder (model-specific not found): {newest}")
+    return newest / "folds"
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
@@ -74,91 +73,82 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
         scores_path = exports_dir / f"{prefix}_scores.npy"
         labels_path = exports_dir / f"{prefix}_labels.npy"
 
+        if not scores_path.exists() or not labels_path.exists():
+            raise FileNotFoundError(f"Missing files: {scores_path}, {labels_path}")
+
         scores_list.append(np.load(scores_path))
         labels_list.append(np.load(labels_path))
 
-    scores = np.concatenate(scores_list, axis=0)
-    labels = np.concatenate(labels_list, axis=0)
-    return scores, labels
+    return np.concatenate(scores_list), np.concatenate(labels_list)
 
 
-def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
-    # AUTO-DETECT if exports_dir is not provided
-    if exports_dir is None:
-        exports_dir = auto_find_exports(model_name, stamp)
-    else:
-        exports_dir = Path(exports_dir)
+def run_roc_ytf(model_name: str, stamp: str):
+    exports_dir = find_ytf_export_dir(model_name)
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
 
-    pos_count = int((labels == 1).sum())
-    neg_count = int((labels == 0).sum())
-    print(f"[YTF ROC] pos_pairs={pos_count}, neg_pairs={neg_count}")
+    pos = int((labels == 1).sum())
+    neg = int((labels == 0).sum())
+    print(f"[YTF ROC] pos_pairs={pos}, neg_pairs={neg}")
 
-    fpr, tpr, thresholds = roc_curve(labels, scores)
-    roc_auc = auc(fpr, tpr)
+    fpr, tpr, thr = roc_curve(labels, scores)
+    auc_val = auc(fpr, tpr)
 
-    j_scores = tpr - fpr
-    best_idx = np.argmax(j_scores)
-    best_thr = thresholds[best_idx]
+    # best threshold
+    best_idx = np.argmax(tpr - fpr)
+    best_thr = float(thr[best_idx])
 
-    fnr = 1.0 - tpr
+    # EER
+    fnr = 1 - tpr
     eer_idx = np.nanargmin(np.abs(fnr - fpr))
-    eer = (fpr[eer_idx] + fnr[eer_idx]) / 2.0
+    eer = float((fnr[eer_idx] + fpr[eer_idx]) / 2)
 
-    # TAR @ FAR = 1e-3
+    # TAR@FAR 1e-3
     target_far = 1e-3
     idx = np.searchsorted(fpr, target_far, side="right") - 1
-    tar_far_1e3 = tpr[idx] if 0 <= idx < len(tpr) else float("nan")
+    tar_far_1e3 = float(tpr[idx]) if 0 <= idx < len(tpr) else float("nan")
 
     metrics = {
         "kind": "roc_ytf",
         "model": model_name,
         "dataset": "YTF",
-        "auc": float(roc_auc),
+        "auc": float(auc_val),
         "eer": float(eer),
-        "best_threshold": float(best_thr),
-        "tar_far_1e3": float(tar_far_1e3),
-        "pairs": int(len(labels)),
-        "pos_pairs": pos_count,
-        "neg_pairs": neg_count,
+        "best_threshold": best_thr,
+        "tar_far_1e3": tar_far_1e3,
+        "pairs": len(labels),
+        "pos_pairs": pos,
+        "neg_pairs": neg,
     }
 
-    # Export JSON into SAME folder for convenience
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    json_path = exports_dir / f"{model_name}_ytf_roc_{ts}.json"
-
-    with open(json_path, "w") as f:
+    out_json = exports_dir / f"{model_name}_ytf_roc_{stamp}.json"
+    with open(out_json, "w") as f:
         json.dump(metrics, f, indent=2)
 
-    # --- export ROC PNG ---
-    png_path = exports_dir / f"{model_name}_ytf_roc_{stamp}.png"
+    print(f"[YTF ROC] JSON saved -> {out_json}")
+    print(json.dumps(metrics, indent=2))
 
+    # Save ROC curve PNG
+    png_path = Path(__file__).with_name("roc_ytf_result.png")
     plt.figure(figsize=(6, 5))
-    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
-    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+    plt.plot(fpr, tpr, label=f"AUC = {auc_val:.4f}")
+    plt.plot([0, 1], [0, 1], "k--")
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title(f"YTF ROC – {model_name}")
     plt.legend(loc="lower right")
-
-    plt.savefig(png_path, dpi=200, bbox_inches="tight")
+    plt.savefig(png_path, dpi=200)
     plt.close()
 
-    print(f"[YTF ROC] PNG -> {png_path}")
-
-    print(f"[YTF ROC] JSON -> {json_path}")
-    print(json.dumps(metrics, indent=2))
+    print(f"[YTF ROC] PNG saved -> {png_path}")
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", required=True)
-    parser.add_argument("--stamp", required=True)
-    parser.add_argument("--exports-dir", default=None)
+    p = argparse.ArgumentParser()
+    p.add_argument("--model", required=True)
+    p.add_argument("--stamp", required=True)
+    args = p.parse_args()
 
-    args = parser.parse_args()
-
-    run_roc_ytf(args.model, args.stamp, args.exports_dir)
+    run_roc_ytf(args.model, args.stamp)
