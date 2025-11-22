@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.39875417947769165
+FIXED_THRESHOLD = 0.60
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
@@ -114,7 +114,7 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     ax.set_title(f"YTF Confusion Matrix – {model_name} (thr={FIXED_THRESHOLD})")
     fig.tight_layout()
 
-    png_path = Path(__file__).with_name("confusion_ytf_result.png")
+    png_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.png"
     plt.savefig(png_path, dpi=200, bbox_inches="tight")
     plt.close()
     # ---------- END NEW PART ----------

@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
@@ -121,7 +122,8 @@ def run_roc_ytf(model_name: str, stamp: str):
         "neg_pairs": neg,
     }
 
-    out_json = exports_dir / f"{model_name}_ytf_roc_{stamp}.json"
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out_json = exports_dir / f"{model_name}_ytf_roc_{ts}.json"
     with open(out_json, "w") as f:
         json.dump(metrics, f, indent=2)
 
@@ -129,7 +131,7 @@ def run_roc_ytf(model_name: str, stamp: str):
     print(json.dumps(metrics, indent=2))
 
     # Save ROC curve PNG
-    png_path = Path(__file__).with_name("roc_ytf_result.png")
+    png_path = out_json.with_suffix(".png")  # saves .png in folds folder
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {auc_val:.4f}")
     plt.plot([0, 1], [0, 1], "k--")
