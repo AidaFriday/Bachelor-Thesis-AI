@@ -1,6 +1,5 @@
 # logic_confusion_ytf_pairs.py
-# Computes confusion matrix and evaluation metrics for YTF (all 10 folds)
-# using precomputed scores and labels, and exports JSON + confusion matrix PNG.
+# Computes confusion metrics for YTF with auto-detected export folder
 
 import os
 import sys
@@ -15,6 +14,53 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 FIXED_THRESHOLD = 0.60
 
 
+def find_ytf_export_dir(model_name: str) -> Path:
+    """Auto-detect the YTF folder that contains <model>_ytf_fold0_* files."""
+    if sys.platform.startswith("linux"):
+        base = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
+    else:
+        base = Path("C:/programming/BA_Utilites/BA_tests/Test_YTF")
+
+    if not base.exists():
+        raise FileNotFoundError(f"[ERROR] Test_YTF folder not found: {base}")
+
+    # List all YTF_Video_* folders
+    ytf_dirs = [
+        d
+        for d in base.iterdir()
+        if d.is_dir() and d.name.lower().startswith("ytf_video_")
+    ]
+
+    model = model_name.lower()
+    matched_dirs = []
+
+    # Look inside each /folds for model-specific files
+    for d in ytf_dirs:
+        folds_path = d / "folds"
+        if not folds_path.exists():
+            continue
+
+        pattern = f"{model}_ytf_fold0_"
+        has_model_data = any(
+            f.name.lower().startswith(pattern)
+            for f in folds_path.iterdir()
+            if f.is_file()
+        )
+
+        if has_model_data:
+            matched_dirs.append(d)
+
+    if matched_dirs:
+        newest = max(matched_dirs, key=lambda x: x.stat().st_mtime)
+        print(f"[AUTO] Found YTF results for model '{model_name}' → {newest}")
+        return newest / "folds"
+
+    # fallback
+    newest = max(ytf_dirs, key=lambda x: x.stat().st_mtime)
+    print(f"[AUTO] WARNING: No model folder found. Using → {newest}")
+    return newest / "folds"
+
+
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores_list = []
     labels_list = []
@@ -25,23 +71,16 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
         labels_path = exports_dir / f"{prefix}_labels.npy"
 
         if not scores_path.exists() or not labels_path.exists():
-            raise FileNotFoundError(
-                f"Missing files for fold {fold}: {scores_path}, {labels_path}"
-            )
+            raise FileNotFoundError(f"Missing files: {scores_path}, {labels_path}")
 
         scores_list.append(np.load(scores_path))
         labels_list.append(np.load(labels_path))
 
-    scores = np.concatenate(scores_list, axis=0)
-    labels = np.concatenate(labels_list, axis=0)
-    return scores, labels
+    return np.concatenate(scores_list), np.concatenate(labels_list)
 
 
-def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
-    if exports_dir is None:
-        exports_dir = Path(__file__).resolve().parents[2] / "exports"
-    else:
-        exports_dir = Path(exports_dir)
+def run_confusion_ytf(model_name: str, stamp: str):
+    exports_dir = find_ytf_export_dir(model_name)
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
 
@@ -79,10 +118,11 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "threshold": float(FIXED_THRESHOLD),
     }
 
-    # ---------- NEW: draw confusion-matrix PNG ----------
-    cm = np.array([[tp, fp], [fn, tn]])
+    # use ACTUAL timestamp for output
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    labels_cm = [["TP", "FP"], ["FN", "TN"]]
+    # SAVE CONFUSION MATRIX PNG
+    cm = np.array([[tp, fp], [fn, tn]])
 
     fig, ax = plt.subplots(figsize=(4, 4))
     im = ax.imshow(cm, cmap="Blues")
@@ -92,72 +132,31 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     ax.set_xticklabels(["Actual +", "Actual -"])
     ax.set_yticklabels(["Predicted +", "Predicted -"])
 
-    plt.setp(
-        ax.get_xticklabels(),
-        rotation=45,
-        ha="right",
-        rotation_mode="anchor",
-    )
-
     for i in range(2):
         for j in range(2):
-            ax.text(
-                j,
-                i,
-                f"{labels_cm[i][j]}\n{cm[i, j]}",
-                ha="center",
-                va="center",
-                color="black",
-                fontsize=9,
-            )
+            ax.text(j, i, f"{cm[i,j]}", ha="center", va="center", color="black")
 
     ax.set_title(f"YTF Confusion Matrix – {model_name} (thr={FIXED_THRESHOLD})")
-    fig.tight_layout()
 
     png_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.png"
     plt.savefig(png_path, dpi=200, bbox_inches="tight")
     plt.close()
-    # ---------- END NEW PART ----------
 
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"
-    with open(out_path, "w") as f:
+    # SAVE JSON
+    out_json = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"
+    with open(out_json, "w") as f:
         json.dump(result, f, indent=2)
 
-    print(f"[YTF CM] Exported -> {out_path}")
-    print(json.dumps(result))
-
-    # optional extra JSON line so GUI can pick up the PNG
-    print(
-        json.dumps(
-            {
-                "kind": "confusion_image_ytf",
-                "path": str(png_path),
-                "tp": tp,
-                "tn": tn,
-                "fp": fp,
-                "fn": fn,
-                "threshold": float(FIXED_THRESHOLD),
-                "model": model_name,
-                "dataset": "YTF",
-            }
-        )
-    )
+    print(f"[YTF CONF] Saved JSON → {out_json}")
+    print(f"[YTF CONF] Saved PNG  → {png_path}")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model", required=True, help="facenet / adaface / arcface ..."
-    )
-    parser.add_argument(
-        "--stamp", required=True, help="timestamp part, e.g. 20251110-182757"
-    )
-    parser.add_argument(
-        "--exports-dir", default=None, help="override exports dir (optional)"
-    )
+    parser.add_argument("--model", required=True, help="Model name (e.g. arcface)")
+    parser.add_argument("--stamp", required=True, help="Timestamp like 20251120-204342")
     args = parser.parse_args()
 
-    run_confusion_ytf(args.model, args.stamp, args.exports_dir)
+    run_confusion_ytf(args.model, args.stamp)

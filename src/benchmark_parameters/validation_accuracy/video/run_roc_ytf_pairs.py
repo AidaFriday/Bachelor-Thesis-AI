@@ -20,15 +20,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 
 def find_ytf_export_dir(model_name: str) -> Path:
     """
-    Auto-detect the newest *model-specific* YTF folder.
+    AUTO-DETECT the correct YTF fold directory for a specific model.
 
-    Priority:
-      1. YTF_Video_<model>_*
-      2. fallback: newest YTF_Video_*
+    NEW LOGIC:
+      1. Scan all YTF_Video_* folders.
+      2. Inside each folder, look for files like:
+         <model>_ytf_fold0_*.npy
+      3. Choose the newest folder that actually contains this model.
+      4. Fallback to generic only if absolutely necessary.
     """
-
-    # Windows or Linux dirs
-    base = None
 
     if sys.platform.startswith("linux"):
         base = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
@@ -36,33 +36,50 @@ def find_ytf_export_dir(model_name: str) -> Path:
         base = Path("C:/programming/BA_Utilites/BA_tests/Test_YTF")
 
     if not base.exists():
-        raise FileNotFoundError(f"[ERROR] YTF folder path does not exist: {base}")
+        raise FileNotFoundError(f"[ERROR] Test_YTF folder not found: {base}")
 
-    # --- Step 1: find model-specific folders ---
-    model_folders = [
-        d
-        for d in base.iterdir()
-        if d.is_dir() and d.name.lower().startswith(f"ytf_video_{model_name.lower()}_")
-    ]
-
-    if model_folders:
-        newest = max(model_folders, key=lambda d: d.stat().st_mtime)
-        print(f"[AUTO] Found model-specific YTF folder: {newest}")
-        return newest / "folds"
-
-    # --- Step 2: fallback: any YTF_Video_* folder ---
-    generic = [
+    # find all candidate YTF_Video_* dirs
+    ytf_dirs = [
         d
         for d in base.iterdir()
         if d.is_dir() and d.name.lower().startswith("ytf_video_")
     ]
 
-    if not generic:
+    if not ytf_dirs:
         raise FileNotFoundError("[ERROR] No YTF_Video_* folders found.")
 
-    newest = max(generic, key=lambda d: d.stat().st_mtime)
-    print(f"[AUTO] WARNING: Using generic folder (model-specific not found): {newest}")
-    return newest / "folds"
+    model = model_name.lower()
+
+    # STEP 1: search inside each YTF folder for model-matching files
+    matched_dirs = []
+    for d in ytf_dirs:
+        folds_path = d / "folds"
+        if not folds_path.exists():
+            continue
+
+        # look for files like: model_ytf_fold0_*.npy
+        pattern = f"{model}_ytf_fold0_"
+        has_model_data = any(
+            f.name.lower().startswith(pattern)
+            for f in folds_path.iterdir()
+            if f.is_file()
+        )
+
+        if has_model_data:
+            matched_dirs.append(d)
+
+    # If we found model-specific dirs → choose the newest
+    if matched_dirs:
+        newest = max(matched_dirs, key=lambda x: x.stat().st_mtime)
+        print(f"[AUTO] Found YTF results for model '{model_name}' → {newest}")
+        return newest / "folds"
+
+    # STEP 2: fallback — use newest generic folder
+    newest_generic = max(ytf_dirs, key=lambda x: x.stat().st_mtime)
+    print(
+        f"[AUTO] WARNING: No model-specific files found. Using generic → {newest_generic}"
+    )
+    return newest_generic / "folds"
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
