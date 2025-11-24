@@ -12,6 +12,9 @@ from datetime import datetime
 
 import numpy as np
 from sklearn.metrics import roc_curve, auc
+import matplotlib
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 # allow importing from project root if needed
@@ -121,7 +124,10 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         json.dump(metrics, f, indent=2)
 
     # --- export ROC PNG (overwrites same file each time) ---
-    png_path = Path(__file__).with_name("roc_ytf_result.png")
+
+    png_path = exports_dir / f"{model_name}_ytf_roc_{stamp}.png"
+
+
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
     plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
