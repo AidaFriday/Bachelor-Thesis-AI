@@ -19,8 +19,6 @@ sys.path.insert(0, str(project_root))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model  # noqa: E402
 
-
-# re-use helpers from your existing video logic
 # re-use helpers from your existing video logic
 try:
     # When run as part of the package
@@ -92,9 +90,9 @@ def compute_ytf_pairs(
         emb2 = video_embs.get(video_key2)
 
         labels.append(label)
-        error = (emb1 is None) or (emb2 is None)
+        emb_missing = (emb1 is None) or (emb2 is None)
 
-        if error:
+        if emb_missing:
             # force always-wrong scores so these pairs are counted as failures
             score = -1.0 if label == 1 else 2.0
         else:
@@ -108,7 +106,8 @@ def compute_ytf_pairs(
                 "video2": video_key2,
                 "label": "same" if label == 1 else "diff",
                 "similarity": float(score),
-                "error": bool(error),
+                "emb_missing": bool(emb_missing)
+,
             }
         )
 

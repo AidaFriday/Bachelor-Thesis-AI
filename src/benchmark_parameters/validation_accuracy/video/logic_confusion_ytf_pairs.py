@@ -124,8 +124,6 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     plt.close()
     # ---------- END NEW PART ----------
 
-    # ---------- END NEW PART ----------
-
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"
     with open(out_path, "w") as f:
