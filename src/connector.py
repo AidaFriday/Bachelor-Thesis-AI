@@ -21,6 +21,7 @@ WRAPPERS = {
     "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
     "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),  # ✅ USE ONNX VERSION
     "adaface": ("models.wrap_adaface_onnx", "AdaFaceONNX"),
+    "facenet_original": ("models.wrap_facenet_original", "FaceNetOriginalWrapper"),
 }
 
 
@@ -85,7 +86,11 @@ def load_model(model_name: str, device: str | None = None):
     wrapper = wrapper_class(device=device)
 
     # Attach a detector on the same device as the wrapper
-    wrapper.detector = _get_detector(device)
+    # Attach detector unless model should not use one
+    if model_name not in ("facenet_original",):
+        wrapper.detector = _get_detector(device)
+    else:
+        wrapper.detector = None
 
     # Encourage consistent naming
     if not hasattr(wrapper, "name"):
