@@ -27,7 +27,6 @@ def cosine_similarity(a, b):
 def load_pairs(pairs_file, dataset_root):
     pairs = []
     fold_ids = []
-
     with open(pairs_file, "r") as f:
         lines = f.read().strip().split("\n")
 
@@ -35,7 +34,7 @@ def load_pairs(pairs_file, dataset_root):
     idx = 1
 
     for fold in range(num_folds):
-
+        # positive
         for _ in range(pairs_per_fold):
             p, i1, i2 = lines[idx].split()
             img1 = os.path.join(dataset_root, p, i1)
@@ -44,6 +43,7 @@ def load_pairs(pairs_file, dataset_root):
             fold_ids.append(fold)
             idx += 1
 
+        # negative
         for _ in range(pairs_per_fold):
             p1, i1, p2, i2 = lines[idx].split()
             img1 = os.path.join(dataset_root, p1, i1)
@@ -52,7 +52,7 @@ def load_pairs(pairs_file, dataset_root):
             fold_ids.append(fold)
             idx += 1
 
-    return pairs, np.array(fold_ids)
+    return pairs, np.array(fold_ids, np.int32)
 
 
 def find_best_threshold(sims, labels):
@@ -67,11 +67,12 @@ def find_best_threshold(sims, labels):
 
 
 def run_confusion(model_name, dataset_root, pairs_file):
+    print(f"[INFO] Running confusion matrix: {model_name}")
+
     wrapper = load_model(model_name)
     aligner = FaceDetectorAligner(device="cpu")
 
     pairs, fold_ids = load_pairs(pairs_file, dataset_root)
-
     sims = []
     labels = []
 
@@ -107,6 +108,7 @@ def run_confusion(model_name, dataset_root, pairs_file):
     sims = np.array(sims, np.float32)
     labels = np.array(labels, np.int32)
 
+    # ---- Best global threshold ----
     thr, acc = find_best_threshold(sims, labels)
     print(f"[BEST THRESHOLD] {thr:.4f}")
     print(f"[ACCURACY] {acc*100:.2f}%")
@@ -120,6 +122,49 @@ def run_confusion(model_name, dataset_root, pairs_file):
     print("Confusion Matrix:")
     print(f"TN={tn} FP={fp}")
     print(f"FN={fn} TP={tp}")
+
+    # ---------- SAVE JSON + PNG ----------
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_clean = model_name.lower().replace(" ", "_")
+
+    # JSON
+    summary = {
+        "model": model_name,
+        "folds": int(fold_ids.max() + 1),
+        "pairs": len(labels),
+        "best_threshold": float(thr),
+        "accuracy": float(acc),
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "tp": tp,
+    }
+
+    json_name = f"{model_clean}_custom_confusion_{timestamp}.json"
+    with open(json_name, "w") as f:
+        json.dump(summary, f, indent=2)
+
+    print(f"[OK] Saved JSON: {json_name}")
+
+    # PNG confusion matrix
+    png_name = f"{model_clean}_custom_confusion_{timestamp}.png"
+
+    plt.figure(figsize=(5, 4))
+    cm = np.array([[tn, fp], [fn, tp]])
+    plt.imshow(cm, cmap="Blues")
+    plt.title(f"Confusion Matrix - {model_name}")
+    plt.colorbar()
+
+    for (x, y), value in np.ndenumerate(cm):
+        plt.text(y, x, str(value), ha="center", va="center", color="black", fontsize=12)
+
+    plt.xticks([0, 1], ["Actual 0", "Actual 1"])
+    plt.yticks([0, 1], ["Pred 0", "Pred 1"])
+    plt.tight_layout()
+    plt.savefig(png_name, dpi=150)
+    plt.close()
+
+    print(f"[OK] Saved PNG: {png_name}")
 
 
 if __name__ == "__main__":
