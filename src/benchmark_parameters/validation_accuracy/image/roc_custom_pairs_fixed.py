@@ -26,42 +26,100 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom) if denom > 0 else -1.0
 
 
-def load_pairs_simple(pairs_file, dataset_root):
+# -----------------------------
+# Load pairs with folds (3-fold)
+# -----------------------------
+def load_pairs_with_folds(pairs_file, dataset_root):
     pairs = []
+    fold_ids = []
+
     with open(pairs_file) as f:
-        for line in f:
-            parts = line.strip().split()
+        lines = f.read().strip().split("\n")
 
-            # POSITIVE (3 columns)
-            if len(parts) == 3:
-                person, img1, img2 = parts
-                path1 = os.path.join(dataset_root, person, img1)
-                path2 = os.path.join(dataset_root, person, img2)
-                pairs.append((path1, path2, 1))
+    num_folds, pairs_per_fold = map(int, lines[0].split())
+    idx = 1
 
-            # NEGATIVE (4 columns)
-            elif len(parts) == 4:
-                p1, img1, p2, img2 = parts
-                path1 = os.path.join(dataset_root, p1, img1)
-                path2 = os.path.join(dataset_root, p2, img2)
-                pairs.append((path1, path2, 0))
+    for fold in range(num_folds):
 
-    return pairs
+        # POSITIVE pairs
+        for _ in range(pairs_per_fold):
+            person, img1, img2 = lines[idx].split()
+            img1_path = os.path.join(dataset_root, person, img1)
+            img2_path = os.path.join(dataset_root, person, img2)
+            pairs.append((img1_path, img2_path, 1))
+            fold_ids.append(fold)
+            idx += 1
+
+        # NEGATIVE pairs
+        for _ in range(pairs_per_fold):
+            p1, img1, p2, img2 = lines[idx].split()
+            img1_path = os.path.join(dataset_root, p1, img1)
+            img2_path = os.path.join(dataset_root, p2, img2)
+            pairs.append((img1_path, img2_path, 0))
+            fold_ids.append(fold)
+            idx += 1
+
+    return pairs, np.array(fold_ids, dtype=np.int32)
 
 
+# -----------------------------
+# Compute per-fold accuracy
+# -----------------------------
+def compute_fold_accuracy(sims, labels, fold_ids):
+    num_folds = int(fold_ids.max()) + 1
+    thresholds = []
+    accuracies = []
+
+    for k in range(num_folds):
+        train_mask = fold_ids != k
+        test_mask = fold_ids == k
+
+        sims_train = sims[train_mask]
+        labels_train = labels[train_mask]
+        sims_test = sims[test_mask]
+        labels_test = labels[test_mask]
+
+        unique_thr = np.unique(sims_train)
+
+        best_thr = None
+        best_acc = -1
+
+        for t in unique_thr:
+            preds = (sims_train >= t).astype(np.int32)
+            acc = np.mean(preds == labels_train)
+            if acc > best_acc:
+                best_acc = acc
+                best_thr = t
+
+        preds_test = (sims_test >= best_thr).astype(np.int32)
+        test_acc = np.mean(preds_test == labels_test)
+
+        print(f"[Fold {k+1}] thr={best_thr:.4f}, acc={test_acc*100:.2f}%")
+
+        thresholds.append(float(best_thr))
+        accuracies.append(float(test_acc))
+
+    thresholds = np.array(thresholds, np.float32)
+    accuracies = np.array(accuracies, np.float32)
+    return thresholds, accuracies, float(accuracies.mean()), float(accuracies.std())
+
+
+# -----------------------------
+# MAIN
+# -----------------------------
 def run_custom_roc(model_name, dataset_root, pairs_file):
     print(f"[INFO] Evaluate model: {model_name}")
 
     wrapper = load_model(model_name)
     aligner = FaceDetectorAligner(device="cpu")
 
-    # FIXED: simple loader, no folds
-    pairs = load_pairs_simple(pairs_file, dataset_root)
+    # Load pairs
+    pairs, fold_ids = load_pairs_with_folds(pairs_file, dataset_root)
 
     sims = []
     labels = []
 
-    for i, (img1, img2, lab) in enumerate(pairs, 1):
+    for img1, img2, lab in pairs:
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
@@ -94,13 +152,32 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     sims = np.asarray(sims, np.float32)
     labels = np.asarray(labels, np.int32)
 
+    # ---------- 3-FOLD ACC ----------
+    thresholds, accs, mean_acc, std_acc = compute_fold_accuracy(sims, labels, fold_ids)
+
+    print(f"\n3-fold accuracy: {mean_acc*100:.4f}% ± {std_acc*100:.4f}%")
+
+    # ---------- GLOBAL ROC ----------
     fpr, tpr, thr = roc_curve(labels, sims)
     auc_val = auc(fpr, tpr)
 
-    print(f"ROC AUC: {auc_val:.4f}")
+    fnr = 1 - tpr
+    idx = np.nanargmin(np.abs(fpr - fnr))
+    eer = 0.5 * (fpr[idx] + fnr[idx])
 
+    # ---------- BEST GLOBAL THRESHOLD ----------
+    j_scores = tpr - fpr
+    best_idx = int(np.argmax(j_scores))
+    best_threshold = float(thr[best_idx])
+    print(f"Best global threshold (Youden J): {best_threshold:.6f}")
+
+    print(f"AUC: {auc_val:.4f}")
+    print(f"EER: {eer*100:.2f}%")
+
+    # ---------- PLOT ----------
     plt.figure()
     plt.plot(fpr, tpr, label=f"{model_name} AUC={auc_val:.4f}")
+    plt.plot([0, 1], [0, 1], linestyle="--")
     plt.xlabel("FPR")
     plt.ylabel("TPR")
     plt.title("ROC Curve – Custom Dataset")
@@ -108,6 +185,22 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     plt.legend()
     plt.savefig("custom_roc.png", dpi=150)
     print("[OK] Saved ROC image: custom_roc.png")
+
+    # ---------- JSON SUMMARY ----------
+    summary = {
+        "folds": int(fold_ids.max() + 1),
+        "pairs": len(labels),
+        "per_fold_accuracy": accs.tolist(),
+        "per_fold_threshold": thresholds.tolist(),
+        "mean_accuracy": mean_acc,
+        "std_accuracy": std_acc,
+        "auc": float(auc_val),
+        "eer": float(eer),
+        "best_threshold": best_threshold,
+    }
+
+    print("\n[CUSTOM] JSON summary:")
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
