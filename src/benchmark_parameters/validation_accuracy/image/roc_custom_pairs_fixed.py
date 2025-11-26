@@ -10,6 +10,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
+from datetime import datetime
 
 # Project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -201,6 +202,23 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
 
     print("\n[CUSTOM] JSON summary:")
     print(json.dumps(summary, indent=2))
+
+    # ---- SAVE JSON + PNG LIKE LFW ----
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_clean = model_name.lower().replace(" ", "_")
+
+    # --- PNG ---
+    png_filename = f"{model_clean}_custom_roc_{timestamp}.png"
+    plt.savefig(png_filename, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"[OK] Saved ROC PNG: {png_filename}")
+
+    # --- JSON ---
+    json_filename = f"{model_clean}_custom_roc_{timestamp}.json"
+    with open(json_filename, "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"[OK] Saved JSON file: {json_filename}")
 
 
 if __name__ == "__main__":
