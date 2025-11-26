@@ -1,4 +1,4 @@
-# embeddings_extractor.py
+# embeddings_extractor.py - not used in testing, i might to delete it later
 import sys
 import cv2
 import numpy as np

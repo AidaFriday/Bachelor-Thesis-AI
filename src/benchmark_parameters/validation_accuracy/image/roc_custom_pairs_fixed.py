@@ -1,5 +1,6 @@
-#roc_custom_pairs_fixed.py
+# roc_custom_pairs_fixed.py
 import os
+
 os.environ["MPLBACKEND"] = "Agg"
 
 import sys
@@ -25,37 +26,27 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom) if denom > 0 else -1.0
 
 
-def load_pairs(pairs_file, dataset_root):
+def load_pairs_simple(pairs_file, dataset_root):
     pairs = []
-    fold_ids = []
+    with open(pairs_file) as f:
+        for line in f:
+            parts = line.strip().split()
 
-    with open(pairs_file, "r") as f:
-        lines = f.read().strip().split("\n")
+            # POSITIVE (3 columns)
+            if len(parts) == 3:
+                person, img1, img2 = parts
+                path1 = os.path.join(dataset_root, person, img1)
+                path2 = os.path.join(dataset_root, person, img2)
+                pairs.append((path1, path2, 1))
 
-    num_folds, pairs_per_fold = map(int, lines[0].split())
-    idx = 1
+            # NEGATIVE (4 columns)
+            elif len(parts) == 4:
+                p1, img1, p2, img2 = parts
+                path1 = os.path.join(dataset_root, p1, img1)
+                path2 = os.path.join(dataset_root, p2, img2)
+                pairs.append((path1, path2, 0))
 
-    for fold in range(num_folds):
-
-        # POSITIVE
-        for _ in range(pairs_per_fold):
-            person, img1, img2 = lines[idx].split()
-            img1_path = os.path.join(dataset_root, person, img1)
-            img2_path = os.path.join(dataset_root, person, img2)
-            pairs.append((img1_path, img2_path, 1))
-            fold_ids.append(fold)
-            idx += 1
-
-        # NEGATIVE
-        for _ in range(pairs_per_fold):
-            p1, img1, p2, img2 = lines[idx].split()
-            img1_path = os.path.join(dataset_root, p1, img1)
-            img2_path = os.path.join(dataset_root, p2, img2)
-            pairs.append((img1_path, img2_path, 0))
-            fold_ids.append(fold)
-            idx += 1
-
-    return pairs, np.array(fold_ids, dtype=np.int32)
+    return pairs
 
 
 def run_custom_roc(model_name, dataset_root, pairs_file):
@@ -64,12 +55,14 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     wrapper = load_model(model_name)
     aligner = FaceDetectorAligner(device="cpu")
 
-    pairs, fold_ids = load_pairs(pairs_file, dataset_root)
+    # FIXED: simple loader, no folds
+    pairs = load_pairs_simple(pairs_file, dataset_root)
 
     sims = []
     labels = []
 
     for i, (img1, img2, lab) in enumerate(pairs, 1):
+
         a = cv2.imread(img1)
         b = cv2.imread(img2)
 
@@ -79,7 +72,6 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
             labels.append(lab)
             continue
 
-        # detect + align
         faces1 = aligner.detect(a)
         faces2 = aligner.detect(b)
 

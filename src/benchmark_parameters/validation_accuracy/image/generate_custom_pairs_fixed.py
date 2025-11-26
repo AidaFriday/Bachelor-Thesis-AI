@@ -1,4 +1,4 @@
-#generate_custom_pairs_fixed.py
+# generate_custom_pairs_fixed.py
 import os
 import random
 import sys
@@ -7,13 +7,13 @@ import sys
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 sys.path.insert(0, PROJECT_ROOT)
 
-DATASET_PATH = r"C:/programming/Datasets/CUSTOM_DATASET_CLEAN"
+DATASET_PATH = r"C:/programming/Datasets/CUSTOM_DATASET"
 OUTPUT_FILE = "pairs_custom.txt"
 
 NUM_FOLDS = 3
 PAIRS_PER_FOLD = 10  # positive + negative
 
-random.seed(42)   # IMPORTANT for reproducibility
+random.seed(42)  # IMPORTANT for reproducibility
 
 
 def load_dataset(dataset_path):
@@ -24,8 +24,11 @@ def load_dataset(dataset_path):
         if not os.path.isdir(folder):
             continue
 
-        images = [f for f in os.listdir(folder)
-                  if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+        images = [
+            f
+            for f in os.listdir(folder)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        ]
 
         if len(images) >= 2:
             people[person] = sorted(images)
