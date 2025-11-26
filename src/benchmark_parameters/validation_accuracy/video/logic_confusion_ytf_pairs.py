@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from datetime import datetime
 import matplotlib
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
@@ -118,7 +119,9 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     fig.tight_layout()
 
     # SAVE INTO FOLDS DIRECTORY
-    png_path = exports_dir / f"{model_name}_ytf_confusion_thr{FIXED_THRESHOLD}_{stamp}.png"
+    png_path = (
+        exports_dir / f"{model_name}_ytf_confusion_thr{FIXED_THRESHOLD}_{stamp}.png"
+    )
 
     plt.savefig(png_path, dpi=200, bbox_inches="tight")
     plt.close()
