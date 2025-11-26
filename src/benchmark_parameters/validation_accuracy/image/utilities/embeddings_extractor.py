@@ -163,6 +163,14 @@ def compare_two_faces(model_name, search_root, fname1, fname2):
 
 # ---------------------------------------------------------
 if __name__ == "__main__":
-    model = "facenet"
-    root = r"C:\programming\Datasets\CUSTOM_DATASET_CLEAN"
-    compare_two_faces(model, root, "Keti_012.jpeg", "Keti_013.jpeg")
+    # Optional: keep CLI mode if you want
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Compare two face images")
+    parser.add_argument("model", type=str)
+    parser.add_argument("root", type=str)
+    parser.add_argument("img1", type=str)
+    parser.add_argument("img2", type=str)
+    args = parser.parse_args()
+
+    compare_two_faces(args.model, args.root, args.img1, args.img2)
