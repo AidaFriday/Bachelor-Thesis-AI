@@ -1,4 +1,4 @@
-# roc_custom_pairs_fixed.py
+# roc_custom_pairs_fixed.py unified_roc.py will replace it
 import os
 
 os.environ["MPLBACKEND"] = "Agg"
@@ -111,7 +111,6 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     print(f"[INFO] Evaluate model: {model_name}")
 
     wrapper = load_model(model_name)
-    aligner = FaceDetectorAligner(device="cpu")
 
     # Load pairs
     pairs, fold_ids = load_pairs_with_folds(pairs_file, dataset_root)
@@ -128,18 +127,22 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
         if a is None or b is None:
             continue
 
-        faces1 = aligner.detect(a)
-        faces2 = aligner.detect(b)
+        # ---- ARC FACE SAFE PIPELINE ----
+        faces1 = wrapper.app.get(a)
+        faces2 = wrapper.app.get(b)
+
         if not faces1 or not faces2:
             continue
 
-        fa = aligner.align_for(a, faces1[0]["kps"])
-        fb = aligner.align_for(b, faces2[0]["kps"])
+        fa = faces1[0].normed_embedding  # aligned + normalized
+        fb = faces2[0].normed_embedding
+
         if fa is None or fb is None:
             continue
 
-        emb1 = wrapper.embed(fa)
-        emb2 = wrapper.embed(fb)
+        emb1 = np.asarray(fa, dtype=np.float32)
+        emb2 = np.asarray(fb, dtype=np.float32)
+
         sim = cosine_similarity(emb1, emb2)
 
         sims.append(sim)
