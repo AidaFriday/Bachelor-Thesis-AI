@@ -199,14 +199,12 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     model_clean = model_name.lower().replace(" ", "_")
 
-    main_png = "custom_roc.png"
-    time_png = f"{model_clean}_custom_roc_{timestamp}.png"
-
-    plt.savefig(main_png, dpi=150, bbox_inches="tight")
-    plt.savefig(time_png, dpi=150, bbox_inches="tight")
+    # ---------- SAVE ONLY TIMESTAMPED PNG ----------
+    png_filename = f"{model_clean}_custom_roc_{timestamp}.png"
+    plt.savefig(png_filename, dpi=150, bbox_inches="tight")
     plt.close()
 
-    print(f"[OK] Saved PNGs: {main_png}, {time_png}")
+    print(f"[OK] Saved ROC PNG: {png_filename}")
 
     # ---------- SAVE JSON ----------
     summary = {
