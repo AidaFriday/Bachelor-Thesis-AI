@@ -20,8 +20,8 @@ from models.wrap_facedetection import FaceDetectorAligner
 def cosine_similarity(a, b):
     a = np.asarray(a, np.float32).flatten()
     b = np.asarray(b, np.float32).flatten()
-    d = np.linalg.norm(a) * np.linalg.norm(b)
-    return float(np.dot(a, b) / d) if d > 0 else -1.0
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    return float(np.dot(a, b) / denom) if denom > 0 else -1.0
 
 
 def load_pairs(pairs_file, dataset_root):
@@ -34,7 +34,7 @@ def load_pairs(pairs_file, dataset_root):
     idx = 1
 
     for fold in range(num_folds):
-        # positive
+        # positive pairs
         for _ in range(pairs_per_fold):
             p, i1, i2 = lines[idx].split()
             img1 = os.path.join(dataset_root, p, i1)
@@ -43,7 +43,7 @@ def load_pairs(pairs_file, dataset_root):
             fold_ids.append(fold)
             idx += 1
 
-        # negative
+        # negative pairs
         for _ in range(pairs_per_fold):
             p1, i1, p2, i2 = lines[idx].split()
             img1 = os.path.join(dataset_root, p1, i1)
@@ -57,13 +57,58 @@ def load_pairs(pairs_file, dataset_root):
 
 def find_best_threshold(sims, labels):
     thrs = np.unique(sims)
-    best_t, best_a = 0, -1
+    best_thr, best_acc = 0, -1
     for t in thrs:
         preds = (sims >= t).astype(np.int32)
         acc = np.mean(preds == labels)
-        if acc > best_a:
-            best_a, best_t = acc, t
-    return best_t, best_a
+        if acc > best_acc:
+            best_acc, best_thr = acc, t
+    return best_thr, best_acc
+
+
+def plot_confusion_matrix_lfw_style(cm, model_name, out_path):
+    """
+    EXACTLY matches LFW orientation and labels.
+    Rows   = Actual (Negative, Positive)
+    Cols   = Predicted (Negative, Positive)
+    """
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    im = ax.imshow(cm, cmap="Blues", interpolation="nearest")
+
+    # Title
+    ax.set_title(f"Confusion Matrix – {model_name}", fontsize=18)
+
+    # LFW labels
+    ax.set_xlabel("Predicted label", fontsize=16)
+    ax.set_ylabel("Actual label", fontsize=16)
+
+    # Tick labels (IMPORTANT: LFW order)
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+    ax.set_xticklabels(["Negative", "Positive"], fontsize=14)
+    ax.set_yticklabels(["Negative", "Positive"], fontsize=14)
+
+    # Numbers inside the boxes
+    for i in range(2):
+        for j in range(2):
+            ax.text(
+                j,
+                i,
+                str(cm[i, j]),
+                ha="center",
+                va="center",
+                color="black",
+                fontsize=15,
+            )
+
+    # Colorbar
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.ax.tick_params(labelsize=12)
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
 
 
 def run_confusion(model_name, dataset_root, pairs_file):
@@ -76,6 +121,7 @@ def run_confusion(model_name, dataset_root, pairs_file):
     sims = []
     labels = []
 
+    # ---- compute similarities ----
     for im1, im2, lab in pairs:
         a = cv2.imread(im1)
         b = cv2.imread(im2)
@@ -108,26 +154,24 @@ def run_confusion(model_name, dataset_root, pairs_file):
     sims = np.array(sims, np.float32)
     labels = np.array(labels, np.int32)
 
-    # ---- Best global threshold ----
+    # ---- Find best global threshold ----
     thr, acc = find_best_threshold(sims, labels)
-    print(f"[BEST THRESHOLD] {thr:.4f}")
-    print(f"[ACCURACY] {acc*100:.2f}%")
-
     preds = (sims >= thr).astype(np.int32)
+
     tp = int(np.sum((preds == 1) & (labels == 1)))
     tn = int(np.sum((preds == 0) & (labels == 0)))
     fp = int(np.sum((preds == 1) & (labels == 0)))
     fn = int(np.sum((preds == 0) & (labels == 1)))
 
-    print("Confusion Matrix:")
-    print(f"TN={tn} FP={fp}")
-    print(f"FN={fn} TP={tp}")
+    print(f"[THRESHOLD] best={thr:.4f}")
+    print(f"[ACCURACY] {acc * 100:.2f}%")
+    print(f"TN={tn}, FP={fp}")
+    print(f"FN={fn}, TP={tp}")
 
-    # ---------- SAVE JSON + PNG ----------
+    # ---- Save JSON ----
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     model_clean = model_name.lower().replace(" ", "_")
 
-    # JSON
     summary = {
         "model": model_name,
         "folds": int(fold_ids.max() + 1),
@@ -140,31 +184,20 @@ def run_confusion(model_name, dataset_root, pairs_file):
         "tp": tp,
     }
 
-    json_name = f"{model_clean}_custom_confusion_{timestamp}.json"
-    with open(json_name, "w") as f:
+    json_path = f"{model_clean}_custom_confusion_{timestamp}.json"
+    with open(json_path, "w") as f:
         json.dump(summary, f, indent=2)
 
-    print(f"[OK] Saved JSON: {json_name}")
+    print(f"[OK] Saved JSON: {json_path}")
 
-    # PNG confusion matrix
-    png_name = f"{model_clean}_custom_confusion_{timestamp}.png"
+    # ---- Save LFW-style PNG ----
+    # LFW requires: rows = actual, columns = predicted
+    cm = np.array([[tn, fp], [fn, tp]])  # Actual Negative  # Actual Positive
 
-    plt.figure(figsize=(5, 4))
-    cm = np.array([[tn, fp], [fn, tp]])
-    plt.imshow(cm, cmap="Blues")
-    plt.title(f"Confusion Matrix - {model_name}")
-    plt.colorbar()
+    png_path = f"{model_clean}_custom_confusion_{timestamp}.png"
+    plot_confusion_matrix_lfw_style(cm, model_name, png_path)
 
-    for (x, y), value in np.ndenumerate(cm):
-        plt.text(y, x, str(value), ha="center", va="center", color="black", fontsize=12)
-
-    plt.xticks([0, 1], ["Actual 0", "Actual 1"])
-    plt.yticks([0, 1], ["Pred 0", "Pred 1"])
-    plt.tight_layout()
-    plt.savefig(png_name, dpi=150)
-    plt.close()
-
-    print(f"[OK] Saved PNG: {png_name}")
+    print(f"[OK] Saved PNG: {png_path}")
 
 
 if __name__ == "__main__":
