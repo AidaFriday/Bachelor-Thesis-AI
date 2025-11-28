@@ -201,17 +201,36 @@ def run_confusion(model_name, dataset_root, pairs_file):
     json_path = os.path.join(export_dir, base + ".json")
     png_path = os.path.join(export_dir, base + ".png")
 
-    # ---- JSON ----
+    # ---- Metrics ----
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
+
+    far = fp / (fp + tn) if (fp + tn) > 0 else 0.0  # false accept rate
+    frr = fn / (tp + fn) if (tp + fn) > 0 else 0.0  # false reject rate
+
     summary = {
         "model": model_name,
         "pairs": len(labels),
         "best_threshold": float(best_thr),
         "accuracy": float(best_acc),
+        "precision": precision,
+        "recall": recall,
+        "specificity": specificity,
+        "f1": f1,
+        "far": far,
+        "frr": frr,
         "tn": tn,
         "fp": fp,
         "fn": fn,
         "tp": tp,
     }
+
     with open(json_path, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"[OK] Saved JSON: {json_path}")
