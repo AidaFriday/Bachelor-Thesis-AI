@@ -1,4 +1,4 @@
-# generate_custom_pairs_fixed.py
+# generate_custom_pairs_fixed.py generates pairs_custom.txt, it stays the same every time i run
 import os
 import random
 import sys

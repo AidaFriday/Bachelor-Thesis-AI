@@ -155,7 +155,14 @@ def run_confusion(model_name, dataset_root, pairs_file):
 
         emb1 = extract_embedding(model_name, wrapper, detector, a)
         emb2 = extract_embedding(model_name, wrapper, detector, b)
+
+        # -------------------------------------------------------
+        # DEBUG: list skipped pairs caused by failed detection
+        # -------------------------------------------------------
         if emb1 is None or emb2 is None:
+            print(f"[WARN] Skipped pair (no detection/alignment):")
+            print(f"       {im1}")
+            print(f"       {im2}")
             continue
 
         sims.append(cosine_similarity(emb1, emb2))
