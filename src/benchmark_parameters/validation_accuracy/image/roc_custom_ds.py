@@ -272,6 +272,7 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
         plt.legend(loc="lower right", fontsize=12)
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        
         out_png = f"{model_name.lower()}_customroc_{timestamp}.png"
         plt.savefig(out_png, dpi=150, bbox_inches="tight")
         plt.close()
