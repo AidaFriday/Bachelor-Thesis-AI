@@ -272,35 +272,43 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
         plt.legend(loc="lower right", fontsize=12)
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        
-        out_png = f"{model_name.lower()}_customroc_{timestamp}.png"
-        plt.savefig(out_png, dpi=150, bbox_inches="tight")
-        plt.close()
 
-        print(f"[OK] Saved ROC PNG: {out_png}")
+        # --------------------------------------------------
+        #       SAVE PNG + JSON INTO EXPORTS/ROC FOLDER
+        # --------------------------------------------------
 
-    # --------------------------------------------------
-    #       SAVE JSON
-    # --------------------------------------------------
-    summary = {
-        "folds": int(fold_ids.max() + 1) if len(fold_ids) > 0 else 0,
-        "pairs": len(labels),
-        "per_fold_accuracy": accs.tolist(),
-        "per_fold_threshold": thresholds.tolist(),
-        "mean_accuracy": mean_acc,
-        "std_accuracy": std_acc,
-        "auc": float(auc_val),
-        "eer": float(eer),
-        "best_threshold": float(best_threshold),
-    }
+        export_dir = os.path.join(os.path.dirname(__file__), "exports", "roc")
+        os.makedirs(export_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_json = f"{model_name.lower()}_customroc_{timestamp}.json"
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        base = f"{model_name.lower()}_customroc_{timestamp}"
 
-    with open(out_json, "w") as f:
-        json.dump(summary, f, indent=2)
+        out_png = os.path.join(export_dir, base + ".png")
+        out_json = os.path.join(export_dir, base + ".json")
 
-    print(f"[OK] Saved JSON: {out_json}")
+        # Save ROC PNG
+        if len(sims) > 0:
+            plt.savefig(out_png, dpi=150, bbox_inches="tight")
+            plt.close()
+            print(f"[OK] Saved ROC PNG: {out_png}")
+
+        # Save JSON
+        summary = {
+            "folds": int(fold_ids.max() + 1) if len(fold_ids) > 0 else 0,
+            "pairs": len(labels),
+            "per_fold_accuracy": accs.tolist(),
+            "per_fold_threshold": thresholds.tolist(),
+            "mean_accuracy": mean_acc,
+            "std_accuracy": std_acc,
+            "auc": float(auc_val),
+            "eer": float(eer),
+            "best_threshold": float(best_threshold),
+        }
+
+        with open(out_json, "w") as f:
+            json.dump(summary, f, indent=2)
+
+        print(f"[OK] Saved JSON: {out_json}")
 
 
 # ======================================================

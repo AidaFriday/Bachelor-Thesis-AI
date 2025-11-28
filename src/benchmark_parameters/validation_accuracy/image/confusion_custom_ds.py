@@ -9,14 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+# Project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 sys.path.insert(0, PROJECT_ROOT)
 
 from connector import load_model
 from models.wrap_facedetection import FaceDetectorAligner
-from models.wrap_facedetection import align_face_5pts, REF_5PTS_112, REF_5PTS_160
+from models.wrap_facedetection import align_face_5pts
 
-# -------- InsightFace alignment (for ArcFace only) --------
 try:
     from insightface.utils import face_align
 
@@ -25,9 +25,9 @@ except:
     INSIGHT_AVAILABLE = False
 
 
-# ==========================================================
-#                      COSINE SIMILARITY
-# ==========================================================
+# ================================================================
+#                         COSINE SIMILARITY
+# ================================================================
 def cosine_similarity(a, b):
     a = np.asarray(a, np.float32).flatten()
     b = np.asarray(b, np.float32).flatten()
@@ -35,30 +35,32 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom) if denom > 0 else -1.0
 
 
-# ==========================================================
-#                     LOAD PAIRS
-# ==========================================================
+# ================================================================
+#                          LOAD PAIRS
+# ================================================================
 def load_pairs(pairs_file, dataset_root):
     pairs = []
     with open(pairs_file, "r") as f:
         lines = f.read().strip().split("\n")
 
-    num_folds, pairs_per_fold = map(int, lines[0].split())
+    num_folds, per_fold = map(int, lines[0].split())
     idx = 1
 
-    for _fold in range(num_folds):
-        for _ in range(pairs_per_fold):
-            p, i1, i2 = lines[idx].split()
+    for _ in range(num_folds):
+        # Positive
+        for _ in range(per_fold):
+            person, i1, i2 = lines[idx].split()
             pairs.append(
                 (
-                    os.path.join(dataset_root, p, i1),
-                    os.path.join(dataset_root, p, i2),
+                    os.path.join(dataset_root, person, i1),
+                    os.path.join(dataset_root, person, i2),
                     1,
                 )
             )
             idx += 1
 
-        for _ in range(pairs_per_fold):
+        # Negative
+        for _ in range(per_fold):
             p1, i1, p2, i2 = lines[idx].split()
             pairs.append(
                 (
@@ -72,9 +74,9 @@ def load_pairs(pairs_file, dataset_root):
     return pairs
 
 
-# ==========================================================
-#              MODEL-SPECIFIC EMBEDDING (MATCH ROC)
-# ==========================================================
+# ================================================================
+#        MODEL-SPECIFIC EMBEDDING (MATCH UNIFIED ROC)
+# ================================================================
 def extract_embedding(model_name, wrapper, detector, img):
     dets = detector.detect(img)
     if not dets:
@@ -82,27 +84,13 @@ def extract_embedding(model_name, wrapper, detector, img):
 
     kps = dets[0]["kps"]
 
-    # ------------------------------------------------------
-    # ARC FACE → InsightFace 5pt norm_crop (112×112)
-    # ------------------------------------------------------
+    # ▣ ARC FACE — InsightFace alignment (112)
     if model_name.lower() == "arcface":
-        kps_ins = np.array(
-            [
-                kps[1],  # right eye
-                kps[0],  # left eye
-                kps[2],  # nose
-                kps[3],  # left mouth
-                kps[4],  # right mouth
-            ],
-            dtype=np.float32,
-        )
-
+        kps_ins = np.array([kps[1], kps[0], kps[2], kps[3], kps[4]], np.float32)
         aligned = face_align.norm_crop(img, kps_ins, image_size=112)
         return wrapper.embed_aligned(aligned)
 
-    # ------------------------------------------------------
-    # ADAFACE / FACENET → Your 5pt 160×160 aligner
-    # ------------------------------------------------------
+    # ▣ ADAFACE / FACENET — custom 160 alignment
     aligned = align_face_5pts(img, kps, out_size=(160, 160))
     if aligned is None:
         return None
@@ -111,7 +99,7 @@ def extract_embedding(model_name, wrapper, detector, img):
     if emb is None:
         return None
 
-    # L2 normalize (necessary for AdaFace + FaceNet)
+    # L2 normalize
     n = np.linalg.norm(emb)
     if n > 0:
         emb = emb / n
@@ -119,10 +107,10 @@ def extract_embedding(model_name, wrapper, detector, img):
     return emb
 
 
-# ==========================================================
-#                     CONFUSION MATRIX PLOT
-# ==========================================================
-def plot_confusion_matrix_lfw(cm, model_name, out_path):
+# ================================================================
+#                 CONFUSION MATRIX (LFW STYLE)
+# ================================================================
+def plot_confusion_matrix(cm, model_name, out_path):
     fig, ax = plt.subplots(figsize=(7, 6))
     im = ax.imshow(cm, cmap="Blues", interpolation="nearest")
 
@@ -138,13 +126,7 @@ def plot_confusion_matrix_lfw(cm, model_name, out_path):
     for i in range(2):
         for j in range(2):
             ax.text(
-                j,
-                i,
-                str(cm[i, j]),
-                ha="center",
-                va="center",
-                color="black",
-                fontsize=15,
+                j, i, cm[i, j], ha="center", va="center", color="black", fontsize=15
             )
 
     plt.colorbar(im, ax=ax)
@@ -153,9 +135,9 @@ def plot_confusion_matrix_lfw(cm, model_name, out_path):
     plt.close()
 
 
-# ==========================================================
-#                         MAIN
-# ==========================================================
+# ================================================================
+#                          MAIN LOGIC
+# ================================================================
 def run_confusion(model_name, dataset_root, pairs_file):
     print(f"[INFO] Confusion evaluation for: {model_name}")
 
@@ -163,56 +145,56 @@ def run_confusion(model_name, dataset_root, pairs_file):
     detector = FaceDetectorAligner(device="cpu")
 
     pairs = load_pairs(pairs_file, dataset_root)
+    sims, labels = [], []
 
-    sims = []
-    labels = []
-
-    # -------------------- Compute similarities --------------------
-    for img1, img2, lab in pairs:
-        a = cv2.imread(img1)
-        b = cv2.imread(img2)
-
+    # ----- Compute similarities -----
+    for im1, im2, lab in pairs:
+        a, b = cv2.imread(im1), cv2.imread(im2)
         if a is None or b is None:
             continue
 
         emb1 = extract_embedding(model_name, wrapper, detector, a)
         emb2 = extract_embedding(model_name, wrapper, detector, b)
-
         if emb1 is None or emb2 is None:
             continue
 
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(lab)
 
-    sims = np.array(sims, np.float32)
-    labels = np.array(labels, np.int32)
+    sims = np.array(sims)
+    labels = np.array(labels)
 
-    # -------------------- Find best threshold --------------------
-    thrs = np.unique(sims)
-    best_thr, best_acc = 0, -1
-    for t in thrs:
-        preds = (sims >= t).astype(np.int32)
-        acc = np.mean(preds == labels)
+    # ----- Best threshold -----
+    best_thr = 0
+    best_acc = -1
+    for t in np.unique(sims):
+        acc = np.mean((sims >= t).astype(int) == labels)
         if acc > best_acc:
-            best_acc = acc
-            best_thr = t
+            best_acc, best_thr = acc, t
 
-    preds = (sims >= best_thr).astype(np.int32)
+    preds = (sims >= best_thr).astype(int)
 
-    tp = int(np.sum((preds == 1) & (labels == 1)))
     tn = int(np.sum((preds == 0) & (labels == 0)))
     fp = int(np.sum((preds == 1) & (labels == 0)))
     fn = int(np.sum((preds == 0) & (labels == 1)))
+    tp = int(np.sum((preds == 1) & (labels == 1)))
 
     print(f"[THRESHOLD] best={best_thr:.4f}")
     print(f"[ACCURACY] {best_acc*100:.2f}%")
-    print(f"TN={tn}, FP={fp}")
-    print(f"FN={fn}, TP={tp}")
 
-    # -------------------- Save JSON --------------------
+    # ============================================================
+    # Save JSON & PNG to: /validation_accuracy/image/exports/confusion/
+    # ============================================================
+    export_dir = os.path.join(os.path.dirname(__file__), "exports", "confusion")
+    os.makedirs(export_dir, exist_ok=True)
+
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    model_clean = model_name.lower().replace(" ", "_")
+    base = f"{model_name.lower()}_custom_confusion_{timestamp}"
 
+    json_path = os.path.join(export_dir, base + ".json")
+    png_path = os.path.join(export_dir, base + ".png")
+
+    # ---- JSON ----
     summary = {
         "model": model_name,
         "pairs": len(labels),
@@ -223,16 +205,13 @@ def run_confusion(model_name, dataset_root, pairs_file):
         "fn": fn,
         "tp": tp,
     }
-
-    json_path = f"{model_clean}_custom_confusion_{timestamp}.json"
     with open(json_path, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"[OK] Saved JSON: {json_path}")
 
-    # -------------------- Save PNG --------------------
+    # ---- PNG ----
     cm = np.array([[tn, fp], [fn, tp]])
-    png_path = f"{model_clean}_custom_confusion_{timestamp}.png"
-    plot_confusion_matrix_lfw(cm, model_name, png_path)
+    plot_confusion_matrix(cm, model_name, png_path)
     print(f"[OK] Saved PNG: {png_path}")
 
 
