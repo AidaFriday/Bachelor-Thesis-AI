@@ -1,4 +1,8 @@
 # home_window.py
+from identity.face_database import FaceEmbeddingDB
+from pathlib import Path
+import numpy as np
+
 from PyQt5.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -109,6 +113,23 @@ class HomeWindow(QMainWindow):
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
+        # ==== Load face database (friends) ====
+        try:
+            base = Path(__file__).resolve().parents[1]
+            db_path = base / "identity" / f"db_{model_name}.npz"
+
+            if db_path.exists():
+                self.face_db = FaceEmbeddingDB.load(db_path)
+                print(f"[INFO] Loaded face DB: {db_path}")
+                print(f"[INFO] People in DB: {self.face_db.names}")
+            else:
+                self.face_db = None
+                print(f"[INFO] No DB file found at {db_path}")
+        except Exception as e:
+            self.face_db = None
+            print(f"[ERROR] Failed to load DB: {e}")
+
+        # ==== Start camera ====
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             self.video_label.setText("[ERROR] Cannot open camera")
@@ -136,12 +157,47 @@ class HomeWindow(QMainWindow):
 
         faces = self.wrapper.detect_and_embed(frame)
         disp = frame.copy()
+
         for f in faces:
             x1, y1, x2, y2 = f["bbox"]
+            kps = f["kps"]
+
+            # Draw box
             cv2.rectangle(disp, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            for px, py in f["kps"].astype(int):
+
+            # Landmarks
+            for px, py in kps.astype(int):
                 cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
 
+            # -------- RECOGNITION ----------
+            label_text = ""
+            try:
+                emb = f.get("embedding")
+                if emb is None:
+                    # align manually
+                    aligned = self.wrapper.detector.align_for(frame, kps)
+                    if aligned is not None:
+                        emb = self.wrapper.embed(aligned)
+
+                if emb is not None and self.face_db is not None:
+                    name, sim = self.face_db.match(emb)
+                    label_text = f"{name} ({sim:.2f})"
+            except Exception as e:
+                print(f"[WARN] Recognition error: {e}")
+
+            # Draw label
+            if label_text:
+                cv2.putText(
+                    disp,
+                    label_text,
+                    (x1, max(20, y1 - 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
+                    2,
+                )
+
+        # Qt output
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)

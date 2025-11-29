@@ -1,5 +1,7 @@
+# sidebar.py
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt5.QtCore import Qt, QPropertyAnimation
+
 
 class SideBar(QWidget):
     def __init__(self, parent=None):
@@ -26,7 +28,7 @@ class SideBar(QWidget):
 
         for btn in self.buttons:
             btn.setMinimumHeight(45)
-            btn.setCursor(Qt.PointingHandCursor)   # hand cursor
+            btn.setCursor(Qt.PointingHandCursor)  # hand cursor
             btn.setFlat(True)  # remove old 3D look
             layout.addWidget(btn)
 
