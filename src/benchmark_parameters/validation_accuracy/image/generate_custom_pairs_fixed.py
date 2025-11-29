@@ -1,9 +1,11 @@
-# generate_custom_pairs_fixed.py generates pairs_custom.txt, it stays the same every time i run
+# generate_custom_pairs_fixed.py  (IMPROVED, NO DUPLICATES)
+
 import os
 import random
 import sys
+from itertools import combinations, product
 
-# Make project root importable
+# Project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 sys.path.insert(0, PROJECT_ROOT)
 
@@ -11,11 +13,14 @@ DATASET_PATH = r"C:/programming/Datasets/CUSTOM_DATASET"
 OUTPUT_FILE = "pairs_custom.txt"
 
 NUM_FOLDS = 3
-PAIRS_PER_FOLD = 10  # positive + negative
+PAIRS_PER_FOLD = 10  # per fold: 10 positive + 10 negative
 
-random.seed(42)  # IMPORTANT for reproducibility
+random.seed(42)  # reproducible
 
 
+# --------------------------------------------------------------
+# Load dataset: dictionary of { person: [img1.jpg, img2.jpg, ...] }
+# --------------------------------------------------------------
 def load_dataset(dataset_path):
     people = {}
 
@@ -36,54 +41,109 @@ def load_dataset(dataset_path):
     return people
 
 
-def create_pairs(people):
-    folds = []
+# --------------------------------------------------------------
+# Create ALL POSSIBLE POSITIVE PAIRS (combinations)
+# --------------------------------------------------------------
+def build_positive_pairs(people):
+    pos = []
+
+    for person, imgs in people.items():
+        # all 2-combinations → (imgA, imgB)
+        for img1, img2 in combinations(imgs, 2):
+            pos.append((person, img1, img2))
+
+    random.shuffle(pos)
+    return pos
+
+
+# --------------------------------------------------------------
+# Create ALL POSSIBLE NEGATIVE PAIRS (cross combinations)
+# --------------------------------------------------------------
+def build_negative_pairs(people):
     persons = list(people.keys())
+    neg = []
 
-    for fold in range(NUM_FOLDS):
+    for i in range(len(persons)):
+        for j in range(i + 1, len(persons)):
+            p1, p2 = persons[i], persons[j]
 
-        positives = []
-        negatives = []
+            # every cross-combination of images
+            for img1, img2 in product(people[p1], people[p2]):
+                neg.append((p1, img1, p2, img2))
 
-        # Positive pairs
-        for person in persons:
-            if len(positives) >= PAIRS_PER_FOLD:
-                break
+    random.shuffle(neg)
+    return neg
 
-            imgs = people[person]
-            if len(imgs) < 2:
-                continue
 
-            img1, img2 = random.sample(imgs, 2)
-            positives.append((person, img1, img2))
+# --------------------------------------------------------------
+# Split pairs into folds WITHOUT repetition
+# --------------------------------------------------------------
+def build_folds(pos_pairs, neg_pairs):
+    folds = []
 
-        # Negative pairs
-        while len(negatives) < PAIRS_PER_FOLD:
-            p1, p2 = random.sample(persons, 2)
-            img1 = random.choice(people[p1])
-            img2 = random.choice(people[p2])
-            negatives.append((p1, img1, p2, img2))
+    required_pos = NUM_FOLDS * PAIRS_PER_FOLD
+    required_neg = NUM_FOLDS * PAIRS_PER_FOLD
 
-        folds.append((positives, negatives))
+    if len(pos_pairs) < required_pos:
+        raise ValueError(
+            f"Not enough positive pairs: need {required_pos}, have {len(pos_pairs)}"
+        )
+
+    if len(neg_pairs) < required_neg:
+        raise ValueError(
+            f"Not enough negative pairs: need {required_neg}, have {len(neg_pairs)}"
+        )
+
+    # slice disjoint segments
+    for f in range(NUM_FOLDS):
+        start_p = f * PAIRS_PER_FOLD
+        end_p = start_p + PAIRS_PER_FOLD
+
+        start_n = f * PAIRS_PER_FOLD
+        end_n = start_n + PAIRS_PER_FOLD
+
+        fold_pos = pos_pairs[start_p:end_p]
+        fold_neg = neg_pairs[start_n:end_n]
+
+        folds.append((fold_pos, fold_neg))
 
     return folds
 
 
+# --------------------------------------------------------------
+# Write pairs file identical to old format
+# --------------------------------------------------------------
 def write_pairs(folds, out_file):
     with open(out_file, "w") as f:
         f.write(f"{NUM_FOLDS} {PAIRS_PER_FOLD}\n")
 
         for positives, negatives in folds:
-            for p, img1, img2 in positives:
-                f.write(f"{p} {img1} {img2}\n")
 
-            for p1, img1, p2, img2 in negatives:
-                f.write(f"{p1} {img1} {p2} {img2}\n")
+            # positive pairs
+            for p, i1, i2 in positives:
+                f.write(f"{p} {i1} {i2}\n")
+
+            # negative pairs
+            for p1, i1, p2, i2 in negatives:
+                f.write(f"{p1} {i1} {p2} {i2}\n")
 
     print(f"[OK] Saved pairs file: {out_file}")
 
 
+# --------------------------------------------------------------
+# MAIN
+# --------------------------------------------------------------
 if __name__ == "__main__":
     people = load_dataset(DATASET_PATH)
-    folds = create_pairs(people)
+
+    print(f"[INFO] Loaded {len(people)} identities")
+
+    pos_pairs = build_positive_pairs(people)
+    neg_pairs = build_negative_pairs(people)
+
+    print(f"[INFO] Positive pairs available: {len(pos_pairs)}")
+    print(f"[INFO] Negative pairs available: {len(neg_pairs)}")
+
+    folds = build_folds(pos_pairs, neg_pairs)
+
     write_pairs(folds, OUTPUT_FILE)

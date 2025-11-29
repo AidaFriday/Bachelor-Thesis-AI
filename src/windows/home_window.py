@@ -1,3 +1,4 @@
+# home_window.py
 from PyQt5.QtWidgets import (
     QMainWindow,
     QLabel,
