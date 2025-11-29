@@ -123,11 +123,10 @@ class HomeWindow(QMainWindow):
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
-        # Load database
+        # Load database (unchanged)
         try:
             base = Path(__file__).resolve().parents[1]
             db_path = base / "identity" / f"db_{model_name}.npz"
-
             if db_path.exists():
                 self.face_db = FaceEmbeddingDB.load(db_path)
                 print(f"[INFO] Loaded face DB: {db_path}")
@@ -135,17 +134,44 @@ class HomeWindow(QMainWindow):
             else:
                 self.face_db = None
                 print(f"[INFO] No DB file found at {db_path}")
-
         except Exception as e:
             print(f"[ERROR] Failed to load DB: {e}")
             self.face_db = None
 
-        # Start camera
-        self.cap = cv2.VideoCapture(0)
+        # -------------------------------------------------------------
+        # 🔥 CAMERA AUTO-DETECT
+        # Try external cameras first: 1, 2, 3...
+        # Fall back to laptop cam: index 0
+        # -------------------------------------------------------------
+        print("[INFO] Searching for external cameras...")
+
+        selected_cam = None
+
+        # Try indices 1..5 for external cameras
+        for idx in range(1, 6):
+            temp_cap = cv2.VideoCapture(idx)
+            if temp_cap.isOpened():
+                ret, _ = temp_cap.read()
+                if ret:
+                    selected_cam = idx
+                    temp_cap.release()
+                    break
+            temp_cap.release()
+
+        # If no external cameras found → fallback to laptop cam 0
+        if selected_cam is None:
+            print("[INFO] No external camera found → using laptop camera (0)")
+            selected_cam = 0
+        else:
+            print(f"[INFO] Using external camera index: {selected_cam}")
+
+        # Open final selected camera
+        self.cap = cv2.VideoCapture(selected_cam)
         if not self.cap.isOpened():
-            self.video_label.setText("[ERROR] Cannot open camera")
+            self.video_label.setText("[ERROR] Cannot open ANY camera!")
             return
 
+        # Start timer
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
@@ -157,6 +183,7 @@ class HomeWindow(QMainWindow):
         if self.cap:
             self.cap.release()
             self.cap = None
+        print("[INFO] Camera stopped.")
         self.video_label.setText("Camera stopped.")
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
@@ -182,9 +209,6 @@ class HomeWindow(QMainWindow):
 
             # ---- Bounding box ----
             cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1, cv2.LINE_AA)
-            cv2.rectangle(
-                disp, (x1 - 1, y1 - 1), (x2 + 1, y2 + 1), color, 1, cv2.LINE_AA
-            )
 
             # ---- Landmarks ----
             for px, py in kps.astype(int):
