@@ -1,7 +1,7 @@
 {
-    "generated_at": "2025-11-29T12:26:57",
+    "generated_at": "2025-11-29T15:45:38",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
-    "count": 49,
+    "count": 51,
     "files": [
         "benchmark_parameters/performance/fps/fps.py",
         "benchmark_parameters/performance/inference/logic_inference.py",
@@ -43,10 +43,12 @@
         "identity/face_database.py",
         "main.py",
         "models/wrap_adaface.py",
+        "models/wrap_adaface_camera.py",
         "models/wrap_adaface_onnx.py",
         "models/wrap_arcface.py",
         "models/wrap_facedetection.py",
         "models/wrap_facenet.py",
+        "models/wrap_facenet_camera.py",
         "models/wrap_facenet_onnx.py",
         "models/wrap_facenet_original.py",
         "models/wrap_yolov5face.py",

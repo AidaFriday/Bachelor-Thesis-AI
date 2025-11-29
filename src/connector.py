@@ -21,7 +21,9 @@ WRAPPERS = {
     "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
     "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),  # ✅ USE ONNX VERSION
     "adaface": ("models.wrap_adaface_onnx", "AdaFaceONNX"),
+    "adaface_camera": ("models.wrap_adaface_camera", "AdaFaceCameraWrapper"),
     "facenet_original": ("models.wrap_facenet_original", "FaceNetOriginalWrapper"),
+    "facenet_camera": ("models.wrap_facenet_camera", "FaceNetCameraWrapper"),
 }
 
 

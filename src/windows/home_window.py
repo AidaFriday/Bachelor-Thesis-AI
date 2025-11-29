@@ -32,7 +32,7 @@ class HomeWindow(QMainWindow):
         # --- Stacked pages ---
         self.stacked = QStackedWidget()
 
-        # Page 1: Home (camera UI)
+        # Page 1 – Home (Camera UI)
         self.home_page = QWidget()
         home_layout = QVBoxLayout()
 
@@ -48,29 +48,37 @@ class HomeWindow(QMainWindow):
         home_layout.addWidget(self.video_label)
         self.home_page.setLayout(home_layout)
 
-        # Page 2: Settings
+        # Page 2 – Settings
         self.settings_page = SettingsPage()
-        self.settings_page.theme_changed.connect(
-            self.apply_theme
-        )  # 🔔 listen for theme change
 
-        # Page 3: Benchmark
+        # --- Model colors (consistent) ---
+        self.model_colors = {
+            "arcface": (0, 180, 255),  # cyan
+            "facenet": (0, 255, 0),  # green
+            "adaface": (180, 0, 255),  # magenta
+            "facenet_camera": (255, 140, 0),  # orange
+            "facenet_original": (0, 255, 0),
+        }
+
+        self.settings_page.theme_changed.connect(self.apply_theme)
+
+        # Page 3 – Benchmark
         self.benchmark_page = BenchmarkPage(
             get_model_name=lambda: self.settings_page.model_name
         )
 
-        # Add pages to stacked
+        # Add pages
         self.stacked.addWidget(self.home_page)
         self.stacked.addWidget(self.settings_page)
         self.stacked.addWidget(self.benchmark_page)
 
-        # Sidebar
+        # Sidebar + button
         self.sidebar = SideBar()
         self.toggle_btn = QPushButton("☰")
         self.toggle_btn.setFixedSize(QSize(40, 40))
         self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
-        # Sidebar navigation
+        # Navigation
         self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
         self.sidebar.btn_settings.clicked.connect(
             lambda: self.stacked.setCurrentIndex(1)
@@ -105,15 +113,17 @@ class HomeWindow(QMainWindow):
         self.start_btn.clicked.connect(self.start_camera)
         self.stop_btn.clicked.connect(self.stop_camera)
 
-        # Apply initial theme
+        # Apply theme
         self.apply_theme(self.settings_page.theme)
+
+    # ------------------------------------------------------------------
 
     def start_camera(self):
         model_name = self.settings_page.model_name
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
-        # ==== Load face database (friends) ====
+        # Load database
         try:
             base = Path(__file__).resolve().parents[1]
             db_path = base / "identity" / f"db_{model_name}.npz"
@@ -125,11 +135,12 @@ class HomeWindow(QMainWindow):
             else:
                 self.face_db = None
                 print(f"[INFO] No DB file found at {db_path}")
-        except Exception as e:
-            self.face_db = None
-            print(f"[ERROR] Failed to load DB: {e}")
 
-        # ==== Start camera ====
+        except Exception as e:
+            print(f"[ERROR] Failed to load DB: {e}")
+            self.face_db = None
+
+        # Start camera
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             self.video_label.setText("[ERROR] Cannot open camera")
@@ -139,6 +150,8 @@ class HomeWindow(QMainWindow):
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
 
+    # ------------------------------------------------------------------
+
     def stop_camera(self):
         self.timer.stop()
         if self.cap:
@@ -147,6 +160,8 @@ class HomeWindow(QMainWindow):
         self.video_label.setText("Camera stopped.")
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+
+    # ------------------------------------------------------------------
 
     def update_frame(self):
         if self.cap is None:
@@ -162,19 +177,24 @@ class HomeWindow(QMainWindow):
             x1, y1, x2, y2 = f["bbox"]
             kps = f["kps"]
 
-            # Draw box
-            cv2.rectangle(disp, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
+            landmark_color = (0, 255, 255)  # ALWAYS yellow → best visibility
 
-            # Landmarks
+            # ---- Bounding box ----
+            cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1, cv2.LINE_AA)
+            cv2.rectangle(
+                disp, (x1 - 1, y1 - 1), (x2 + 1, y2 + 1), color, 1, cv2.LINE_AA
+            )
+
+            # ---- Landmarks ----
             for px, py in kps.astype(int):
-                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
+                cv2.circle(disp, (px, py), 2, landmark_color, -1, cv2.LINE_AA)
 
-            # -------- RECOGNITION ----------
+            # ---- Recognition ----
             label_text = ""
             try:
                 emb = f.get("embedding")
                 if emb is None:
-                    # align manually
                     aligned = self.wrapper.detector.align_for(frame, kps)
                     if aligned is not None:
                         emb = self.wrapper.embed(aligned)
@@ -185,37 +205,46 @@ class HomeWindow(QMainWindow):
             except Exception as e:
                 print(f"[WARN] Recognition error: {e}")
 
-            # Draw label
+            # ---- Draw label ----
             if label_text:
+                pos = (x1, max(20, y1 - 10))
+
+                # shadow
                 cv2.putText(
                     disp,
                     label_text,
-                    (x1, max(20, y1 - 10)),
+                    pos,
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
+                    0.6,
+                    (0, 0, 0),
                     2,
+                    cv2.LINE_AA,
                 )
 
-        # Qt output
+                # main
+                cv2.putText(
+                    disp,
+                    label_text,
+                    pos,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    color,
+                    1,
+                    cv2.LINE_AA,
+                )
+
+        # Send to Qt
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(qimg))
 
+    # ------------------------------------------------------------------
+
     def toggle_sidebar(self):
         self.sidebar.toggle()
-        if self.sidebar._collapsed:
-            self.toggle_btn.setText("☰")
-        else:
-            self.toggle_btn.setText("←")
+        self.toggle_btn.setText("☰" if self.sidebar._collapsed else "←")
 
     def apply_theme(self, theme: str):
-        """Apply theme globally to the entire window."""
-        if theme == "dark":
-            self.setStyleSheet(DARK_THEME)
-        else:
-            self.setStyleSheet(LIGHT_THEME)
-
-        # also update sidebar buttons
+        self.setStyleSheet(DARK_THEME if theme == "dark" else LIGHT_THEME)
         self.sidebar.apply_theme(theme)
