@@ -18,7 +18,7 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 from connector import load_model
 from components.sidebar import SideBar
-from components.settings import SettingsPage, LIGHT_THEME, DARK_THEME
+from gui.configuration.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from gui.benchmark.benchmark_window import BenchmarkPage
 
 

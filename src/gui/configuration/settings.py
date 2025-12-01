@@ -15,8 +15,10 @@ import json
 from dataset.manager import DatasetManager
 
 # Project root (…/src)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+
 
 LIGHT_THEME = """
     QWidget {
