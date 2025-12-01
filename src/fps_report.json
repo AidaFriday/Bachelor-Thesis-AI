@@ -1,0 +1,27 @@
+{
+    "source_file": "fps.py",
+    "model": "adaface_camera",
+    "dataset": "YTF (video)",
+    "start_identity": "AJ_Cook",
+    "start_time": "2025-12-01T13:55:49",
+    "end_time": "2025-12-01T13:59:04",
+    "avg_fps_all_runs": 0.71,
+    "runs": [
+        {
+            "run": 1,
+            "min_fps": 0.47,
+            "max_fps": 1.02,
+            "avg_fps": 0.72,
+            "min_file": "aligned_detect_0.145.jpg",
+            "max_file": "aligned_detect_0.127.jpg"
+        },
+        {
+            "run": 2,
+            "min_fps": 0.48,
+            "max_fps": 0.92,
+            "avg_fps": 0.7,
+            "min_file": "aligned_detect_0.142.jpg",
+            "max_file": "aligned_detect_0.136.jpg"
+        }
+    ]
+}
