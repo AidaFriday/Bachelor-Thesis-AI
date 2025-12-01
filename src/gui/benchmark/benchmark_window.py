@@ -277,75 +277,62 @@ class BenchmarkPage(QWidget):
                 print(f"[WARN] Could not reload settings: {e}")
 
     def load_benchmark_tabs(self):
-        """Dynamically create benchmark buttons and output panels."""
-        if not os.path.isdir(self.benchmark_dir):
-            print(f"[WARN] Benchmark dir not found: {self.benchmark_dir}")
-            return
+        """Create only the specific benchmark buttons you want."""
 
-        all_scripts = []
-        for dirpath, _, filenames in os.walk(self.benchmark_dir):
-            for fname in filenames:
-                if not fname.endswith(".py") or fname.startswith("__"):
-                    continue
-                if "logic" in fname.lower():
-                    continue
-                all_scripts.append(os.path.join(dirpath, fname))
-        all_scripts.sort(key=lambda p: os.path.basename(p).lower())
+        # ---- Define your scripts manually ----
+        BASE = self.benchmark_dir
 
-        for file_path in all_scripts:
-            fname = os.path.basename(file_path)
-            tab_name = self._pretty_name_for(file_path)
+        BUTTONS = {
+            "FPS": os.path.join(BASE, "fps", "fps.py"),
+            "Accuracy Image": os.path.join(
+                BASE, "validation_accuracy", "image", "logic_accuracy_image.py"
+            ),
+            "Accuracy Video": os.path.join(
+                BASE, "validation_accuracy", "video", "logic_accuracy_video.py"
+            ),
+            "Latency": os.path.join(BASE, "performance", "latency", "latency.py"),
+        }
 
-            btn = QPushButton(tab_name)
+        # ---- Create one button per script ----
+        for label, path in BUTTONS.items():
+            btn = QPushButton(label)
             btn.setMinimumHeight(40)
-            btn.clicked.connect(
-                lambda _, n=tab_name, p=file_path: self._invoke_run_script(n, p)
-            )
-
-            color = self._button_color_for(fname)
             btn.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background-color: {color};
+                """
+                QPushButton {
+                    background-color: #2980b9;
                     color: white;
                     border: none;
                     border-radius: 6px;
                     padding: 6px 12px;
                     font-weight: bold;
-                }}
-                QPushButton:hover {{
+                }
+                QPushButton:hover {
                     background-color: #555;
-                }}
+                }
             """
             )
 
-            # Disable FPS button only if it's truly FPS and dataset is LFW
-            if "fps" in fname.lower() and "latency" not in fname.lower():
-                ds_lower = (self.dataset_path or "").lower()
-                if "lfw" in ds_lower:
-                    btn.setEnabled(False)
-                    btn.setToolTip(
-                        "FPS benchmark only works with YTF (video) datasets."
-                    )
-
+            btn.clicked.connect(
+                lambda _, n=label, p=path: self._invoke_run_script(n, p)
+            )
             self.button_layout.addWidget(btn)
 
-            # Matplotlib page
+            # ---- Create a blank output page ----
             page = QWidget()
             layout = QVBoxLayout()
 
-            # >>> Pure white figure & canvas
             fig = Figure(figsize=(5, 4), facecolor="white")
             canvas = FigureCanvas(fig)
             canvas.setStyleSheet("background-color: white;")
-
             layout.addWidget(canvas)
+
             progress = QProgressBar()
             layout.addWidget(progress)
             page.setLayout(layout)
 
             idx = self.output_stack.addWidget(page)
-            self.pages[tab_name] = (idx, fig, canvas, file_path, progress)
+            self.pages[label] = (idx, fig, canvas, path, progress)
 
     # ---------- Handle Output ----------
 
