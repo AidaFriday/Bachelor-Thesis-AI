@@ -1,5 +1,5 @@
 {
-    "generated_at": "2025-12-01T13:28:59",
+    "generated_at": "2025-12-01T13:31:37",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
     "count": 52,
     "files": [
@@ -40,6 +40,8 @@
         "dataset/YTF.py",
         "dataset/manager.py",
         "extractor.py",
+        "gui/benchmark/benchmark_window.py",
+        "gui/home/home_window.py",
         "identity/__init__.py",
         "identity/face_database.py",
         "identity/identification_eval.py",
@@ -52,8 +54,6 @@
         "models/wrap_facenet_camera.py",
         "models/wrap_facenet_onnx.py",
         "models/wrap_facenet_original.py",
-        "models/wrap_yolov5face.py",
-        "windows/benchmark/benchmark_window.py",
-        "windows/home/home_window.py"
+        "models/wrap_yolov5face.py"
     ]
 }

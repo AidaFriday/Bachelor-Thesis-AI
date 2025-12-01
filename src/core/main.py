@@ -8,7 +8,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from PyQt5.QtWidgets import QApplication
-from windows.home.home_window import HomeWindow
+from gui.home.home_window import HomeWindow
 
 try:
     from components.utilities.file_indexer import update_file_index
