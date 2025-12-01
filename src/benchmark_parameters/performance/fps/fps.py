@@ -136,8 +136,9 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     start_identity = selected_subjects[0] if selected_subjects else None
 
     all_images = YTF.list_all_images(root_dir=dataset, shuffle=False, verbose=False)
-
-    if selected_subjects:
+    # ---------------- Subject Filtering ----------------
+    # "__ALL__" means skip filtering and use the entire dataset
+    if selected_subjects and "__ALL__" not in selected_subjects:
         images = [
             p
             for p in all_images
@@ -150,7 +151,9 @@ def run(model_name, iters, frame_h, frame_w, dataset):
             sys.exit(1)
         send_log(f"Filtering to selected subjects: {', '.join(selected_subjects)}")
     else:
+        # Use entire dataset when "__ALL__" is passed from GUI
         images = all_images
+        send_log("Using ALL subjects in YTF dataset")
 
     if not images:
         send_log("⚠️ YTF dataset contains no images", level="error")
