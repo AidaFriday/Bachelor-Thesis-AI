@@ -2,6 +2,8 @@
 
 import sys
 import os
+import atexit
+import shutil
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
@@ -16,6 +18,24 @@ try:
     update_file_index()
 except Exception as e:
     print(f"[WARN] File indexing skipped due to error: {e}")
+
+
+def delete_pycache():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    print("[CLEANUP] Removing __pycache__ folders...")
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        for d in dirnames:
+            if d == "__pycache__":
+                full = os.path.join(dirpath, d)
+                try:
+                    shutil.rmtree(full)
+                    print(f"[CLEANUP] Removed: {full}")
+                except Exception as e:
+                    print(f"[CLEANUP] Failed to remove {full}: {e}")
+
+
+atexit.register(delete_pycache)
 
 
 def main():
