@@ -3,7 +3,7 @@
 import sys
 import os
 from PyQt5.QtWidgets import QApplication
-from windows.home_window import HomeWindow
+from windows.home.home_window import HomeWindow
 
 # --- Auto-index all project files on startup ---
 try:

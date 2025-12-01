@@ -19,7 +19,7 @@ import cv2
 from connector import load_model
 from components.sidebar import SideBar
 from components.settings import SettingsPage, LIGHT_THEME, DARK_THEME
-from windows.benchmark_window import BenchmarkPage
+from windows.benchmark.benchmark_window import BenchmarkPage
 
 
 class HomeWindow(QMainWindow):

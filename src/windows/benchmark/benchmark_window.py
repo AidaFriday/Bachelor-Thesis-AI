@@ -186,7 +186,9 @@ class BenchmarkPage(QWidget):
         super().__init__(parent)
         self.get_model_name = get_model_name
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         self.benchmark_dir = os.path.join(base_dir, "benchmark_parameters")
 
         self.test_image = os.path.join(
