@@ -1,7 +1,7 @@
 {
-    "generated_at": "2025-12-01T13:55:38",
+    "generated_at": "2025-12-01T14:30:53",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
-    "count": 59,
+    "count": 64,
     "files": [
         "benchmark_parameters/performance/fps/fps.py",
         "benchmark_parameters/performance/inference/logic_inference.py",
@@ -41,6 +41,9 @@
         "dataset/manager.py",
         "extractor.py",
         "gui/benchmark/benchmark_window.py",
+        "gui/benchmark/dialogs/__init__.py",
+        "gui/benchmark/dialogs/select_metric_dialog.py",
+        "gui/benchmark/dialogs/select_subjects_dialog.py",
         "gui/benchmark/handlers/handler_accuracy_image.py",
         "gui/benchmark/handlers/handler_accuracy_video.py",
         "gui/benchmark/handlers/handler_confusion.py",
@@ -48,6 +51,8 @@
         "gui/benchmark/handlers/handler_latency.py",
         "gui/benchmark/handlers/handler_progress.py",
         "gui/benchmark/handlers/handler_roc_image.py",
+        "gui/benchmark/threading/run_script.py",
+        "gui/benchmark/threading/runner_thread.py",
         "gui/home/home_window.py",
         "identity/__init__.py",
         "identity/face_database.py",
