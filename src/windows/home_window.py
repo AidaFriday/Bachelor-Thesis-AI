@@ -123,7 +123,7 @@ class HomeWindow(QMainWindow):
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
-        # Load database (unchanged)
+        # Load database
         try:
             base = Path(__file__).resolve().parents[1]
             db_path = base / "identity" / f"db_{model_name}.npz"
@@ -138,40 +138,64 @@ class HomeWindow(QMainWindow):
             print(f"[ERROR] Failed to load DB: {e}")
             self.face_db = None
 
-        # -------------------------------------------------------------
-        # 🔥 CAMERA AUTO-DETECT
-        # Try external cameras first: 1, 2, 3...
-        # Fall back to laptop cam: index 0
-        # -------------------------------------------------------------
-        print("[INFO] Searching for external cameras...")
+        print("[INFO] Searching for cameras...")
 
-        selected_cam = None
+        # -------------------------------------------------------
+        # Detect OBS placeholder (blue screen with logo)
+        # -------------------------------------------------------
+        def looks_like_obs_placeholder(frame):
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        # Try indices 1..5 for external cameras
-        for idx in range(1, 6):
-            temp_cap = cv2.VideoCapture(idx)
-            if temp_cap.isOpened():
-                ret, _ = temp_cap.read()
-                if ret:
-                    selected_cam = idx
-                    temp_cap.release()
-                    break
-            temp_cap.release()
+            # Blue-ish range of OBS placeholder background
+            lower_blue = np.array([90, 40, 40])
+            upper_blue = np.array([130, 255, 255])
 
-        # If no external cameras found → fallback to laptop cam 0
-        if selected_cam is None:
-            print("[INFO] No external camera found → using laptop camera (0)")
-            selected_cam = 0
+            mask = cv2.inRange(hsv, lower_blue, upper_blue)
+            blue_ratio = mask.mean()
+
+            # OBS placeholder = majority blue pixels
+            return blue_ratio > 50
+
+        # -------------------------------------------------------
+        # 1) Try external camera (index 1)
+        # -------------------------------------------------------
+        external_cam_valid = False
+        cap1 = cv2.VideoCapture(1)
+
+        if cap1.isOpened():
+            ret, frame = cap1.read()
+            if ret:
+                if not looks_like_obs_placeholder(frame):
+                    external_cam_valid = True
+                    selected_cam = 1
+                    print("[INFO] External camera appears REAL → using index 1")
+                else:
+                    print("[INFO] External camera shows OBS placeholder → skipping.")
+            else:
+                print("[INFO] External camera opened but no frame → skipping.")
         else:
-            print(f"[INFO] Using external camera index: {selected_cam}")
+            print("[INFO] External camera (index 1) not opened.")
 
-        # Open final selected camera
+        cap1.release()
+
+        # -------------------------------------------------------
+        # 2) Fallback to laptop camera (index 0)
+        # -------------------------------------------------------
+        if not external_cam_valid:
+            selected_cam = 0
+            print("[INFO] Using laptop camera (index 0)")
+
+        # -------------------------------------------------------
+        # 3) Open selected camera
+        # -------------------------------------------------------
         self.cap = cv2.VideoCapture(selected_cam)
         if not self.cap.isOpened():
             self.video_label.setText("[ERROR] Cannot open ANY camera!")
+            print("[ERROR] Camera failed to open!")
             return
 
-        # Start timer
+        print(f"[INFO] Camera started: index={selected_cam}")
+
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
