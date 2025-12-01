@@ -19,11 +19,12 @@ from models.wrap_facedetection import FaceDetectorAligner
 # --- Model registry (hardcoded). Remove model.config check since unused.
 WRAPPERS = {
     "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
-    "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),  # ✅ USE ONNX VERSION
+    "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),
     "adaface": ("models.wrap_adaface_onnx", "AdaFaceONNX"),
     "adaface_camera": ("models.wrap_adaface_camera", "AdaFaceCameraWrapper"),
     "facenet_original": ("models.wrap_facenet_original", "FaceNetOriginalWrapper"),
     "facenet_camera": ("models.wrap_facenet_camera", "FaceNetCameraWrapper"),
+    # "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),  #it is not used anywhere, even my lfw is running with adaface_onnx, and the result is same as this wrapper
 }
 
 

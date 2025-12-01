@@ -9,6 +9,36 @@ import numpy as np
 import cv2
 from datetime import datetime
 
+
+def detect_and_embed(detector_aligner, embedder, frame):
+    """
+    Perform detect + align + embed using your existing classes.
+    detector_aligner: FaceDetectorAligner instance
+    embedder: model wrapper (FaceNetONNX or FaceNetOriginalWrapper)
+    """
+    # 1) Detect faces
+    dets = detector_aligner.detect(frame)
+    if not dets:
+        return None  # no face
+
+    # choose highest-confidence detection
+    det = max(dets, key=lambda d: d["conf"])
+    kps = det["kps"]
+
+    # 2) Align face
+    aligned = detector_aligner.align_for(frame, kps, out_size=(160, 160))
+    if aligned is None:
+        return None
+
+    # 3) Embed
+    if hasattr(embedder, "embed"):
+        return embedder.embed(aligned)
+    elif hasattr(embedder, "get_embedding"):
+        return embedder.get_embedding(aligned)
+    else:
+        raise RuntimeError("Model wrapper has no embed() or get_embedding().")
+
+
 # ---- Bootstrap sys.path so connector and dataset are importable ----
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # src/
@@ -44,14 +74,13 @@ def _random_frame(h=640, w=640):
     return np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
 
 
-def measure_once(wrapper, frame):
-    """Measure latency for one detect+embed operation."""
+def measure_once(detector, wrapper, frame):
     _cuda_synchronize_if_needed()
     t0 = time.perf_counter()
-    _ = wrapper.detect_and_embed(frame)
+    _ = detect_and_embed(detector, wrapper, frame)
     _cuda_synchronize_if_needed()
     t1 = time.perf_counter()
-    return (t1 - t0) * 1000.0  # ms
+    return (t1 - t0) * 1000.0
 
 
 def _ytf_loaded_subset_summary(root_dir: str, image_paths):
@@ -93,6 +122,9 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 
     wrapper = load_model(model_name)
     send_log(f"Running FPS benchmark | Model: {model_name} | Dataset: YTF (video)")
+    from models.wrap_facedetection import FaceDetectorAligner
+
+    detector = FaceDetectorAligner(device="cpu")  # or "cuda"
 
     # --- Load YTF frames ---
     selected_subjects_env = os.getenv("YTF_SELECTED_SUBJECTS", "")
@@ -163,7 +195,7 @@ def run(model_name, iters, frame_h, frame_w, dataset):
     send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
 
     for _ in range(warmup_iters):
-        _ = wrapper.detect_and_embed(first_frame)
+        _ = detect_and_embed(detector, wrapper, first_frame)
         _cuda_synchronize_if_needed()
 
     # --- Initialize data collectors ---
@@ -181,7 +213,8 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         for i in range(iters):
             frame_idx = i % len(frames) if frames else None
             frame = frames[frame_idx] if frames else _random_frame(frame_h, frame_w)
-            t = measure_once(wrapper, frame)
+            t = measure_once(detector, wrapper, frame)
+
             times_ms.append(t)
 
             if frames:

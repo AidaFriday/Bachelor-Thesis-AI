@@ -283,7 +283,7 @@ class BenchmarkPage(QWidget):
         BASE = self.benchmark_dir
 
         BUTTONS = {
-            "FPS": os.path.join(BASE, "fps", "fps.py"),
+            "FPS": os.path.join(BASE, "performance", "fps", "fps.py"),
             "Accuracy Image": os.path.join(
                 BASE, "validation_accuracy", "image", "logic_accuracy_image.py"
             ),
