@@ -1,18 +1,38 @@
-1. FPS-GPU (YTF)
+FPS-GPU (YTF)
 python benchmark_parameters/performance_gpu/gpu_fps.py --model arcface --dataset ~/Datasets/YTF
 python benchmark_parameters/performance_gpu/gpu_fps.py --model facenet --dataset ~/Datasets/YTF
 python benchmark_parameters/performance_gpu/gpu_fps.py --model adaface --dataset ~/Datasets/YTF
 
-
-2. FPS-CPU (YTF)
+FPS-CPU (YTF)
 python benchmark_parameters/performance/cpu_fps.py --model arcface --dataset ~/Datasets/YTF --iters 1
+python benchmark_parameters/performance/cpu_fps.py --model facenet --dataset ~/Datasets/YTF --iters 1
+python benchmark_parameters/performance/cpu_fps.py --model adaface --dataset ~/Datasets/YTF --iters 1
+
+------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------
+
+Latency-GPU (YTF)
+python benchmark_parameters/performance_gpu/gpu_latency.py --model arcface --dataset ~/Datasets/YTF
+python benchmark_parameters/performance_gpu/gpu_latency.py --model facenet --dataset ~/Datasets/YTF
+python benchmark_parameters/performance_gpu/gpu_latency.py --model adaface --dataset ~/Datasets/YTF
+
+Latency-CPU (YTF)
+python benchmark_parameters/performance/cpu_latency.py --model arcface --dataset ~/Datasets/YTF
+python benchmark_parameters/performance/cpu_latency.py --model facenet --dataset ~/Datasets/YTF
+python benchmark_parameters/performance/cpu_latency.py --model adaface --dataset ~/Datasets/YTF
 
 ------------------------------------------------------------------------------------------------------------------
 
-1. Latency-GPU (YTF)/(LFW)
-python benchmark_parameters/performance_gpu/gpu_latency.py --model arcface --dataset ~/Datasets/YTF
+Latency-GPU (LFW)
 python benchmark_parameters/performance_gpu/gpu_latency.py --model arcface --dataset ~/Datasets/LFW
+python benchmark_parameters/performance_gpu/gpu_latency.py --model facenet --dataset ~/Datasets/LFW
+python benchmark_parameters/performance_gpu/gpu_latency.py --model adaface --dataset ~/Datasets/LFW
 
-2. Latency-CPU (YTF)/(LFW)
-python benchmark_parameters/performance/cpu_latency.py --model arcface --dataset ~/Datasets/YTF
+Latency-CPU (LFW)
 python benchmark_parameters/performance/cpu_latency.py --model arcface --dataset ~/Datasets/LFW
+python benchmark_parameters/performance/cpu_latency.py --model facenet --dataset ~/Datasets/LFW
+python benchmark_parameters/performance/cpu_latency.py --model adaface --dataset ~/Datasets/LFW
+
+
