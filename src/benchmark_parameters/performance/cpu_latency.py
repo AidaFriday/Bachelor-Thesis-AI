@@ -111,7 +111,7 @@ def normalize_dataset_path(dataset):
 # -------------------------------------------------------------
 # ROUTER
 # -------------------------------------------------------------
-def run(model_name, iters, frame_h, frame_w, dataset):
+def run(model_name, iters, frame_h, frame_w, dataset, device):
 
     dataset = normalize_dataset_path(dataset)
     ds = (dataset or "").lower()
@@ -129,7 +129,25 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         send_log(f"[latency] Defaulting to IMAGE logic")
 
     # Always CPU → pass CPU device into logic
-    return run_logic(model_name, iters, frame_h, frame_w, dataset, send_progress, device="cpu")
+    return run_logic(model_name, iters, frame_h, frame_w, dataset, send_progress, device=device)
+
+
+def resolve_device(choice):
+    if choice == "cpu":
+        return "cpu"
+    if choice == "gpu":
+        return "cuda"
+
+    # auto
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+    except Exception:
+        pass
+
+    return "cpu"
+
 
 # -------------------------------------------------------------
 # MAIN ENTRY
@@ -141,12 +159,17 @@ def main():
     parser.add_argument("--iters", type=int, default=0)
     parser.add_argument("--frame-size", type=str, default="640x640")
     parser.add_argument("--dataset", type=str)
+    parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "gpu"])
+
     args = parser.parse_args()
 
     cfg = _resolve_settings()
 
     model = args.model or cfg.get("model")
     dataset = args.dataset or cfg.get("dataset")
+    device_choice = args.device
+    device = resolve_device(device_choice)
+
 
     if not model:
         print(json.dumps({"error": "No model selected"}), flush=True)
@@ -160,7 +183,7 @@ def main():
     start = time.time()
     iters = args.iters if args.iters > 0 else 0
 
-    result_payload = run(model, iters, h, w, dataset)
+    result_payload = run(model, iters, h, w, dataset, device)
 
     end = time.time()
 

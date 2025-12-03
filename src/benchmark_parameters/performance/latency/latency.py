@@ -6,6 +6,24 @@ import sys
 import time
 import numpy as np
 
+# -------------------------------------------------------------
+# 🔥 FORCE CPU (torch / onnx)
+# -------------------------------------------------------------
+try:
+    import torch
+    torch.cuda.is_available = lambda: False
+    torch.backends.cudnn.enabled = False
+except Exception:
+    pass
+
+# ONNXRuntime → force CPU EP only
+try:
+    import onnxruntime as ort
+    ort.get_available_providers = lambda: ["CPUExecutionProvider"]
+except Exception:
+    pass
+
+
 # ---------------------------------------------------------------------
 # 🔹 Load project-wide index to dynamically locate all Python modules
 # ---------------------------------------------------------------------
