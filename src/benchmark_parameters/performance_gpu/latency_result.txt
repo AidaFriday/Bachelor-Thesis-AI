@@ -1,0 +1,20 @@
+{
+  "model": "arcface",
+  "dataset": "/home/aida/Datasets/LFW",
+  "start_time": "2025-12-03T17:41:22",
+  "end_time": "2025-12-03T17:42:53",
+  "duration_sec": 90.82,
+  "result": {
+    "kind": "latency_image",
+    "dataset": "/home/aida/Datasets/LFW/lfw-deepfunneled",
+    "num_images": 13233,
+    "num_runs": 1,
+    "avg_latency_ms": 6.569555425009965,
+    "model": "arcface",
+    "start_time": "2025-12-03T17:41:23",
+    "end_time": "2025-12-03T17:42:53",
+    "avg_latency": null,
+    "min_latency": null,
+    "max_latency": null
+  }
+}

@@ -156,15 +156,11 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    
-    # 🔥 CHANGE DEFAULT from 50 → 0  
-    # 0 = AUTO → USE FULL DATASET (same behavior as LFW)
     parser.add_argument("--iters", type=int, default=0)
-
     parser.add_argument("--frame-size", type=str, default="640x640")
     parser.add_argument("--dataset", type=str)
-    args = parser.parse_args()
 
+    args = parser.parse_args()
     cfg = _resolve_settings()
 
     model = args.model or cfg.get("model")
@@ -181,13 +177,38 @@ def main():
 
     start = time.time()
 
-    # If user does NOT supply an iteration limit, use full dataset
     iters = args.iters if args.iters > 0 else 0
-
     result_payload = run(model, iters, h, w, dataset)
 
     end = time.time()
 
+    # -------------------------------------------------------------
+    # CALCULATE LATENCY STATISTICS
+    # -------------------------------------------------------------
+    lat_list = []
+
+    if isinstance(result_payload, dict):
+        for key in ["latencies", "latency", "times"]:
+            if key in result_payload and isinstance(result_payload[key], (list, tuple)):
+                lat_list = result_payload[key]
+                break
+
+    if lat_list:
+        avg_latency = float(np.mean(lat_list))
+        min_latency = float(np.min(lat_list))
+        max_latency = float(np.max(lat_list))
+    else:
+        avg_latency = None
+        min_latency = None
+        max_latency = None
+
+    result_payload["avg_latency"] = avg_latency
+    result_payload["min_latency"] = min_latency
+    result_payload["max_latency"] = max_latency
+
+    # -------------------------------------------------------------
+    # FINAL RESULT OBJECT
+    # -------------------------------------------------------------
     final = {
         "model": model,
         "dataset": dataset,
@@ -197,6 +218,20 @@ def main():
         "result": result_payload,
     }
 
+    # -------------------------------------------------------------
+    # SAVE RESULT TO FILE (DELETE OLD → CREATE NEW)
+    # -------------------------------------------------------------
+    output_file = os.path.join(CURRENT_DIR, "latency_result.txt")
+
+    if os.path.exists(output_file):
+        os.remove(output_file)
+
+    with open(output_file, "w") as f:
+        f.write(json.dumps(final, indent=2))
+
+    send_log(f"Saved final results to {output_file}")
+
+    # Also print final JSON to stdout
     print(json.dumps(final), flush=True)
 
 
