@@ -38,8 +38,7 @@ _cached_wrapper = None
 _cached_model_name = None
 
 
-def run_logic(model_name, iters, frame_h, frame_w, dataset,
-              progress_callback=None, device=None):
+def run_logic(model_name, iters, frame_h, frame_w, dataset, progress_callback=None):
     global _cached_wrapper, _cached_model_name
 
     # Load model if needed

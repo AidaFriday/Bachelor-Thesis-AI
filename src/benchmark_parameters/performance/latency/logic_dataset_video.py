@@ -31,7 +31,9 @@ def measure_once(wrapper, frame):
     return (time.perf_counter() - t0) * 1000.0  # milliseconds
 
 
-def run_logic(model_name, iters, frame_h, frame_w, dataset):
+def run_logic(model_name, iters, frame_h, frame_w, dataset,
+              progress_callback=None, device=None):
+
     wrapper = load_model(model_name)
 
     # ✅ Selected subjects (from GUI dialog)

@@ -76,15 +76,11 @@ def send_log(msg, level="info"):
     print(json.dumps({"log": msg, "level": level}), flush=True)
 
 # -------------------------------------------------------------
-# CLEAN PROGRESS EVENT (NO SPAM)
+# CLEAN PROGRESS EVENT
 # -------------------------------------------------------------
 _last_progress = -1
 
 def send_progress(current, total, run=1, num_runs=1):
-    """
-    Sends a progress update only when whole percent changes.
-    Prevents tens of thousands of log lines.
-    """
     global _last_progress
     pct = int((current / total) * 100)
 
@@ -123,7 +119,7 @@ def normalize_dataset_path(dataset):
         send_log(f"Invalid dataset path: {dataset}", "error")
         sys.exit(1)
 
-    # Auto-fix LFW → use ./lfw-deepfunneled
+    # Auto select LFW deepfunneled
     if "lfw" in dataset.lower():
         deep = os.path.join(dataset, "lfw-deepfunneled")
         if os.path.exists(deep):
@@ -151,8 +147,7 @@ def run(model_name, iters, frame_h, frame_w, dataset):
         from benchmark_parameters.performance.latency.logic_dataset_image import run_logic
         send_log(f"[latency] Defaulting to IMAGE logic")
 
-    # IMPORTANT: run_logic MUST RETURN a payload dict
-    # Also we pass send_progress into the logic so it stops spamming
+    # Important: run_logic must return result payload
     return run_logic(model_name, iters, frame_h, frame_w, dataset, send_progress)
 
 # -------------------------------------------------------------
@@ -161,7 +156,11 @@ def run(model_name, iters, frame_h, frame_w, dataset):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")
-    parser.add_argument("--iters", type=int, default=50)
+    
+    # 🔥 CHANGE DEFAULT from 50 → 0  
+    # 0 = AUTO → USE FULL DATASET (same behavior as LFW)
+    parser.add_argument("--iters", type=int, default=0)
+
     parser.add_argument("--frame-size", type=str, default="640x640")
     parser.add_argument("--dataset", type=str)
     args = parser.parse_args()
@@ -182,12 +181,13 @@ def main():
 
     start = time.time()
 
-    # --- RUN LOGIC AND GET PAYLOAD ---
-    result_payload = run(model, args.iters, h, w, dataset)
+    # If user does NOT supply an iteration limit, use full dataset
+    iters = args.iters if args.iters > 0 else 0
+
+    result_payload = run(model, iters, h, w, dataset)
 
     end = time.time()
 
-    # --- FINAL CLEAN ONE-LINE SUMMARY JSON ---
     final = {
         "model": model,
         "dataset": dataset,
