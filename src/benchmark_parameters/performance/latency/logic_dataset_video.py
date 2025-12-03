@@ -169,3 +169,5 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset):
 
     print(json.dumps(payload))
     sys.stdout.flush()
+    return payload      # <--- ADD THIS
+    
