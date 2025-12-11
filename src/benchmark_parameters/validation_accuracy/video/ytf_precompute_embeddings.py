@@ -1,4 +1,4 @@
-#ytf_precompute_embeddings.py
+# ytf_precompute_embeddings.py
 import os
 import sys
 import json
@@ -12,14 +12,11 @@ import torch
 from tqdm import tqdm
 from scipy.io import loadmat
 
-# make project root importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model
 
 
-# ---------------------------------------------------------
-# Detect if dataset is already aligned (YTF or LFW)
-# ---------------------------------------------------------
+# Detect if dataset is already aligned
 def dataset_is_aligned(dataset_path: str) -> bool:
     p = dataset_path.lower().replace("\\", "/")
     last_dir = p.rstrip("/").split("/")[-1]
@@ -34,28 +31,28 @@ def dataset_is_aligned(dataset_path: str) -> bool:
     return False
 
 
-# ---------------------------------------------------------
 # Uniform frame sampling for videos
-# ---------------------------------------------------------
 def sample_uniform(files, max_frames):
     if len(files) <= max_frames:
         return files
-    idx = np.linspace(0, len(files) - 1, max_frames).round().astype(int)
+    idx = (
+        np.linspace(0, len(files) - 1, max_frames).round().astype(int)
+    )  # it takes frames evenly spaced across the whole video, does not take the first consecutive frames, does not take random frames
     return [files[i] for i in idx]
 
 
-# ---------------------------------------------------------
-# Load YTF metadata
-# ---------------------------------------------------------
+# Load YTF metadata, meta_and_splits.mat file contains the list of all video folder names, the official 10 evaluation folds, returns the list of video names
 def load_ytf_meta(meta_path: str):
     meta = loadmat(str(meta_path), squeeze_me=True)
     return meta["video_names"]
 
 
-# ---------------------------------------------------------
 # Main embedding extractor
-# ---------------------------------------------------------
-def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
+
+
+def get_video_embedding(
+    wrapper, video_dir, max_frames, USE_DETECTION
+):  # extract a single video embedding
     if not os.path.isdir(video_dir):
         return None
 
@@ -67,11 +64,12 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
     if not frame_files:
         return None
 
-    frame_files = sample_uniform(frame_files, max_frames)
+    frame_files = sample_uniform(frame_files, max_frames)  # Load available frame images
 
     embs = []
     model_name = getattr(wrapper, "name", "").lower()
 
+    # Identify which model wrapper is being used
     is_arcface = model_name == "arcface"
     is_adaface = model_name == "adaface"
     is_facenet = model_name in ("facenet", "facenet_onnx")
@@ -79,9 +77,8 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
     for fname in frame_files:
         img_path = os.path.join(video_dir, fname)
 
-        # -------------------------------------------------
-        # ARC FACE → FULL INTERNAL PIPELINE
-        # -------------------------------------------------
+        # ArcFace full internal pipeline, includes face detection alignment, embedding extraction
+
         if is_arcface:
             emb = wrapper.get_embedding(img_path)
             if emb is None:
@@ -100,11 +97,8 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
         emb = None
 
         try:
+            # Facenet - evaluated on 160×160 crops that are aligned using the shared 5-point alignment pipeline, even when the dataset already provides pre-aligned faces
 
-            # -------------------------------------------------
-            # FACENET → MUST USE DETECT + ALIGN + 160×160
-            # This restores correct performance (95% LFW)
-            # -------------------------------------------------
             if is_facenet:
                 faces = wrapper.detector.detect(img)
                 if not faces:
@@ -114,17 +108,16 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
                 if aligned is None:
                     continue
 
-                emb = wrapper.embed(aligned)
+                emb = wrapper.embed(
+                    aligned
+                )  # takes an already aligned, correctly sized face crop (e.g. 160×160 for FaceNet), and runs the model’s forward pass to produce a feature embedding
 
-            # -------------------------------------------------
-            # ADAFACE → Direct embedding (YTF already aligned)
-            # -------------------------------------------------
+            # AdaFace - direct embedding (YTF already aligned)
             elif is_adaface:
                 emb = wrapper.embed(img)
 
-            # -------------------------------------------------
-            # OTHER MODELS → Optional detect + align
-            # -------------------------------------------------
+            # other models - optional detect + align
+
             elif USE_DETECTION:
                 faces = wrapper.detector.detect(img)
                 if not faces:
