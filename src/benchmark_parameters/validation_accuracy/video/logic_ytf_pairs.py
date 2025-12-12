@@ -79,23 +79,30 @@ def compute_ytf_pairs(  # computes similarity scores for YTF verification pairs,
             is_same
         )  # converts the ground-truth value to a Python integer, 1 - same, 0 - different identitiy
 
-        # video_names entries look like "Sadie_Frost/1"
-        video_key1 = str(video_names[idx1])
+        video_key1 = str(
+            video_names[idx1]
+        )  # converts numeric indices into video identifiers e.g. "Sadie_Frost/1"
         video_key2 = str(video_names[idx2])
 
-        emb1 = video_embs.get(video_key1)
+        emb1 = video_embs.get(
+            video_key1
+        )  # fetches the embedding vectors for the two videos
         emb2 = video_embs.get(video_key2)
 
-        labels.append(label)
+        labels.append(
+            label
+        )  # adds the ground-truth label for this pair to the label list
         emb_missing = (emb1 is None) or (emb2 is None)
 
         if emb_missing:
             # force always-wrong scores so these pairs are counted as failures
             score = -1.0 if label == 1 else 2.0
         else:
-            score = cosine_similarity(emb1, emb2)
+            score = cosine_similarity(
+                emb1, emb2
+            )  # higher score - more similar identities
 
-        scores.append(score)
+        scores.append(score)  # appends the similarity score for this verification pair
 
         pair_records.append(
             {
@@ -123,7 +130,6 @@ def export_ytf_pairs(
 ):
     """
     Export YTF pairs for one fold or all folds, using precomputed embeddings.
-
     Saves:
       - <model>_ytf_foldX_<timestamp>_scores.npy
       - <model>_ytf_foldX_<timestamp>_labels.npy
@@ -141,28 +147,38 @@ def export_ytf_pairs(
     n_folds = splits.shape[2]
 
     if fold is None:
-        fold_list = list(range(n_folds))
+        fold_list = list(range(n_folds))  # if no fold is specified, evaluate all folds
     else:
         if not (0 <= fold < n_folds):
-            raise ValueError(f"Fold must be in [0,{n_folds-1}], got {fold}")
-        fold_list = [fold]
+            raise ValueError(
+                f"Fold must be in [0,{n_folds-1}], got {fold}"
+            )  # validates that the requested fold index is legal, prevents out-of-bounds indexing
+        fold_list = [
+            fold
+        ]  # wraps the single fold index in a list for uniform processing later
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    # if main_folds.py passes an output directory, use it
-    if hasattr(export_ytf_pairs, "outdir") and export_ytf_pairs.outdir is not None:
-        export_dir = Path(export_ytf_pairs.outdir)
-    else:
-        export_dir = Path(__file__).resolve().parents[2] / "exports"
 
-    export_dir.mkdir(parents=True, exist_ok=True)
+    if hasattr(export_ytf_pairs, "outdir") and export_ytf_pairs.outdir is not None:
+        export_dir = Path(
+            export_ytf_pairs.outdir
+        )  # uses the externally provided output directory
+    else:
+        export_dir = (
+            Path(__file__).resolve().parents[2] / "exports"
+        )  # falls back to a default exports/ directory relative to the project
+
+    export_dir.mkdir(parents=True, exist_ok=True)  # ensures the output directory exists
 
     for f_idx in fold_list:
         print(f"\n[YTF] ==== Fold {f_idx} ====")
-        scores, labels, pair_records = compute_ytf_pairs(
-            video_embs,
-            video_names,
-            splits,
-            fold_idx=f_idx,
+        scores, labels, pair_records = (
+            compute_ytf_pairs(  # calls the core evaluation function
+                video_embs,
+                video_names,
+                splits,
+                fold_idx=f_idx,
+            )
         )
 
         fold_tag = f"fold{f_idx}"

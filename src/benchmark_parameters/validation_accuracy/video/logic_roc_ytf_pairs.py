@@ -9,16 +9,19 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
-
 import numpy as np
 from sklearn.metrics import roc_curve, auc
 import matplotlib
-matplotlib.use("Agg")
+
+matplotlib.use(
+    "Agg"
+)  # uses a non-GUI backend so plots can be saved on servers without a display
 
 import matplotlib.pyplot as plt
 
-# allow importing from project root if needed
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+)  # adds the project root to Python’s module search path, so imports work when running as a script
 
 
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
@@ -65,7 +68,7 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
 
-    # --- basic sanity check ---
+    # basic sanity check 
     pos_count = int((labels == 1).sum())
     neg_count = int((labels == 0).sum())
     print(f"[YTF ROC] pos_pairs={pos_count}, neg_pairs={neg_count}")
@@ -79,18 +82,18 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
             f"(pos={pos_count}, neg={neg_count})."
         )
 
-    # --- ROC ---
+    #  ROC 
     fpr, tpr, thresholds = roc_curve(labels, scores)
     roc_auc = auc(fpr, tpr)
 
     # Best threshold: Youden's J statistic
     j_scores = tpr - fpr
-    best_idx = np.argmax(j_scores)
-    best_thr = thresholds[best_idx]
+    best_idx = np.argmax(j_scores) # finds the threshold index that maximizes J
+    best_thr = thresholds[best_idx] # gets the actual best threshold value
 
     # EER
-    fnr = 1.0 - tpr
-    eer_idx = np.nanargmin(np.abs(fnr - fpr))
+    fnr = 1.0 - tpr # computes false negative rate
+    eer_idx = np.nanargmin(np.abs(fnr - fpr)) # finds the point where FNR - FPR is minimal (closest to equality)
     eer = (fpr[eer_idx] + fnr[eer_idx]) / 2.0
 
     # TAR @ FAR = 1e-3
@@ -114,7 +117,7 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         "neg_pairs": neg_count,
     }
 
-    # --- export JSON ---
+    # export JSON
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_dir = exports_dir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -123,10 +126,9 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
     with open(json_path, "w") as f:
         json.dump(metrics, f, indent=2)
 
-    # --- export ROC PNG (overwrites same file each time) ---
+    # export ROC PNG (overwrites same file each time) 
 
     png_path = exports_dir / f"{model_name}_ytf_roc_{stamp}.png"
-
 
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")

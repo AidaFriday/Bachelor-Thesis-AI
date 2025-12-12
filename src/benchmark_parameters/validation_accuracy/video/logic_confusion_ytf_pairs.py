@@ -47,9 +47,14 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     else:
         exports_dir = Path(exports_dir)
 
-    scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
+    scores, labels = load_all_scores_labels(
+        exports_dir, model_name, stamp
+    )  # loads similarity scores and ground-truth labels for all folds
 
-    preds = (scores >= FIXED_THRESHOLD).astype(int)
+    preds = (scores >= FIXED_THRESHOLD).astype(
+        int
+    )  # Convert similarity scores into binary predictions using a fixed threshold:
+    # ŷ = 1 if score ≥ τ (τ = 0.40), else 0
 
     tp = int(((preds == 1) & (labels == 1)).sum())
     tn = int(((preds == 0) & (labels == 0)).sum())
@@ -83,12 +88,12 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "threshold": float(FIXED_THRESHOLD),
     }
 
-    # ---------- NEW: draw confusion-matrix PNG ----------
+    # draw confusion-matrix PNG
     cm = np.array([[tp, fp], [fn, tn]])
 
     labels_cm = [["TP", "FP"], ["FN", "TN"]]
 
-    fig, ax = plt.subplots(figsize=(4, 4))
+    fig, ax = plt.subplots(figsize=(4, 4))  # visualizes confusion matrix as a heatmap
     im = ax.imshow(cm, cmap="Blues")
 
     ax.set_xticks([0, 1])
@@ -125,7 +130,6 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
 
     plt.savefig(png_path, dpi=200, bbox_inches="tight")
     plt.close()
-    # ---------- END NEW PART ----------
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"
