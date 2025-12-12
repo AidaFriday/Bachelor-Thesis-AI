@@ -3,23 +3,19 @@ import sys
 from pathlib import Path
 from datetime import datetime
 import json
-
 import cv2
 import numpy as np
 from scipy.io import loadmat
 from tqdm import tqdm
 
-# === FIX PACKAGE PATH ISSUE ===
 current_file = Path(__file__).resolve()
-project_root = current_file.parents[3]  # <project>/src
+project_root = current_file.parents[3]
 sys.path.insert(0, str(project_root))
-# =================================
 
-# make project root importable (kept for safety)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model  # noqa: E402
 
-# re-use helpers from your existing video logic
+
 try:
     # When run as part of the package
     from .legacy.logic_confusion_matrix_video import (
@@ -34,53 +30,54 @@ except ImportError:
     )
 
 
-def load_precomputed_embs(npz_path: str):
-    """
-    Load precomputed YTF video embeddings from npz.
+def load_precomputed_embs(
+    npz_path: str,
+):  # # Load precomputed video embeddings and map video name to embedding vector
 
-    Returns a dict:
-        { "Person_X/1": embedding_vector, ... }
-    """
     data = np.load(npz_path)
     names = data["names"]  # array of strings
     embs = data["embs"]  # array (N, D)
     return {str(n): e for n, e in zip(names, embs)}
 
 
-def load_ytf_meta(meta_path: str):
-    """
-    Load YTF meta_and_splits.mat and return (video_names, splits).
-    """
+def load_ytf_meta(
+    meta_path: str,
+):  # # Load YTF video names and official 10-fold verification splits
     meta = loadmat(str(meta_path), squeeze_me=True)
     video_names = meta["video_names"]  # (3425,)
     splits = meta["Splits"]  # (500, 3, 10)
     return video_names, splits
 
 
-def compute_ytf_pairs(
-    video_embs: dict,
-    video_names,
+def compute_ytf_pairs(  # computes similarity scores for YTF verification pairs, operates on precomputed embeddings
+    video_embs: dict,  # retrieves embeddings for two videos in a verification pair
+    video_names,  # converts numeric indices from the YTF splits into actual video names that match video_embs
     splits,
     fold_idx: int,
 ):
     """
-    Compute similarities for the official YTF 500 video pairs in one fold,
+    Compute cosine similarities for the official YTF 500 video pairs in one fold,
     using *precomputed* embeddings.
-
     video_embs: dict { "Person/clip": embedding_vector }
     video_names: array from meta["video_names"]
     splits: array from meta["Splits"]
     fold_idx: which fold to use (0..9)
     """
-    fold = splits[:, :, fold_idx]  # shape (500, 3)
-    scores = []
-    labels = []
-    pair_records = []
+    fold = splits[
+        :, :, fold_idx
+    ]  # shape (500 verification pairs, 3 values per pair: (idx1, idx2, is_same), choose which of the 10 folds
+    scores = []  # cosine similarity per pair
+    labels = []  # ground-truth labels (1 = same, 0 = different)
+    pair_records = []  # detailed metadata for each pair (used for JSON export)
 
     for idx1, idx2, is_same in tqdm(fold, desc=f"[YTF] Fold {fold_idx}"):
-        idx1 = int(idx1) - 1  # meta is 1-based
+        idx1 = (
+            int(idx1) - 1
+        )  # converts YTF indices from 1-based (MATLAB) to 0-based (Python)
         idx2 = int(idx2) - 1
-        label = int(is_same)
+        label = int(
+            is_same
+        )  # converts the ground-truth value to a Python integer, 1 - same, 0 - different identitiy
 
         # video_names entries look like "Sadie_Frost/1"
         video_key1 = str(video_names[idx1])
@@ -106,8 +103,7 @@ def compute_ytf_pairs(
                 "video2": video_key2,
                 "label": "same" if label == 1 else "diff",
                 "similarity": float(score),
-                "emb_missing": bool(emb_missing)
-,
+                "emb_missing": bool(emb_missing),
             }
         )
 
@@ -210,10 +206,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-    "--outdir",
-    required=False,
-    default=None,
-    help="Optional output directory for saving fold results",
+        "--outdir",
+        required=False,
+        default=None,
+        help="Optional output directory for saving fold results",
     )
 
     args = parser.parse_args()

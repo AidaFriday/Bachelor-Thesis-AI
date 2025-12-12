@@ -119,18 +119,26 @@ def get_video_embedding(
             # other models - optional detect + align
 
             elif USE_DETECTION:
-                faces = wrapper.detector.detect(img)
+                faces = wrapper.detector.detect(
+                    img
+                )  # wrapper’s built-in detector (YOLOv5-face) is called, returns a list of detected faces with bounding boxes and 5 facial landmarks
                 if not faces:
                     continue
 
-                aligned = wrapper.detector.align_for(img, faces[0]["kps"])
+                aligned = wrapper.detector.align_for(
+                    img, faces[0]["kps"]
+                )  # takes the first detected face, uses the 5 keypoints (kps) to warp the face into one of the standard templates
                 if aligned is None:
                     continue
 
-                emb = wrapper.embed(aligned)
+                emb = wrapper.embed(
+                    aligned
+                )  # calls the model-specific embedding function, all wrappers output a L2-normalised embedding vector
 
             else:
-                emb = wrapper.embed(img)
+                emb = wrapper.embed(
+                    img
+                )  # if the dataset is aligned, skips det and alignment, passes the face img directly to the embedding model
 
         except Exception:
             emb = None
@@ -138,27 +146,25 @@ def get_video_embedding(
         if emb is None:
             continue
 
-        # -------------------------------------------------
         # Per-frame L2 normalization
-        # -------------------------------------------------
-        emb = emb.astype(np.float32)
+        emb = emb.astype(np.float32)  # convert embedding to float32
         emb /= np.linalg.norm(emb) + 1e-6
         embs.append(emb)
 
     if not embs:
         return None
 
-    # ---------------------------------------------------------
-    # Mean pooling across frames
-    # ---------------------------------------------------------
+    # average all embeddings to get one video embedding
     v = np.mean(embs, axis=0)
-    v /= np.linalg.norm(v) + 1e-6
+    v /= (
+        np.linalg.norm(v) + 1e-6
+    )  # L2 normalise the final averaged embedding, forces the final video embedding to have unit length (norm ≈ 1)
     return v.astype(np.float32)
 
 
-# ---------------------------------------------------------
 # Main YTF loop
-# ---------------------------------------------------------
+
+
 def precompute_ytf_embeddings(
     model_name: str, ytf_root: str, meta_path: str, max_frames: int = 10
 ):
@@ -171,19 +177,20 @@ def precompute_ytf_embeddings(
 
     wrapper = load_model(model_name)
 
-    # -------------------------------
     # GPU support for PyTorch models
-    # -------------------------------
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[DEVICE] Using {device}")
 
-    if device.type == "cuda" and hasattr(wrapper, "model"):
+    if device.type == "cuda" and hasattr(
+        wrapper, "model"
+    ):  # moving PyTorch models to GPU if applicable
         try:
             wrapper.model = wrapper.model.to(device)
         except Exception:
             print("[WARN] Could not move model to CUDA")
 
-    # load meta
+    # loads ytf metadata, reads the official meta_and_splits.mat file, extracts the list of video identifiers used in YTF evaluation
     names = load_ytf_meta(meta_path)
 
     # detect YTF aligned folder
@@ -195,12 +202,14 @@ def precompute_ytf_embeddings(
     USE_DETECTION = not dataset_is_aligned(video_root)
     print(f"[INFO] USE_DETECTION = {USE_DETECTION}\n")
 
-    all_embs = []
-    all_names = []
-    failed = []
-    total_start = time.time()
+    all_embs = []  # one final embedding per video
+    all_names = []  # corresponding video IDs
+    failed = []  # videos where no valid embedding could be computed
+    total_start = time.time()  # measure total runtime
 
-    for name in tqdm(names, desc="[YTF] Videos", ncols=100):
+    for name in tqdm(
+        names, desc="[YTF] Videos", ncols=100
+    ):  # tqdm is a progress-bar library, loop over all YTF videos
         name_str = str(name)
         vid_dir = os.path.join(video_root, name_str)
 
@@ -220,9 +229,8 @@ def precompute_ytf_embeddings(
         print("[ERROR] No embeddings computed.")
         return None
 
-    # ---------------------------------------------------------
-    # CUSTOM LINUX OUTPUT DIRECTORY
-    # ---------------------------------------------------------
+    # Linux output directory
+
     if sys.platform.startswith("linux"):
         base_root = Path("/home/aida/github/BA_Utilites/BA_tests/Test_YTF")
     else:
@@ -238,7 +246,7 @@ def precompute_ytf_embeddings(
     json_path = export_dir / f"{base}.json"
 
     np.savez_compressed(
-        npz_path, names=np.array(all_names), embs=np.stack(all_embs, axis=0)
+        npz_path, names=np.array(all_names), embs=np.stack(all_embs, axis=0) # save embeddings and metadata
     )
 
     summary = {
