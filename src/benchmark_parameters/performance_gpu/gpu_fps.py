@@ -6,15 +6,13 @@ import sys
 # -------------------------------------------------------------
 # Resolve project src path   (.../Bachelor-Thesis-AI/src)
 # -------------------------------------------------------------
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))                      # /src/benchmark_parameters/performance_gpu
-SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))     # /src
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
 
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-# Project root (used only for saving JSON)
-PROJECT_ROOT = os.path.dirname(SRC_DIR)                                      # /Bachelor-Thesis-AI
-
+PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
 # -------------------------------------------------------------
 # Standard imports
@@ -22,7 +20,6 @@ PROJECT_ROOT = os.path.dirname(SRC_DIR)                                      # /
 import argparse
 import json
 import time
-import numpy as np
 import cv2
 from datetime import datetime
 
@@ -67,71 +64,68 @@ def process_frame(detector, embedder, frame):
 
 
 # -------------------------------------------------------------
-# Load YTF frames
-# -------------------------------------------------------------
-def load_ytf_frames(root, limit=None):
-    paths = YTF.list_all_images(root_dir=root, shuffle=False, verbose=False)
-    frames = []
-
-    for p in paths:
-        img = cv2.imread(p)
-        if img is not None:
-            frames.append(img)
-        if limit and len(frames) >= limit:
-            break
-
-    return frames, paths
-
-
-# -------------------------------------------------------------
-# High-accuracy GPU benchmark
+# High-accuracy GPU benchmark (STREAMING)
 # -------------------------------------------------------------
 def run(model_name, dataset_path, iters, frame_size):
+
+    print(">>> gpu_fps started", flush=True)
 
     if not os.path.exists(dataset_path):
         print(json.dumps({"error": "Dataset path invalid"}))
         sys.exit(1)
 
-    frames, paths = load_ytf_frames(dataset_path, limit=iters)
-    if len(frames) == 0:
+    # iters == 0 → full dataset
+    if iters <= 0:
+        iters = None
+
+    paths = YTF.list_all_images(root_dir=dataset_path, shuffle=False, verbose=False)
+    if len(paths) == 0:
         print(json.dumps({"error": "Dataset contains no frames"}))
         sys.exit(1)
 
-    print(f"Loaded {len(frames)} frames from YTF")
+    if iters is not None:
+        paths = paths[:iters]
+
+    num_frames = len(paths)
+    print(f"Loaded {num_frames} image paths from YTF", flush=True)
 
     # ---------- Load detector + model on CUDA ----------
+    print(">>> Initializing models on GPU", flush=True)
     detector = FaceDetectorAligner(device="cuda")
     embedder = load_model(model_name, device="cuda")
 
-    # ---------- Warm-up (stabilizes GPU) ----------
+    # ---------- Warm-up ----------
     warmup_iters = 30
-    print(f"🔥 Warm-up on GPU ({warmup_iters} iterations)...")
+    print(f"🔥 Warm-up on GPU ({warmup_iters} iterations)...", flush=True)
 
-    test_frame = frames[0]
+    first_img = cv2.imread(paths[0])
     for _ in range(warmup_iters):
         cuda_sync()
-        process_frame(detector, embedder, test_frame)
+        process_frame(detector, embedder, first_img)
         cuda_sync()
 
     # ---------- Benchmark ----------
-    print("🚀 Running GPU FPS benchmark...")
+    print("🚀 Running GPU FPS benchmark...", flush=True)
     run_start = datetime.now().isoformat(timespec="seconds")
 
     cuda_sync()
     t0 = time.perf_counter()
 
-    for i in range(iters):
-        frame = frames[i % len(frames)]
+    for i, p in enumerate(paths):
+        frame = cv2.imread(p)
+        if frame is None:
+            continue
+
         process_frame(detector, embedder, frame)
 
-        if (i + 1) % 20 == 0 or (i + 1 == iters):
-            print(f"Progress: {i+1}/{iters}")
+        if (i + 1) % 50 == 0 or (i + 1 == num_frames):
+            print(f"Progress: {i+1}/{num_frames}", flush=True)
 
     cuda_sync()
     t1 = time.perf_counter()
 
     total_time = t1 - t0
-    fps = iters / total_time
+    fps = num_frames / total_time
 
     run_end = datetime.now().isoformat(timespec="seconds")
 
@@ -139,14 +133,13 @@ def run(model_name, dataset_path, iters, frame_size):
         "kind": "gpu_fps",
         "model": model_name,
         "dataset": "YTF",
-        "iters": iters,
+        "iters": num_frames,
         "start_time": run_start,
         "end_time": run_end,
         "total_time_sec": round(total_time, 4),
         "fps": round(fps, 2),
     }
 
-    # Save JSON
     out_file = os.path.join(PROJECT_ROOT, "fps_gpu_report.json")
     with open(out_file, "w") as f:
         json.dump(result, f, indent=4)
@@ -155,8 +148,7 @@ def run(model_name, dataset_path, iters, frame_size):
     print(f"🔥 GPU FPS: {fps:.2f}")
     print(f"📄 Saved → {out_file}")
     print("=" * 40)
-
-    print(json.dumps(result))
+    print(json.dumps(result), flush=True)
 
 
 # -------------------------------------------------------------
@@ -166,7 +158,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
-    parser.add_argument("--iters", type=int, default=200)
+    parser.add_argument("--iters", type=int, default=0)
     parser.add_argument("--frame-size", type=str, default="640x640")
 
     args = parser.parse_args()

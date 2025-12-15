@@ -80,20 +80,42 @@ def send_log(msg, level="info"):
 # -------------------------------------------------------------
 _last_progress = -1
 
+# -------------------------------------------------------------
+# CLEAN PROGRESS EVENT + ETA
+# -------------------------------------------------------------
+_last_progress = -1
+_start_time_progress = None
+
 def send_progress(current, total, run=1, num_runs=1):
-    global _last_progress
+    global _last_progress, _start_time_progress
+
+    if _start_time_progress is None:
+        _start_time_progress = time.time()
+
     pct = int((current / total) * 100)
 
     if pct != _last_progress:
         _last_progress = pct
-        print(json.dumps({
+
+        elapsed = time.time() - _start_time_progress
+        if current > 0:
+            rate = elapsed / current
+            remaining = rate * (total - current)
+        else:
+            remaining = None
+
+        payload = {
             "_type": "progress",
             "progress": current,
             "total": total,
             "percent": pct,
             "run": run,
-            "num_runs": num_runs
-        }), flush=True)
+            "num_runs": num_runs,
+            "elapsed_sec": round(elapsed, 2),
+            "eta_sec": round(remaining, 2) if remaining is not None else None
+        }
+
+        print(json.dumps(payload), flush=True)
 
 # -------------------------------------------------------------
 # SETTINGS
