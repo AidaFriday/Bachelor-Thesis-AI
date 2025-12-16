@@ -19,8 +19,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current folder
 PRECOMPUTE_SCRIPT = os.path.join(BASE_DIR, "ytf_precompute_embeddings.py")
 ROC_SCRIPT = os.path.join(BASE_DIR, "logic_roc_ytf_pairs.py")
 
-YTF_DATASET = "/home/aida/Datasets/YTF"
-YTF_META = "/home/aida/Datasets/meta_data/meta_and_splits.mat"
+YTF_DATASET = r"C:\programming\Datasets\YTF"
+YTF_META = r"C:\programming\Datasets\meta_data\meta_and_splits.mat"
+
 MAX_FRAMES = "100"
 
 
