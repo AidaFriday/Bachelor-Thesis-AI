@@ -196,6 +196,14 @@ def main():
         "result": result_payload,
         "device": "cpu"
     }
+    out_file = os.path.join(PROJECT_ROOT, "latency_cpu_report.json")
+    print("PROJECT_ROOT =", PROJECT_ROOT)
+
+    with open(out_file, "w") as f:
+        json.dump(final, f, indent=4)
+
+    print(f"📄 Saved → {out_file}")
+
 
     print(json.dumps(final), flush=True)
 

@@ -95,14 +95,14 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         _cuda_sync()
 
     # --- Multiple runs ---
-    latency_series_all = []  # per-frame latency per run
+    #latency_series_all = []  # per-frame latency per run
     avg_latency_runs = []
-    frame_paths_all = []  #  create inside function scope
+    #frame_paths_all = []  #  create inside function scope
 
     for r in range(num_runs):
         send_log(f"--- Run {r+1}/{num_runs} ---")
         latencies = []
-        run_paths = []
+        #run_paths = []
 
         for i, img_path in enumerate(image_paths[:iters]):
             frame = cv2.imread(img_path)
@@ -111,7 +111,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
 
             t_ms = measure_once(wrapper, frame)
             latencies.append(t_ms)
-            run_paths.append(img_path)
+            #run_paths.append(img_path)
 
             # ✅ Send live progress every 10 frames or at the end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
@@ -130,8 +130,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
 
         avg_ms = float(np.mean(latencies))
         avg_latency_runs.append(avg_ms)
-        latency_series_all.append(latencies)
-        frame_paths_all.append(run_paths)  # ✅ append paths for this run
+        #latency_series_all.append(latencies)
+        #frame_paths_all.append(run_paths)  # ✅ append paths for this run
 
         fps = 1000.0 / avg_ms if avg_ms > 0 else 0
         send_log(f"[Run {r+1}] {iters} frames → {avg_ms:.2f} ms → {fps:.2f} FPS")
@@ -163,10 +163,10 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         "iters": iters,
         "avg_latency_ms": avg_all_ms,
         "avg_fps": avg_all_fps,
-        "latency_series_all": latency_series_all,
+        #"latency_series_all": latency_series_all,
         "runs": avg_latency_runs,
         "model": model_name,
-        "frame_paths_all": frame_paths_all,
+        #"frame_paths_all": frame_paths_all,
     }
 
     print(json.dumps(payload))
