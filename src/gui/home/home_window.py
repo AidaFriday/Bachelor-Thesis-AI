@@ -21,6 +21,10 @@ from components.sidebar import SideBar
 from gui.configuration.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from gui.benchmark.benchmark_window import BenchmarkPage
 from components.embeddings_creation.dataset_cache import DatasetEmbeddingCache
+import time
+from components.utilities.live_fps_latency import LiveFpsLatency, BenchmarkMetricsProvider, format_metric
+
+
 
 class HomeWindow(QMainWindow):
     def __init__(self):
@@ -117,15 +121,22 @@ class HomeWindow(QMainWindow):
         self.apply_theme(self.settings_page.theme)
 
     # ------------------------------------------------------------------
-
     def start_camera(self):
         model_name = self.settings_page.model_name
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
-        # -------------------------------------------------------
-        # Automatic dataset embeddings (model-adaptive)
-        # -------------------------------------------------------
+        # -------------------------------
+        # INIT LIVE PERF METRICS
+        # -------------------------------
+        self.perf = LiveFpsLatency(fps_window=30, latency_window=30)
+        self.bench = BenchmarkMetricsProvider()
+        self.bench.reload()
+        self.bench_metrics = self.bench.get(self.wrapper.name)
+
+        # -------------------------------
+        # LOAD DATASET EMBEDDINGS
+        # -------------------------------
         try:
             self.face_db = DatasetEmbeddingCache(
                 self.wrapper,
@@ -145,16 +156,41 @@ class HomeWindow(QMainWindow):
         # -------------------------------------------------------
         def looks_like_obs_placeholder(frame):
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-            # Blue-ish range of OBS placeholder background
             lower_blue = np.array([90, 40, 40])
             upper_blue = np.array([130, 255, 255])
-
             mask = cv2.inRange(hsv, lower_blue, upper_blue)
-            blue_ratio = mask.mean()
+            return mask.mean() > 50
 
-            # OBS placeholder = majority blue pixels
-            return blue_ratio > 50
+        # -------------------------------------------------------
+        # 1) Try external camera (index 1)
+        # -------------------------------------------------------
+        selected_cam = 0
+        cap1 = cv2.VideoCapture(1)
+        if cap1.isOpened():
+            ret, frame = cap1.read()
+            if ret and not looks_like_obs_placeholder(frame):
+                selected_cam = 1
+                print("[INFO] External camera appears REAL → using index 1")
+            else:
+                print("[INFO] External camera invalid/OBS placeholder → using index 0")
+        else:
+            print("[INFO] External camera (index 1) not opened.")
+        cap1.release()
+
+        # -------------------------------------------------------
+        # 2) Open selected camera
+        # -------------------------------------------------------
+        self.cap = cv2.VideoCapture(selected_cam)
+        if not self.cap.isOpened():
+            self.video_label.setText("[ERROR] Cannot open ANY camera!")
+            print("[ERROR] Camera failed to open!")
+            return
+
+        print(f"[INFO] Camera started: index={selected_cam}")
+
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.timer.start(30)
 
         # -------------------------------------------------------
         # 1) Try external camera (index 1)
@@ -219,6 +255,8 @@ class HomeWindow(QMainWindow):
         if self.cap is None:
             return
 
+        t0 = time.perf_counter()
+
         ok, frame = self.cap.read()
         if not ok:
             return
@@ -228,9 +266,28 @@ class HomeWindow(QMainWindow):
         # ✅ ONE detection step (shared SCRFD detector)
         detections = self.wrapper.detector.detect(frame)
 
+        def _extract_bbox_kps(det):
+            # supports dict OR insightface Face object
+            if isinstance(det, dict):
+                bbox = det.get("bbox", None)
+                kps = det.get("kps", None)
+            else:
+                bbox = getattr(det, "bbox", None)
+                kps = getattr(det, "kps", None)
+
+            if bbox is None or kps is None:
+                return None, None
+
+            bbox = np.array(bbox).astype(int).tolist()
+            kps = np.array(kps)
+            return bbox, kps
+
         for det in detections:
-            x1, y1, x2, y2 = det["bbox"]
-            kps = det["kps"]
+            bbox, kps = _extract_bbox_kps(det)
+            if bbox is None or kps is None:
+                continue
+
+            x1, y1, x2, y2 = bbox
 
             # ---- Align face for CURRENT model ----
             aligned = self.wrapper.detector.align_for(frame, kps)
@@ -244,15 +301,15 @@ class HomeWindow(QMainWindow):
 
             # ---- Normalize (important for cosine) ----
             emb = emb.astype(np.float32)
-            emb /= np.linalg.norm(emb)
+            n = np.linalg.norm(emb)
+            if n > 0:
+                emb /= n
 
             # ---- Recognition ----
             label_text = ""
             if self.face_db is not None:
                 name, sim = self.face_db.match(emb)
                 label_text = f"{name} | cos={sim:.3f}"
-
-                # OPTIONAL threshold
                 if sim < 0.45:
                     label_text = "Unknown"
 
@@ -267,27 +324,70 @@ class HomeWindow(QMainWindow):
             # ---- Draw label ----
             if label_text:
                 pos = (x1, max(20, y1 - 10))
+                cv2.putText(disp, label_text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+                cv2.putText(disp, label_text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1, cv2.LINE_AA)
 
-                cv2.putText(
-                    disp,
-                    label_text,
-                    pos,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (0, 0, 0),
-                    2,
-                    cv2.LINE_AA,
-                )
-                cv2.putText(
-                    disp,
-                    label_text,
-                    pos,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    color,
-                    1,
-                    cv2.LINE_AA,
-                )
+        # -------------------------------
+        # PERF METRICS UPDATE
+        # -------------------------------
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+
+        # tick updates (these exist in your class based on earlier usage)
+        if hasattr(self.perf, "tick_latency"):
+            self.perf.tick_latency(latency_ms)
+        if hasattr(self.perf, "tick_frame"):
+            self.perf.tick_frame()
+
+        # ✅ SAFE getters (your error shows .fps() doesn't exist)
+        def _get_fps(perf):
+            for name in ("get_fps", "fps", "current_fps", "value_fps"):
+                if hasattr(perf, name):
+                    v = getattr(perf, name)
+                    return v() if callable(v) else v
+            return 0.0
+
+        def _get_latency(perf):
+            for name in ("get_latency", "latency", "current_latency", "value_latency"):
+                if hasattr(perf, name):
+                    v = getattr(perf, name)
+                    return v() if callable(v) else v
+            return latency_ms  # fallback: current frame latency
+
+        fps = float(_get_fps(self.perf))
+        lat = float(_get_latency(self.perf))
+
+        fps_line = f"FPS: {format_metric(fps, 'fps')}"
+        lat_line = f"Latency: {format_metric(lat, 'ms')}"
+
+        # -------------------------------
+        # DRAW METRICS (TOP RIGHT)
+        # -------------------------------
+        H, W = disp.shape[:2]
+        x = W - 280
+        y0 = 30
+        dy = 34
+
+        for i, txt in enumerate([fps_line, lat_line]):
+            (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+            y = y0 + i * dy
+
+            cv2.rectangle(
+                disp,
+                (x - 10, y - th - 10),
+                (x + tw + 10, y + 6),
+                (0, 0, 0),
+                -1
+            )
+            cv2.putText(
+                disp,
+                txt,
+                (x, y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
 
         # ---- Send frame to Qt ----
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
