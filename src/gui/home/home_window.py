@@ -20,6 +20,7 @@ from connector import load_model
 from components.sidebar import SideBar
 from gui.configuration.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from gui.benchmark.benchmark_window import BenchmarkPage
+from src.identity.dataset_cache import DatasetEmbeddingCache
 
 
 class HomeWindow(QMainWindow):
@@ -123,19 +124,19 @@ class HomeWindow(QMainWindow):
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
-        # Load database
+        # -------------------------------------------------------
+        # Automatic dataset embeddings (model-adaptive)
+        # -------------------------------------------------------
         try:
-            base = Path(__file__).resolve().parents[1]
-            db_path = base / "identity" / f"db_{model_name}.npz"
-            if db_path.exists():
-                self.face_db = FaceEmbeddingDB.load(db_path)
-                print(f"[INFO] Loaded face DB: {db_path}")
-                print(f"[INFO] People in DB: {self.face_db.names}")
-            else:
-                self.face_db = None
-                print(f"[INFO] No DB file found at {db_path}")
+            self.face_db = DatasetEmbeddingCache(
+                self.wrapper,
+                self.settings_page.dataset_path
+            )
+            self.face_db.load_or_build()
+            print(f"[INFO] Dataset ready for model: {self.wrapper.name}")
+            print(f"[INFO] People in DB: {self.face_db.names}")
         except Exception as e:
-            print(f"[ERROR] Failed to load DB: {e}")
+            print(f"[ERROR] Failed to prepare dataset embeddings: {e}")
             self.face_db = None
 
         print("[INFO] Searching for cameras...")
@@ -199,6 +200,7 @@ class HomeWindow(QMainWindow):
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
+
 
     # ------------------------------------------------------------------
 

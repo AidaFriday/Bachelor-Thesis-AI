@@ -1,7 +1,7 @@
 {
-    "generated_at": "2025-12-22T14:53:40",
+    "generated_at": "2025-12-22T15:18:26",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
-    "count": 561,
+    "count": 564,
     "files": [
         "benchmark_parameters/performance/cpu_fps.py",
         "benchmark_parameters/performance/cpu_latency.py",
@@ -12,6 +12,7 @@
         "benchmark_parameters/performance_gpu/gpu_latency.py",
         "benchmark_parameters/validation_accuracy/image/confusion_custom_ds.py",
         "benchmark_parameters/validation_accuracy/image/confusion_lfw_pairs.py",
+        "benchmark_parameters/validation_accuracy/image/exports/plot_roc_lfw_all_models.py",
         "benchmark_parameters/validation_accuracy/image/generate_custom_pairs_fixed.py",
         "benchmark_parameters/validation_accuracy/image/legacy/logic_confusion_matrix.py",
         "benchmark_parameters/validation_accuracy/image/legacy/logic_dataset_image_va.py",
@@ -20,6 +21,7 @@
         "benchmark_parameters/validation_accuracy/image/roc_lfw_pairs.py",
         "benchmark_parameters/validation_accuracy/image/utilities/embeddings_extractor.py",
         "benchmark_parameters/validation_accuracy/validation_accuracy.py",
+        "benchmark_parameters/validation_accuracy/video/exports/plot_roc_ytf_combined.py",
         "benchmark_parameters/validation_accuracy/video/legacy/adaface_ytf_precompute_embeddings.py",
         "benchmark_parameters/validation_accuracy/video/legacy/arcface_ytf_precompute_embeddings.py",
         "benchmark_parameters/validation_accuracy/video/legacy/facenet_ytf_precompute_embeddings.py",
@@ -57,6 +59,7 @@
         "gui/configuration/settings.py",
         "gui/home/home_window.py",
         "identity/__init__.py",
+        "identity/dataset_cache.py",
         "identity/face_database.py",
         "identity/identification_eval.py",
         "models/wrap_adaface.py",
