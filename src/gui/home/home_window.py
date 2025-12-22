@@ -20,8 +20,6 @@ from connector import load_model
 from components.sidebar import SideBar
 from gui.configuration.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from gui.benchmark.benchmark_window import BenchmarkPage
-
-# ✅ KEEP THIS (correct)
 from components.embeddings_creation.dataset_cache import DatasetEmbeddingCache
 
 class HomeWindow(QMainWindow):
