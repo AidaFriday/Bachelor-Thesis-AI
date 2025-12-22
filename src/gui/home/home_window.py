@@ -1,5 +1,5 @@
 # home_window.py
-from identity.face_database import FaceEmbeddingDB
+
 from pathlib import Path
 import numpy as np
 
@@ -20,8 +20,9 @@ from connector import load_model
 from components.sidebar import SideBar
 from gui.configuration.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from gui.benchmark.benchmark_window import BenchmarkPage
-from src.identity.dataset_cache import DatasetEmbeddingCache
 
+# ✅ KEEP THIS (correct)
+from components.embeddings_creation.dataset_cache import DatasetEmbeddingCache
 
 class HomeWindow(QMainWindow):
     def __init__(self):
