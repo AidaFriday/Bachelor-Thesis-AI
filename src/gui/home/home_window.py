@@ -219,47 +219,56 @@ class HomeWindow(QMainWindow):
     def update_frame(self):
         if self.cap is None:
             return
+
         ok, frame = self.cap.read()
         if not ok:
             return
 
-        faces = self.wrapper.detect_and_embed(frame)
         disp = frame.copy()
 
-        for f in faces:
-            x1, y1, x2, y2 = f["bbox"]
-            kps = f["kps"]
+        # ✅ ONE detection step (shared SCRFD detector)
+        detections = self.wrapper.detector.detect(frame)
 
-            color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
-            landmark_color = (0, 255, 255)  # ALWAYS yellow → best visibility
+        for det in detections:
+            x1, y1, x2, y2 = det["bbox"]
+            kps = det["kps"]
 
-            # ---- Bounding box ----
-            cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1, cv2.LINE_AA)
+            # ---- Align face for CURRENT model ----
+            aligned = self.wrapper.detector.align_for(frame, kps)
+            if aligned is None:
+                continue
 
-            # ---- Landmarks ----
-            for px, py in kps.astype(int):
-                cv2.circle(disp, (px, py), 2, landmark_color, -1, cv2.LINE_AA)
+            # ---- Embed ----
+            emb = self.wrapper.embed(aligned)
+            if emb is None:
+                continue
+
+            # ---- Normalize (important for cosine) ----
+            emb = emb.astype(np.float32)
+            emb /= np.linalg.norm(emb)
 
             # ---- Recognition ----
             label_text = ""
-            try:
-                emb = f.get("embedding")
-                if emb is None:
-                    aligned = self.wrapper.detector.align_for(frame, kps)
-                    if aligned is not None:
-                        emb = self.wrapper.embed(aligned)
+            if self.face_db is not None:
+                name, sim = self.face_db.match(emb)
+                label_text = f"{name} | cos={sim:.3f}"
 
-                if emb is not None and self.face_db is not None:
-                    name, sim = self.face_db.match(emb)
-                    label_text = f"{name} | cos={sim:.3f}"
-            except Exception as e:
-                print(f"[WARN] Recognition error: {e}")
+                # OPTIONAL threshold
+                if sim < 0.45:
+                    label_text = "Unknown"
+
+            # ---- Draw bounding box ----
+            color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
+            cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1, cv2.LINE_AA)
+
+            # ---- Draw landmarks ----
+            for px, py in kps.astype(int):
+                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1, cv2.LINE_AA)
 
             # ---- Draw label ----
             if label_text:
                 pos = (x1, max(20, y1 - 10))
 
-                # shadow
                 cv2.putText(
                     disp,
                     label_text,
@@ -270,8 +279,6 @@ class HomeWindow(QMainWindow):
                     2,
                     cv2.LINE_AA,
                 )
-
-                # main
                 cv2.putText(
                     disp,
                     label_text,
@@ -283,7 +290,7 @@ class HomeWindow(QMainWindow):
                     cv2.LINE_AA,
                 )
 
-        # Send to Qt
+        # ---- Send frame to Qt ----
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
