@@ -23,6 +23,7 @@ from gui.benchmark.benchmark_window import BenchmarkPage
 from components.embeddings_creation.dataset_cache import DatasetEmbeddingCache
 import time
 from components.utilities.live_fps_latency import LiveFpsLatency, BenchmarkMetricsProvider, format_metric
+from components.utilities.live_memory_usage import LiveMemoryUsage
 
 
 
@@ -123,6 +124,13 @@ class HomeWindow(QMainWindow):
     # ------------------------------------------------------------------
     def start_camera(self):
         model_name = self.settings_page.model_name
+
+        # -------------------------------
+        # INIT MEMORY TRACKING (BASELINE)
+        # -------------------------------
+        self.mem = LiveMemoryUsage(window=30)
+        self.mem.snapshot_baseline()   # 👈 BEFORE model load
+
         self.wrapper = load_model(model_name)
         print(f"[INFO] Loaded model: {self.wrapper.name}")
 
@@ -151,15 +159,33 @@ class HomeWindow(QMainWindow):
 
         print("[INFO] Searching for cameras...")
 
-        # -------------------------------------------------------
-        # Detect OBS placeholder (blue screen with logo)
-        # -------------------------------------------------------
         def looks_like_obs_placeholder(frame):
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             lower_blue = np.array([90, 40, 40])
             upper_blue = np.array([130, 255, 255])
             mask = cv2.inRange(hsv, lower_blue, upper_blue)
             return mask.mean() > 50
+
+        selected_cam = 0
+        cap1 = cv2.VideoCapture(1)
+        if cap1.isOpened():
+            ret, frame = cap1.read()
+            if ret and not looks_like_obs_placeholder(frame):
+                selected_cam = 1
+                print("[INFO] External camera appears REAL → using index 1")
+        cap1.release()
+
+        self.cap = cv2.VideoCapture(selected_cam)
+        if not self.cap.isOpened():
+            self.video_label.setText("[ERROR] Cannot open ANY camera!")
+            return
+
+        print(f"[INFO] Camera started: index={selected_cam}")
+
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.timer.start(30)
+
 
         # -------------------------------------------------------
         # 1) Try external camera (index 1)
@@ -256,145 +282,96 @@ class HomeWindow(QMainWindow):
             return
 
         t0 = time.perf_counter()
-
         ok, frame = self.cap.read()
         if not ok:
             return
 
         disp = frame.copy()
-
-        # ✅ ONE detection step (shared SCRFD detector)
         detections = self.wrapper.detector.detect(frame)
 
         def _extract_bbox_kps(det):
-            # supports dict OR insightface Face object
             if isinstance(det, dict):
-                bbox = det.get("bbox", None)
-                kps = det.get("kps", None)
+                bbox = det.get("bbox")
+                kps = det.get("kps")
             else:
                 bbox = getattr(det, "bbox", None)
                 kps = getattr(det, "kps", None)
-
             if bbox is None or kps is None:
                 return None, None
-
-            bbox = np.array(bbox).astype(int).tolist()
-            kps = np.array(kps)
-            return bbox, kps
+            return np.array(bbox).astype(int), np.array(kps)
 
         for det in detections:
             bbox, kps = _extract_bbox_kps(det)
-            if bbox is None or kps is None:
+            if bbox is None:
                 continue
 
             x1, y1, x2, y2 = bbox
-
-            # ---- Align face for CURRENT model ----
             aligned = self.wrapper.detector.align_for(frame, kps)
             if aligned is None:
                 continue
 
-            # ---- Embed ----
             emb = self.wrapper.embed(aligned)
             if emb is None:
                 continue
 
-            # ---- Normalize (important for cosine) ----
             emb = emb.astype(np.float32)
             n = np.linalg.norm(emb)
             if n > 0:
                 emb /= n
 
-            # ---- Recognition ----
             label_text = ""
-            if self.face_db is not None:
+            if self.face_db:
                 name, sim = self.face_db.match(emb)
-                label_text = f"{name} | cos={sim:.3f}"
-                if sim < 0.45:
-                    label_text = "Unknown"
+                label_text = f"{name} | cos={sim:.3f}" if sim >= 0.65  else "Unknown"
 
-            # ---- Draw bounding box ----
             color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
-            cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1, cv2.LINE_AA)
+            cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1)
 
-            # ---- Draw landmarks ----
             for px, py in kps.astype(int):
-                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1, cv2.LINE_AA)
+                cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
 
-            # ---- Draw label ----
             if label_text:
-                pos = (x1, max(20, y1 - 10))
-                cv2.putText(disp, label_text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-                cv2.putText(disp, label_text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1, cv2.LINE_AA)
+                cv2.putText(disp, label_text, (x1, max(20, y1 - 10)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
         # -------------------------------
-        # PERF METRICS UPDATE
+        # PERF + MEMORY METRICS
         # -------------------------------
         latency_ms = (time.perf_counter() - t0) * 1000.0
 
-        # tick updates (these exist in your class based on earlier usage)
-        if hasattr(self.perf, "tick_latency"):
-            self.perf.tick_latency(latency_ms)
-        if hasattr(self.perf, "tick_frame"):
-            self.perf.tick_frame()
+        self.perf.tick_latency(latency_ms)
+        self.perf.tick_frame()
 
-        # ✅ SAFE getters (your error shows .fps() doesn't exist)
-        def _get_fps(perf):
-            for name in ("get_fps", "fps", "current_fps", "value_fps"):
-                if hasattr(perf, name):
-                    v = getattr(perf, name)
-                    return v() if callable(v) else v
-            return 0.0
-
-        def _get_latency(perf):
-            for name in ("get_latency", "latency", "current_latency", "value_latency"):
-                if hasattr(perf, name):
-                    v = getattr(perf, name)
-                    return v() if callable(v) else v
-            return latency_ms  # fallback: current frame latency
+        self.mem.tick()
 
         fps = self.perf.mean_fps()
         lat = self.perf.mean_latency_ms()
+        ram = self.mem.mean_rss_mb()
+        model_ram = self.mem.model_rss_delta_mb()
 
+        lines = [
+            f"FPS: {format_metric(fps, 'fps')}",
+            f"Latency: {format_metric(lat, 'ms')}",
+            f"RAM: {ram:.1f} MB",
+            f"Model RAM: {model_ram:.1f} MB"
+        ]
 
-        fps_line = f"FPS: {format_metric(fps, 'fps')}"
-        lat_line = f"Latency: {format_metric(lat, 'ms')}"
-
-        # -------------------------------
-        # DRAW METRICS (TOP RIGHT)
-        # -------------------------------
         H, W = disp.shape[:2]
-        x = W - 280
-        y0 = 30
-        dy = 34
+        x, y0, dy = W - 300, 30, 34
 
-        for i, txt in enumerate([fps_line, lat_line]):
+        for i, txt in enumerate(lines):
             (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
             y = y0 + i * dy
+            cv2.rectangle(disp, (x - 10, y - th - 10), (x + tw + 10, y + 6), (0, 0, 0), -1)
+            cv2.putText(disp, txt, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                        (255, 255, 255), 2)
 
-            cv2.rectangle(
-                disp,
-                (x - 10, y - th - 10),
-                (x + tw + 10, y + 6),
-                (0, 0, 0),
-                -1
-            )
-            cv2.putText(
-                disp,
-                txt,
-                (x, y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                2,
-                cv2.LINE_AA,
-            )
-
-        # ---- Send frame to Qt ----
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
-        qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
-        self.video_label.setPixmap(QPixmap.fromImage(qimg))
+        self.video_label.setPixmap(
+            QPixmap.fromImage(QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888))
+        )
+
 
     # ------------------------------------------------------------------
 
