@@ -249,7 +249,7 @@ class HomeWindow(QMainWindow):
 
                 if emb is not None and self.face_db is not None:
                     name, sim = self.face_db.match(emb)
-                    label_text = f"{name} ({sim:.2f})"
+                    label_text = f"{name} | cos={sim:.3f}"
             except Exception as e:
                 print(f"[WARN] Recognition error: {e}")
 

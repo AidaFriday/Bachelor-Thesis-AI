@@ -1,0 +1,15 @@
+FPS – CPU (YTF)
+python benchmark_parameters/performance/cpu_fps.py --model arcface --dataset C:\programming\Datasets\YTF --iters 2
+python benchmark_parameters/performance/cpu_fps.py --model facenet_original --dataset C:\programming\Datasets\YTF --iters 2
+python benchmark_parameters/performance/cpu_fps.py --model adaface --dataset C:\programming\Datasets\YTF --iters 2
+
+
+Latency – CPU (YTF)
+python benchmark_parameters/performance/cpu_latency.py --model arcface --dataset C:\programming\Datasets\YTF
+python benchmark_parameters/performance/cpu_latency.py --model facenet_original --dataset C:\programming\Datasets\YTF
+python benchmark_parameters/performance/cpu_latency.py --model adaface --dataset C:\programming\Datasets\YTF
+
+Latency – CPU (LFW)
+python benchmark_parameters/performance/cpu_latency.py --model arcface --dataset C:\programming\Datasets\LFW
+python benchmark_parameters/performance/cpu_latency.py --model facenet_original --dataset C:\programming\Datasets\LFW
+python benchmark_parameters/performance/cpu_latency.py --model adaface --dataset C:\programming\Datasets\LFW
