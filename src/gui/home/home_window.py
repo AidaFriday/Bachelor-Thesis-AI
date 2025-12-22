@@ -353,8 +353,9 @@ class HomeWindow(QMainWindow):
                     return v() if callable(v) else v
             return latency_ms  # fallback: current frame latency
 
-        fps = float(_get_fps(self.perf))
-        lat = float(_get_latency(self.perf))
+        fps = self.perf.mean_fps()
+        lat = self.perf.mean_latency_ms()
+
 
         fps_line = f"FPS: {format_metric(fps, 'fps')}"
         lat_line = f"Latency: {format_metric(lat, 'ms')}"
