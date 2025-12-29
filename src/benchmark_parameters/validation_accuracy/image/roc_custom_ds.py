@@ -294,13 +294,15 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
 
         # Save JSON
         summary = {
+            "fpr": fpr.tolist(),
+            "tpr": tpr.tolist(),
+            "auc": float(auc_val),
             "folds": int(fold_ids.max() + 1) if len(fold_ids) > 0 else 0,
             "pairs": len(labels),
             "per_fold_accuracy": accs.tolist(),
             "per_fold_threshold": thresholds.tolist(),
             "mean_accuracy": mean_acc,
             "std_accuracy": std_acc,
-            "auc": float(auc_val),
             "eer": float(eer),
             "best_threshold": float(best_threshold),
         }

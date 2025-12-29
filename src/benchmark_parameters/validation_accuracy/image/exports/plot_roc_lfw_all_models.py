@@ -5,9 +5,9 @@ import os
 BASE_DIR = os.path.dirname(__file__)
 
 files = {
-    "ArcFace": "arcface_roc_20251124-180735.json",
-    "FaceNet": "facenet_original_roc_20251124-152518.json",
-    "AdaFace": "adaface_roc_20251124-164558.json",
+    "ArcFace": "arcface_customroc_20251129-094816.json",
+    "FaceNet": "facenet_original_customroc_20251129-093020.json",
+    "AdaFace": "adaface_customroc_20251129-100955.json",
 }
 
 plt.figure(figsize=(7, 6))
