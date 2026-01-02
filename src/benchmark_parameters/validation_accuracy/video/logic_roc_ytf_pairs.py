@@ -1,6 +1,6 @@
 # logic_roc_ytf_pairs.py
 #
-# Computes ROC metrics for YTF (YouTube Faces) across all 10 official folds
+# # Computes ROC metrics (AUC, EER, best threshold) for YTF (YouTube Faces)
 # using precomputed similarity scores and labels. Exports ROC metrics JSON
 # and saves a ROC curve PNG.
 
@@ -13,6 +13,7 @@ from datetime import datetime
 import numpy as np
 from sklearn.metrics import roc_curve, auc
 import matplotlib
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
@@ -93,14 +94,6 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
     eer_idx = np.nanargmin(np.abs(fnr - fpr))
     eer = (fpr[eer_idx] + fnr[eer_idx]) / 2.0
 
-    # TAR @ FAR = 1e-3
-    target_far = 1e-3
-    idx = np.searchsorted(fpr, target_far, side="right") - 1
-    if 0 <= idx < len(tpr):
-        tar_far_1e3 = tpr[idx]
-    else:
-        tar_far_1e3 = float("nan")
-
     metrics = {
         "kind": "roc_ytf",
         "model": model_name,
@@ -108,7 +101,6 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         "auc": float(roc_auc),
         "eer": float(eer),
         "best_threshold": float(best_thr),
-        "tar_far_1e3": float(tar_far_1e3),
         "pairs": int(len(labels)),
         "pos_pairs": pos_count,
         "neg_pairs": neg_count,
@@ -126,7 +118,6 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
     # --- export ROC PNG (overwrites same file each time) ---
 
     png_path = exports_dir / f"{model_name}_ytf_roc_{stamp}.png"
-
 
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
