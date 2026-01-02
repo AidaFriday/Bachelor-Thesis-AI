@@ -44,18 +44,31 @@ class HomeWindow(QMainWindow):
         self.home_page = QWidget()
         home_layout = QVBoxLayout()
 
+        # ✅ FIX: reduce gaps + keep content at top
+        home_layout.setAlignment(Qt.AlignTop)
+        home_layout.setSpacing(8)
+
         self.start_btn = QPushButton("Start Camera")
         self.stop_btn = QPushButton("Stop Camera")
         self.stop_btn.setEnabled(False)
 
         self.video_label = QLabel("Camera feed will appear here")
         self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setFixedSize(800, 500)
+
+        # ✅ FIX: allow video to grow in fullscreen
+        # self.video_label.setFixedSize(800, 500)
         self.video_label.setScaledContents(True)
+        self.video_label.setSizePolicy(
+            self.video_label.sizePolicy().Expanding,
+            self.video_label.sizePolicy().Expanding,
+        )
 
         home_layout.addWidget(self.start_btn)
         home_layout.addWidget(self.stop_btn)
-        home_layout.addWidget(self.video_label)
+
+        # ✅ FIX: give video stretch so it takes remaining space
+        home_layout.addWidget(self.video_label, 1)
+
         self.home_page.setLayout(home_layout)
 
         # Page 2 – Settings
@@ -131,42 +144,44 @@ class HomeWindow(QMainWindow):
     def start_camera(self):
         model_name = self.settings_page.model_name
 
-        # ---- Load model & DB ----
+        # ---- Initialize memory tracker FIRST ----
+        self.mem = LiveMemoryUsage()
+        self.mem.snapshot_baseline()  # ✅ baseline BEFORE model load
+
+        # ---- Load model ----
         self.wrapper = load_model(model_name)
 
-        # ---- Camera selection ----
-        def looks_like_obs_placeholder(frame):
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            lower_blue = np.array([90, 40, 40])
-            upper_blue = np.array([130, 255, 255])
-            mask = cv2.inRange(hsv, lower_blue, upper_blue)
-            return mask.mean() > 50
+        # ---- Force external USB camera selection ----
+        selected_cam = None
+        for idx in range(1, 6):
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                cap.release()
+                if ret:
+                    selected_cam = idx
+                    print(f"[INFO] External USB camera detected at index {idx}")
+                    break
+            cap.release()
 
-        selected_cam = 0
-        cap1 = cv2.VideoCapture(1)
-        if cap1.isOpened():
-            ret, frame = cap1.read()
-            if ret and not looks_like_obs_placeholder(frame):
-                selected_cam = 1
-                print("[INFO] External camera appears REAL → using index 1")
-        cap1.release()
-
-        # ---- Open camera ONCE ----
-        self.cap = cv2.VideoCapture(selected_cam)
-        if not self.cap.isOpened():
-            self.video_label.setText("[ERROR] Cannot open camera")
+        if selected_cam is None:
+            self.video_label.setText("[ERROR] No external USB camera found")
             return
 
-        print(f"[INFO] Camera started: index={selected_cam}")
+        self.cap = cv2.VideoCapture(selected_cam)
+        if not self.cap.isOpened():
+            self.video_label.setText("[ERROR] Cannot open external USB camera")
+            return
 
-        # ---- Initialize performance & memory metrics (FIX) ----
+        print(f"[INFO] Camera started: USB index={selected_cam}")
+
+        # ---- FPS / latency tracker ----
         self.perf = LiveFpsLatency()
-        self.mem = LiveMemoryUsage()
 
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-
         self.timer.start(30)
+
 
     # ------------------------------------------------------------------
 
@@ -247,13 +262,12 @@ class HomeWindow(QMainWindow):
                 )
 
         # -------------------------------
-        # PERF + MEMORY METRICS
+        # PERF + MEMORY METRICS (RESTORED VISIBILITY)
         # -------------------------------
         latency_ms = (time.perf_counter() - t0) * 1000.0
 
         self.perf.tick_latency(latency_ms)
         self.perf.tick_frame()
-
         self.mem.tick()
 
         fps = self.perf.mean_fps()
@@ -269,7 +283,7 @@ class HomeWindow(QMainWindow):
         ]
 
         H, W = disp.shape[:2]
-        x, y0, dy = W - 300, 30, 34
+        x, y0, dy = 20, 40, 34  # ✅ FIX: always visible
 
         for i, txt in enumerate(lines):
             (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
