@@ -24,7 +24,7 @@ WRAPPERS = {
     "adaface_camera": ("models.wrap_adaface_camera", "AdaFaceCameraWrapper"),
     "facenet_original": ("models.wrap_facenet_original", "FaceNetOriginalWrapper"),
     "facenet_camera": ("models.wrap_facenet_camera", "FaceNetCameraWrapper"),
-    # "adaface": ("models.wrap_adaface", "AdaFaceWrapper"),  #it is not used anywhere, even my lfw is running with adaface_onnx, and the result is same as this wrapper
+    "adaface_original": ("models.wrap_adaface_original", "AdaFaceOriginalWrapper"),
 }
 
 
