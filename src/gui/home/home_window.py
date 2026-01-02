@@ -131,7 +131,7 @@ class HomeWindow(QMainWindow):
     def start_camera(self):
         model_name = self.settings_page.model_name
 
-        # ---- Load model & DB (keep your existing code here) ----
+        # ---- Load model & DB ----
         self.wrapper = load_model(model_name)
 
         # ---- Camera selection ----
@@ -158,6 +158,10 @@ class HomeWindow(QMainWindow):
             return
 
         print(f"[INFO] Camera started: index={selected_cam}")
+
+        # ---- Initialize performance & memory metrics (FIX) ----
+        self.perf = LiveFpsLatency()
+        self.mem = LiveMemoryUsage()
 
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
