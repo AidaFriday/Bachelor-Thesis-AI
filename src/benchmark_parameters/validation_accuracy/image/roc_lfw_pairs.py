@@ -1,4 +1,3 @@
-
 #roc_lfw_pairs.py
 import os
 os.environ["MPLBACKEND"] = "Agg"
@@ -150,6 +149,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     is_adaface = model_name_lower == "adaface"
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
+    num_total = len(pairs)
 
     # optional speed-up for debugging
     if max_pairs is not None and max_pairs < len(pairs):
@@ -243,6 +243,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     valid_mask = sims != None
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
+    num_valid = len(sims_valid)
 
 
 
@@ -251,8 +252,11 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
 
     # ---------- 10-fold accuracy ----------
     thresholds, accs, mean_acc, std_acc = compute_lfw_10fold_accuracy(
-        sims, labels, fold_ids
-    )
+        sims_valid,
+        labels_valid,
+        fold_ids[valid_mask]
+)
+
 
     # ---------- global ROC / AUC / EER ----------
     fpr, tpr, roc_thresholds = roc_curve(labels_valid, sims_valid)
@@ -338,7 +342,8 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     "dataset": os.path.basename(dataset_path),
                     "auc": float(roc_auc),
                     "eer": float(eer),
-                    "pairs_tested": int(len(labels)),
+                    "pairs_tested": int(num_valid),
+
                 }
             )
         )
