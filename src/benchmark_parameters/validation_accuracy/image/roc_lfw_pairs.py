@@ -149,6 +149,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     is_adaface = model_name_lower == "adaface"
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
+    num_total = len(pairs)
 
     # optional speed-up for debugging
     if max_pairs is not None and max_pairs < len(pairs):
@@ -242,7 +243,6 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     valid_mask = sims != None
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
-    num_total = len(pairs)
     num_valid = len(sims_valid)
 
 
@@ -342,7 +342,8 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     "dataset": os.path.basename(dataset_path),
                     "auc": float(roc_auc),
                     "eer": float(eer),
-                    "pairs_tested": int(len(labels)),
+                    "pairs_tested": int(num_valid),
+
                 }
             )
         )
