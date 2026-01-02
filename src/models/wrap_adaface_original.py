@@ -4,6 +4,7 @@ import torch
 import cv2
 import numpy as np
 from pathlib import Path
+from wrap_facedetection import FaceDetectorAligner
 
 
 class AdaFaceOriginalWrapper:
@@ -11,8 +12,10 @@ class AdaFaceOriginalWrapper:
 
     def __init__(self, device="cuda", input_size=(112, 112), model_path=None):
         self.input_size = tuple(input_size)
-        self.detector = None
 
+        # -------------------------------------------------
+        # Resolve AdaFace repo path
+        # -------------------------------------------------
         if model_path is None:
             model_path = (
                 Path(__file__).resolve().parents[2]
@@ -23,6 +26,9 @@ class AdaFaceOriginalWrapper:
 
         self.device = self._pick_device(device)
 
+        # -------------------------------------------------
+        # Load AdaFace IR-50
+        # -------------------------------------------------
         sys.path.insert(0, model_path)
         try:
             from net import IR_50
@@ -46,6 +52,12 @@ class AdaFaceOriginalWrapper:
         self.model.to(self.device)
         self.model.eval()
 
+        # -------------------------------------------------
+        # IMPORTANT: detector + aligner (REQUIRED FOR ~99%)
+        # -------------------------------------------------
+        self.detector = FaceDetectorAligner(device=str(self.device))
+
+    # -------------------------------------------------
     def _pick_device(self, requested: str) -> torch.device:
         req = (requested or "cpu").lower()
         if req.startswith("cuda") and torch.cuda.is_available():
@@ -65,6 +77,7 @@ class AdaFaceOriginalWrapper:
 
         return torch.device("cpu")
 
+    # -------------------------------------------------
     def preprocess(self, img_bgr: np.ndarray) -> torch.Tensor:
         img = cv2.resize(img_bgr, self.input_size)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -73,14 +86,13 @@ class AdaFaceOriginalWrapper:
         img = img.transpose(2, 0, 1)
         return torch.from_numpy(img).unsqueeze(0).to(self.device)
 
+    # -------------------------------------------------
     @torch.no_grad()
     def embed_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
-        if img_bgr is None:
-            raise ValueError("Input image is None")
-
         x = self.preprocess(img_bgr)
 
-        feat = self.model(x)[0]        # <-- FIX IS HERE
+        # AdaFace forward returns (feat, norm)
+        feat = self.model(x)[0]
         feat = torch.nn.functional.normalize(feat, dim=1)
 
         emb = feat.cpu().numpy().reshape(-1).astype(np.float32)
@@ -90,7 +102,20 @@ class AdaFaceOriginalWrapper:
 
         return emb
 
-
+    # -------------------------------------------------
+    @torch.no_grad()
     def embed(self, img_bgr: np.ndarray) -> np.ndarray:
-        # For aligned datasets (LFW-deepfunneled)
-        return self.embed_aligned(img_bgr)
+        """
+        OFFICIAL AdaFace evaluation path:
+        image → detect → align → embed
+        """
+
+        faces = self.detector.detect(img_bgr)
+        if not faces:
+            raise RuntimeError("No face detected")
+
+        aligned = self.detector.align_for(img_bgr, faces[0]["kps"])
+        if aligned is None:
+            raise RuntimeError("Alignment failed")
+
+        return self.embed_aligned(aligned)
