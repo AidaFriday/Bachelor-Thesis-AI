@@ -243,6 +243,8 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     valid_mask = sims != None
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
+    num_total = len(pairs)
+    num_valid = len(sims_valid)
 
 
 
@@ -251,8 +253,11 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
 
     # ---------- 10-fold accuracy ----------
     thresholds, accs, mean_acc, std_acc = compute_lfw_10fold_accuracy(
-        sims, labels, fold_ids
-    )
+        sims_valid,
+        labels_valid,
+        fold_ids[valid_mask]
+)
+
 
     # ---------- global ROC / AUC / EER ----------
     fpr, tpr, roc_thresholds = roc_curve(labels_valid, sims_valid)
