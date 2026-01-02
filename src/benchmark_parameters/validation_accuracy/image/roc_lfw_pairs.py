@@ -1,5 +1,6 @@
-import os
 
+#roc_lfw_pairs.py
+import os
 os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
@@ -158,7 +159,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
 
     sims = []
     labels = []
-
+    num_failed = 0 
     total = len(pairs)
     use_detection = dataset_needs_alignment(dataset_path)
 
@@ -227,16 +228,25 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
             error = True
 
         if error:
-            # worst-case scores so they are misclassified for any thr in [0,1]
-            sim = -1.0 if label == 1 else 2.0
+            num_failed += 1  
+            sim = None
         else:
             sim = cosine_similarity(emb1, emb2)
+
 
         sims.append(sim)
         labels.append(label)
 
-    sims = np.array(sims, dtype=np.float32)
+    sims = np.array(sims, dtype=object)
     labels = np.array(labels, dtype=np.int32)
+
+    valid_mask = sims != None
+    sims_valid = sims[valid_mask].astype(np.float32)
+    labels_valid = labels[valid_mask]
+
+
+
+
     fold_ids = np.array(fold_ids, dtype=np.int32)
 
     # ---------- 10-fold accuracy ----------
@@ -245,7 +255,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     )
 
     # ---------- global ROC / AUC / EER ----------
-    fpr, tpr, roc_thresholds = roc_curve(labels, sims)
+    fpr, tpr, roc_thresholds = roc_curve(labels_valid, sims_valid)
     roc_auc = auc(fpr, tpr)
 
     fnr = 1.0 - tpr
@@ -273,18 +283,27 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "kind": "lfw_10fold_roc",
         "model": model_name,
         "dataset": os.path.basename(dataset_path),
-        "pairs": int(len(labels)),
+
+        # --- pair statistics ---
+        "pairs_total": int(num_total),
+        "pairs_valid": int(num_valid),
+        "pairs_failed": int(num_failed),
+
+        # --- metrics (computed on valid pairs only) ---
         "mean_accuracy": float(mean_acc),
         "std_accuracy": float(std_acc),
         "per_fold_accuracy": [float(a) for a in accs],
         "per_fold_threshold": [float(t) for t in thresholds],
         "auc": float(roc_auc),
         "eer": float(eer),
+
+        # --- ROC data ---
         "roc_fpr": [float(x) for x in fpr],
         "roc_tpr": [float(x) for x in tpr],
         "roc_thresholds": [float(x) for x in roc_thresholds],
         "best_threshold": float(best_threshold),
     }
+
 
     json_path = os.path.join(exports_dir, base_name + ".json")
     with open(json_path, "w") as f:

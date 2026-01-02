@@ -22,9 +22,12 @@ from gui.configuration.settings import SettingsPage, LIGHT_THEME, DARK_THEME
 from gui.benchmark.benchmark_window import BenchmarkPage
 from components.embeddings_creation.dataset_cache import DatasetEmbeddingCache
 import time
-from components.utilities.live_fps_latency import LiveFpsLatency, BenchmarkMetricsProvider, format_metric
+from components.utilities.live_fps_latency import (
+    LiveFpsLatency,
+    BenchmarkMetricsProvider,
+    format_metric,
+)
 from components.utilities.live_memory_usage import LiveMemoryUsage
-
 
 
 class HomeWindow(QMainWindow):
@@ -47,6 +50,8 @@ class HomeWindow(QMainWindow):
 
         self.video_label = QLabel("Camera feed will appear here")
         self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setFixedSize(800, 500)
+        self.video_label.setScaledContents(True)
 
         home_layout.addWidget(self.start_btn)
         home_layout.addWidget(self.stop_btn)
@@ -112,6 +117,7 @@ class HomeWindow(QMainWindow):
         # Camera
         self.cap = None
         self.wrapper = None
+        self.face_db = None
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
 
@@ -125,40 +131,10 @@ class HomeWindow(QMainWindow):
     def start_camera(self):
         model_name = self.settings_page.model_name
 
-        # -------------------------------
-        # INIT MEMORY TRACKING (BASELINE)
-        # -------------------------------
-        self.mem = LiveMemoryUsage(window=30)
-        self.mem.snapshot_baseline()   # 👈 BEFORE model load
-
+        # ---- Load model & DB (keep your existing code here) ----
         self.wrapper = load_model(model_name)
-        print(f"[INFO] Loaded model: {self.wrapper.name}")
 
-        # -------------------------------
-        # INIT LIVE PERF METRICS
-        # -------------------------------
-        self.perf = LiveFpsLatency(fps_window=30, latency_window=30)
-        self.bench = BenchmarkMetricsProvider()
-        self.bench.reload()
-        self.bench_metrics = self.bench.get(self.wrapper.name)
-
-        # -------------------------------
-        # LOAD DATASET EMBEDDINGS
-        # -------------------------------
-        try:
-            self.face_db = DatasetEmbeddingCache(
-                self.wrapper,
-                self.settings_page.dataset_path
-            )
-            self.face_db.load_or_build()
-            print(f"[INFO] Dataset ready for model: {self.wrapper.name}")
-            print(f"[INFO] People in DB: {self.face_db.names}")
-        except Exception as e:
-            print(f"[ERROR] Failed to prepare dataset embeddings: {e}")
-            self.face_db = None
-
-        print("[INFO] Searching for cameras...")
-
+        # ---- Camera selection ----
         def looks_like_obs_placeholder(frame):
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             lower_blue = np.array([90, 40, 40])
@@ -175,93 +151,18 @@ class HomeWindow(QMainWindow):
                 print("[INFO] External camera appears REAL → using index 1")
         cap1.release()
 
+        # ---- Open camera ONCE ----
         self.cap = cv2.VideoCapture(selected_cam)
         if not self.cap.isOpened():
-            self.video_label.setText("[ERROR] Cannot open ANY camera!")
+            self.video_label.setText("[ERROR] Cannot open camera")
             return
 
         print(f"[INFO] Camera started: index={selected_cam}")
 
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
+
         self.timer.start(30)
-
-
-        # -------------------------------------------------------
-        # 1) Try external camera (index 1)
-        # -------------------------------------------------------
-        selected_cam = 0
-        cap1 = cv2.VideoCapture(1)
-        if cap1.isOpened():
-            ret, frame = cap1.read()
-            if ret and not looks_like_obs_placeholder(frame):
-                selected_cam = 1
-                print("[INFO] External camera appears REAL → using index 1")
-            else:
-                print("[INFO] External camera invalid/OBS placeholder → using index 0")
-        else:
-            print("[INFO] External camera (index 1) not opened.")
-        cap1.release()
-
-        # -------------------------------------------------------
-        # 2) Open selected camera
-        # -------------------------------------------------------
-        self.cap = cv2.VideoCapture(selected_cam)
-        if not self.cap.isOpened():
-            self.video_label.setText("[ERROR] Cannot open ANY camera!")
-            print("[ERROR] Camera failed to open!")
-            return
-
-        print(f"[INFO] Camera started: index={selected_cam}")
-
-        self.start_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        self.timer.start(30)
-
-        # -------------------------------------------------------
-        # 1) Try external camera (index 1)
-        # -------------------------------------------------------
-        external_cam_valid = False
-        cap1 = cv2.VideoCapture(1)
-
-        if cap1.isOpened():
-            ret, frame = cap1.read()
-            if ret:
-                if not looks_like_obs_placeholder(frame):
-                    external_cam_valid = True
-                    selected_cam = 1
-                    print("[INFO] External camera appears REAL → using index 1")
-                else:
-                    print("[INFO] External camera shows OBS placeholder → skipping.")
-            else:
-                print("[INFO] External camera opened but no frame → skipping.")
-        else:
-            print("[INFO] External camera (index 1) not opened.")
-
-        cap1.release()
-
-        # -------------------------------------------------------
-        # 2) Fallback to laptop camera (index 0)
-        # -------------------------------------------------------
-        if not external_cam_valid:
-            selected_cam = 0
-            print("[INFO] Using laptop camera (index 0)")
-
-        # -------------------------------------------------------
-        # 3) Open selected camera
-        # -------------------------------------------------------
-        self.cap = cv2.VideoCapture(selected_cam)
-        if not self.cap.isOpened():
-            self.video_label.setText("[ERROR] Cannot open ANY camera!")
-            print("[ERROR] Camera failed to open!")
-            return
-
-        print(f"[INFO] Camera started: index={selected_cam}")
-
-        self.start_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        self.timer.start(30)
-
 
     # ------------------------------------------------------------------
 
@@ -322,7 +223,7 @@ class HomeWindow(QMainWindow):
             label_text = ""
             if self.face_db:
                 name, sim = self.face_db.match(emb)
-                label_text = f"{name} | cos={sim:.3f}" if sim >= 0.65  else "Unknown"
+                label_text = f"{name} | cos={sim:.3f}" if sim >= 0.65 else "Unknown"
 
             color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
             cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1)
@@ -331,8 +232,15 @@ class HomeWindow(QMainWindow):
                 cv2.circle(disp, (px, py), 2, (0, 255, 255), -1)
 
             if label_text:
-                cv2.putText(disp, label_text, (x1, max(20, y1 - 10)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                cv2.putText(
+                    disp,
+                    label_text,
+                    (x1, max(20, y1 - 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    color,
+                    2,
+                )
 
         # -------------------------------
         # PERF + MEMORY METRICS
@@ -353,7 +261,7 @@ class HomeWindow(QMainWindow):
             f"FPS: {format_metric(fps, 'fps')}",
             f"Latency: {format_metric(lat, 'ms')}",
             f"RAM: {ram:.1f} MB",
-            f"Model RAM: {model_ram:.1f} MB"
+            f"Model RAM: {model_ram:.1f} MB",
         ]
 
         H, W = disp.shape[:2]
@@ -362,16 +270,18 @@ class HomeWindow(QMainWindow):
         for i, txt in enumerate(lines):
             (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
             y = y0 + i * dy
-            cv2.rectangle(disp, (x - 10, y - th - 10), (x + tw + 10, y + 6), (0, 0, 0), -1)
-            cv2.putText(disp, txt, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-                        (255, 255, 255), 2)
+            cv2.rectangle(
+                disp, (x - 10, y - th - 10), (x + tw + 10, y + 6), (0, 0, 0), -1
+            )
+            cv2.putText(
+                disp, txt, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2
+            )
 
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         self.video_label.setPixmap(
             QPixmap.fromImage(QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888))
         )
-
 
     # ------------------------------------------------------------------
 

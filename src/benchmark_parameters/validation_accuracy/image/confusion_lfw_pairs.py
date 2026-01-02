@@ -1,6 +1,7 @@
 # confusion_lfw_pairs.py
 import os
-os.environ["MPLBACKEND"] = "Agg" 
+
+os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
 from datetime import datetime
@@ -79,7 +80,7 @@ def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
         t = float(cand_thr[0])
         acc = float(np.mean((sims >= t).astype(np.int32) == labels))
         return t, acc
-    
+
     best_thr = None
     best_acc = -1.0
 
@@ -118,9 +119,9 @@ def run_confusion_protocol(
         pairs = pairs[:max_pairs]
         fold_ids = fold_ids[:max_pairs]
 
-    sims = []
-    labels = []
-
+    sims_valid = []
+    labels_valid = []
+    num_failed = 0
     total = len(pairs)
     use_detection = dataset_needs_alignment(dataset_path)
 
@@ -196,21 +197,25 @@ def run_confusion_protocol(
             error = True
 
         if error:
-            # worst-case scores so they are misclassified for any thr in [0,1]
-            sim = -1.0 if label == 1 else 2.0
+            num_failed += 1
+            sim = None
         else:
             sim = cosine_similarity(emb1, emb2)
 
         sims.append(sim)
         labels.append(label)
 
-    sims = np.array(sims, dtype=np.float32)
+    sims = np.array(sims, dtype=object)
     labels = np.array(labels, dtype=np.int32)
+
+    valid_mask = sims != None
+    sims_valid = sims[valid_mask].astype(np.float32)
+    labels_valid = labels[valid_mask]
 
     # ---------- choose threshold ----------
     if threshold is None:
         best_thr, best_acc = find_best_global_threshold(
-            sims, labels
+            sims_valid, labels_valid
         )  # pooled best-by-accuracy
         thr_source = "pooled best-by-accuracy"
         msg = "best threshold"
@@ -225,8 +230,8 @@ def run_confusion_protocol(
     print(f"[CM] Accuracy at {msg}: {best_acc*100:.2f}%")
 
     # ---------- confusion matrix at that threshold ----------
-    preds = (sims >= best_thr).astype(np.int32)
-    labels_np = np.asarray(labels, dtype=np.int32)
+    preds = (sims_valid >= best_thr).astype(np.int32)
+    labels_np = np.asarray(labels_valid, dtype=np.int32)
 
     # counts
     tp = int(np.sum((preds == 1) & (labels_np == 1)))
@@ -246,11 +251,7 @@ def run_confusion_protocol(
         else 0.0
     )
 
-    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
-    fpr = 1.0 - tnr
-    fnr = 1.0 - recall
-
-    total_pairs = len(labels)
+    total_pairs = len(labels_valid)
     tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # recall / sensitivity
     tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
     fpr = 1.0 - tnr
@@ -325,8 +326,12 @@ def run_confusion_protocol(
         "dataset": os.path.basename(dataset_path),
         "pairs": int(total_pairs),
         "threshold": float(best_thr),
+        "pairs_total": int(len(pairs)),
+        "pairs_used": int(len(labels_valid)),
+        "pairs_failed": int(num_failed),
+        "failure_rate": float(num_failed / (len(labels_valid) + num_failed)),
         # core confusion metrics
-        "accuracy": float(best_acc),
+        "accuracy": float(accuracy),
         "tp": int(tp),
         "tn": int(tn),
         "fp": int(fp),
