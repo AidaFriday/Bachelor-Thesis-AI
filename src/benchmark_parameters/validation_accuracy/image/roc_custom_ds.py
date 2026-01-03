@@ -202,6 +202,7 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     sims = []
     labels = []
     valid_fold_ids = []
+    num_failed = 0
 
     # --------------------------------------------------
     #       PROCESS ALL PAIRS
@@ -211,15 +212,19 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
         a = cv2.imread(img1)
         b = cv2.imread(img2)
         if a is None or b is None:
+            num_failed += 1
             continue
 
         emb1 = extract_embedding(model_name, wrapper, detector, a)
         emb2 = extract_embedding(model_name, wrapper, detector, b)
+
         if emb1 is None or emb2 is None:
+            num_failed += 1
             continue
 
         sim = cosine_similarity(emb1, emb2)
 
+        # ✅ LFW-correct exclusion logic
         sims.append(sim)
         labels.append(lab)
         valid_fold_ids.append(fold)
@@ -227,6 +232,21 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     sims = np.array(sims, np.float32)
     labels = np.array(labels, np.int32)
     fold_ids = np.array(valid_fold_ids, np.int32)
+
+    # ==================================================
+    # Pair statistics
+    # ==================================================
+    pairs_total = len(pairs)
+    pairs_used = len(labels)
+    pairs_failed = num_failed
+    failure_rate = pairs_failed / (pairs_used + pairs_failed)
+
+    print(
+        f"[INFO] pairs_total={pairs_total}, "
+        f"pairs_used={pairs_used}, "
+        f"pairs_failed={pairs_failed}, "
+        f"failure_rate={failure_rate:.4f}"
+    )
 
     # --------------------------------------------------
     #       FOLD ACC
@@ -294,17 +314,26 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
 
         # Save JSON
         summary = {
+            "kind": "lfw_10fold_roc",
+            "model": model_name,
+            "dataset": os.path.basename(dataset_root),
+            # --- pair statistics (LFW-style) ---
+            "pairs_total": pairs_total,
+            "pairs_valid": pairs_used,
+            "pairs_failed": pairs_failed,
+            "failure_rate": failure_rate,
+            # --- ROC data ---
             "fpr": fpr.tolist(),
             "tpr": tpr.tolist(),
             "auc": float(auc_val),
+            "eer": float(eer),
+            "best_threshold": float(best_threshold),
+            # --- fold metrics ---
             "folds": int(fold_ids.max() + 1) if len(fold_ids) > 0 else 0,
-            "pairs": len(labels),
             "per_fold_accuracy": accs.tolist(),
             "per_fold_threshold": thresholds.tolist(),
             "mean_accuracy": mean_acc,
             "std_accuracy": std_acc,
-            "eer": float(eer),
-            "best_threshold": float(best_threshold),
         }
 
         with open(out_json, "w") as f:
