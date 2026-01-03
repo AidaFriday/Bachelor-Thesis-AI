@@ -39,6 +39,24 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores = np.concatenate(scores_list, axis=0)
     labels = np.concatenate(labels_list, axis=0)
     return scores, labels
+def load_failure_stats(exports_dir: Path, model: str, stamp: str):
+    pairs_total = 0
+    pairs_valid = 0
+    pairs_failed = 0
+
+    for fold in range(10):
+        json_path = exports_dir / f"{model}_ytf_fold{fold}_{stamp}_pairs.json"
+        if not json_path.exists():
+            raise FileNotFoundError(f"Missing pairs file: {json_path}")
+
+        with open(json_path, "r") as f:
+            meta = json.load(f)["meta"]
+
+        pairs_total += meta["num_pairs_total"]
+        pairs_valid += meta["num_pairs_valid"]
+        pairs_failed += meta["num_pairs_failed"]
+
+    return pairs_total, pairs_valid, pairs_failed
 
 
 def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
@@ -48,6 +66,11 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         exports_dir = Path(exports_dir)
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
+
+    pairs_total, pairs_valid, pairs_failed = load_failure_stats(
+        exports_dir, model_name, stamp
+    )
+
 
     preds = (scores >= FIXED_THRESHOLD).astype(int)
 
@@ -68,11 +91,23 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "kind": "confusion_matrix_ytf",
         "model": model_name,
         "dataset": "YTF",
-        "pairs": int(len(labels)),
+
+        # LFW-style pair statistics
+        "pairs_total": pairs_total,
+        "pairs_valid": pairs_valid,
+        "pairs_failed": pairs_failed,
+        "failure_rate": (
+            pairs_failed / pairs_total if pairs_total > 0 else 0.0
+        ),
+        "pairs_used": int(len(labels)),
+
+        # confusion counts
         "tp": tp,
         "tn": tn,
         "fp": fp,
         "fn": fn,
+
+        # metrics
         "accuracy": float(accuracy),
         "precision": float(precision),
         "recall": float(recall),
@@ -82,6 +117,7 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "frr": float(frr),
         "threshold": float(FIXED_THRESHOLD),
     }
+
 
     # ---------- NEW: draw confusion-matrix PNG ----------
     cm = np.array([[tp, fp], [fn, tn]])
