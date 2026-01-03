@@ -94,29 +94,26 @@ def compute_ytf_pairs(
         emb_missing = (emb1 is None) or (emb2 is None)
 
         if emb_missing:
-            # force always-wrong scores so these pairs are counted as failures
-            score = -1.0 if label == 1 else 2.0
+            score = None
         else:
             score = cosine_similarity(emb1, emb2)
 
         scores.append(score)
+
 
         pair_records.append(
             {
                 "video1": video_key1,
                 "video2": video_key2,
                 "label": "same" if label == 1 else "diff",
-                "similarity": float(score),
+                "similarity": None if score is None else float(score),
                 "emb_missing": bool(emb_missing)
 ,
             }
         )
 
-    return (
-        np.array(scores, dtype=np.float32),
-        np.array(labels, dtype=np.int32),
-        pair_records,
-    )
+    return scores, labels, pair_records
+
 
 
 def export_ytf_pairs(
@@ -172,18 +169,37 @@ def export_ytf_pairs(
 
         fold_tag = f"fold{f_idx}"
         base = f"{model_name}_ytf_{fold_tag}_{ts}"
+        # -------------------------------
+        # Filter failed pairs (LFW-style)
+        # -------------------------------
+        scores = np.array(scores, dtype=object)
+        labels = np.array(labels, dtype=np.int32)
 
-        np.save(export_dir / f"{base}_scores.npy", scores)
-        np.save(export_dir / f"{base}_labels.npy", labels)
+        valid_mask = scores != None
+        scores_valid = scores[valid_mask].astype(np.float32)
+        labels_valid = labels[valid_mask]
+
+        num_failed = int((~valid_mask).sum())
+        num_total = int(len(scores))
+        num_valid = int(len(scores_valid))
+
+
+        np.save(export_dir / f"{base}_scores.npy", scores_valid)
+        np.save(export_dir / f"{base}_labels.npy", labels_valid)
+
 
         export_json = {
             "meta": {
                 "model": model_name,
                 "dataset": "YTF",
                 "fold": fold_tag,
-                "num_pairs": int(len(labels)),
+                "num_pairs_total": num_total,
+                "num_pairs_valid": num_valid,
+                "num_pairs_failed": num_failed,
+                "failure_rate": float(num_failed / num_total) if num_total > 0 else 0.0,
                 "timestamp": ts,
             },
+
             "pairs": pair_records,
         }
         with open(export_dir / f"{base}_pairs.json", "w") as f:
