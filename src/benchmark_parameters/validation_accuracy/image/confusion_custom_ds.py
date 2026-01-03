@@ -146,45 +146,53 @@ def run_confusion(model_name, dataset_root, pairs_file):
 
     pairs = load_pairs(pairs_file, dataset_root)
     sims, labels = [], []
+    num_failed = 0
 
-    # ----- Compute similarities -----
     for im1, im2, lab in pairs:
         a, b = cv2.imread(im1), cv2.imread(im2)
+
         if a is None or b is None:
+            sims.append(None)
+            labels.append(lab)
+            num_failed += 1
             continue
 
         emb1 = extract_embedding(model_name, wrapper, detector, a)
         emb2 = extract_embedding(model_name, wrapper, detector, b)
 
-        # -------------------------------------------------------
-        # DEBUG: list skipped pairs caused by failed detection
-        # -------------------------------------------------------
         if emb1 is None or emb2 is None:
-            print(f"[WARN] Skipped pair (no detection/alignment):")
-            print(f"       {im1}")
-            print(f"       {im2}")
+            sims.append(None)
+            labels.append(lab)
+            num_failed += 1
             continue
 
         sims.append(cosine_similarity(emb1, emb2))
         labels.append(lab)
 
-    sims = np.array(sims)
-    labels = np.array(labels)
+    sims = np.array(sims, dtype=object)
+    labels = np.array(labels, dtype=np.int32)
+
+    valid_mask = np.array([s is not None for s in sims])
+    sims_valid = sims[valid_mask].astype(np.float32)
+    labels_valid = labels[valid_mask]
 
     # ----- Best threshold -----
     best_thr = 0
     best_acc = -1
-    for t in np.unique(sims):
-        acc = np.mean((sims >= t).astype(int) == labels)
+    for t in np.unique(sims_valid):
+        preds = (sims_valid >= t).astype(np.int32)
+        acc = np.mean(preds == labels_valid)
+
         if acc > best_acc:
             best_acc, best_thr = acc, t
 
-    preds = (sims >= best_thr).astype(int)
+    preds = (sims_valid >= best_thr).astype(np.int32)
+    labels_np = labels_valid
 
-    tn = int(np.sum((preds == 0) & (labels == 0)))
-    fp = int(np.sum((preds == 1) & (labels == 0)))
-    fn = int(np.sum((preds == 0) & (labels == 1)))
-    tp = int(np.sum((preds == 1) & (labels == 1)))
+    tn = int(np.sum((preds == 0) & (labels_np == 0)))
+    fp = int(np.sum((preds == 1) & (labels_np == 0)))
+    fn = int(np.sum((preds == 0) & (labels_np == 1)))
+    tp = int(np.sum((preds == 1) & (labels_np == 1)))
 
     print(f"[THRESHOLD] best={best_thr:.4f}")
     print(f"[ACCURACY] {best_acc*100:.2f}%")
@@ -215,9 +223,14 @@ def run_confusion(model_name, dataset_root, pairs_file):
     frr = fn / (tp + fn) if (tp + fn) > 0 else 0.0  # false reject rate
 
     summary = {
+        "kind": "confusion_matrix",
         "model": model_name,
-        "pairs": len(labels),
-        "best_threshold": float(best_thr),
+        "pairs_total": len(pairs),
+        "pairs_used": int(len(labels_valid)),
+        "pairs_failed": int(num_failed),
+        "failure_rate": float(num_failed / (len(labels_valid) + num_failed)),
+        "threshold": float(best_thr),
+        "threshold_source": "pooled best-by-accuracy",
         "accuracy": float(best_acc),
         "precision": precision,
         "recall": recall,
