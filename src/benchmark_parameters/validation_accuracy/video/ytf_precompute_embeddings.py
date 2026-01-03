@@ -73,7 +73,7 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
     model_name = getattr(wrapper, "name", "").lower()
 
     is_arcface = model_name == "arcface"
-    is_adaface = model_name == "adaface"
+    is_adaface = model_name.startswith("adaface")
     is_facenet = model_name in ("facenet", "facenet_onnx")
 
     for fname in frame_files:
@@ -120,7 +120,14 @@ def get_video_embedding(wrapper, video_dir, max_frames, USE_DETECTION):
             # ADAFACE → Direct embedding (YTF already aligned)
             # -------------------------------------------------
             elif is_adaface:
-                emb = wrapper.embed(img)
+                faces = wrapper.detector.detect(img)
+                if not faces:
+                    continue
+                aligned = wrapper.detector.align_for(img, faces[0]["kps"])
+                if aligned is None:
+                    continue
+                emb = wrapper.embed(aligned)
+
 
             # -------------------------------------------------
             # OTHER MODELS → Optional detect + align
