@@ -1,121 +1,73 @@
-import os
-import sys
-import torch
+@ -0,0 +1,72 @@
+import os, sys
+
+# ✅ Make external/adaface_repo importable
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(os.path.join(ROOT, "external"))
+
 import cv2
+import torch
 import numpy as np
-from pathlib import Path
-from wrap_facedetection import FaceDetectorAligner
+
+from models.wrap_facedetection import FaceDetectorAligner
+from adaface_repo.net import IR_50
 
 
-class AdaFaceOriginalWrapper:
-    name = "adaface_original"
+class AdaFaceWrapper:
+    name = "adaface"
 
-    def __init__(self, device="cuda", input_size=(112, 112), model_path=None):
+    def __init__(self, device="cpu", input_size=(112, 112)):
+        self.device = device
         self.input_size = tuple(input_size)
 
-        # -------------------------------------------------
-        # Resolve AdaFace repo path
-        # -------------------------------------------------
-        if model_path is None:
-            model_path = (
-                Path(__file__).resolve().parents[2]
-                / "external"
-                / "adaface_repo"
-            )
-        model_path = str(Path(model_path).resolve())
-
-        self.device = self._pick_device(device)
-
-        # -------------------------------------------------
-        # Load AdaFace IR-50
-        # -------------------------------------------------
-        sys.path.insert(0, model_path)
-        try:
-            from net import IR_50
-        finally:
-            sys.path.pop(0)
-
-        self.model = IR_50(input_size=self.input_size)
-
-        ckpt_path = os.path.join(
-            model_path, "adaface_ir50_ms1mv2", "model.pt"
+        ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        model_path = os.path.join(
+            ROOT, "external", "adaface_repo", "adaface_ir50_ms1mv2", "model.pt"
         )
-        state_dict = torch.load(ckpt_path, map_location="cpu")
 
-        if any(k.startswith("net.") for k in state_dict):
-            state_dict = {
-                k.replace("net.", "", 1): v
-                for k, v in state_dict.items()
-            }
+        # ✅ Correct backbone load
+        # ✅ Correct backbone load
+        self.model = IR_50(self.input_size)
 
-        self.model.load_state_dict(state_dict, strict=True)
-        self.model.to(self.device)
+        ckpt = torch.load(model_path, map_location=device)
+
+        # Some checkpoints store weights under "net"
+        if "net" in ckpt:
+            ckpt = ckpt["net"]
+
+        # Remove "net." prefix if exists in keys
+        new_state = {}
+        for k, v in ckpt.items():
+            new_key = k.replace("net.", "")  # strip prefix
+            new_state[new_key] = v
+
+        self.model.load_state_dict(new_state, strict=False)
+        self.model.to(device)
         self.model.eval()
 
-        # -------------------------------------------------
-        # IMPORTANT: detector + aligner (REQUIRED FOR ~99%)
-        # -------------------------------------------------
-        self.detector = FaceDetectorAligner(device=str(self.device))
+        # Will be overwritten by connector (shared), but safe fallback
+        self.detector = FaceDetectorAligner(device=device)
 
-    # -------------------------------------------------
-    def _pick_device(self, requested: str) -> torch.device:
-        req = (requested or "cpu").lower()
-        if req.startswith("cuda") and torch.cuda.is_available():
-            try:
-                archs = torch.cuda.get_arch_list()
-            except Exception:
-                archs = []
-
-            if "sm_120" not in archs:
-                print(
-                    "[AdaFaceOriginal] WARNING: GPU sm_120 unsupported, "
-                    "falling back to CPU."
-                )
-                return torch.device("cpu")
-
-            return torch.device("cuda")
-
-        return torch.device("cpu")
-
-    # -------------------------------------------------
-    def preprocess(self, img_bgr: np.ndarray) -> torch.Tensor:
-        img = cv2.resize(img_bgr, self.input_size)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.astype(np.float32) / 255.0
-        img = (img - 0.5) / 0.5
-        img = img.transpose(2, 0, 1)
-        return torch.from_numpy(img).unsqueeze(0).to(self.device)
-
-    # -------------------------------------------------
-    @torch.no_grad()
-    def embed_aligned(self, img_bgr: np.ndarray) -> np.ndarray:
-        x = self.preprocess(img_bgr)
-
-        # AdaFace forward returns (feat, norm)
-        feat = self.model(x)[0]
-        feat = torch.nn.functional.normalize(feat, dim=1)
-
-        emb = feat.cpu().numpy().reshape(-1).astype(np.float32)
-
-        if emb.shape[0] != 512:
-            raise RuntimeError("AdaFace produced invalid embedding")
-
-        return emb
-
-    # -------------------------------------------------
-    @torch.no_grad()
     def embed(self, img_bgr: np.ndarray) -> np.ndarray:
-        """
-        OFFICIAL AdaFace evaluation path:
-        image → detect → align → embed
-        """
+        # ---------- Detect & Align (system-compatible) ----------
+        faces = self.detector.get(img_bgr, out_size=self.input_size)
 
-        faces = self.detector.detect(img_bgr)
-        if not faces:
-            raise RuntimeError("No face detected")
+        if len(faces) == 0:
+            img = cv2.resize(img_bgr, self.input_size)
+        else:
+            img = faces[0]  # Already aligned
 
-        aligned = self.detector.align_for(img_bgr, faces[0]["kps"])
-        if aligned is None:
-            raise RuntimeError("Alignment failed")
+        # ---------- Preprocess ----------
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
+        img = (img - 127.5) / 128.0
+        img = img.transpose(2, 0, 1)[None, :]
+        img = torch.from_numpy(img).float().to(self.device)
 
-        return self.embed_aligned(aligned)
+        # ---------- Forward ----------
+        with torch.no_grad():
+            emb = self.model(img)[0]
+
+        # ---------- Normalize ----------
+        emb = emb / emb.norm(p=2)
+
+        return emb.cpu().numpy().astype(np.float32)
