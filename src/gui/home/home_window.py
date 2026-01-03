@@ -30,6 +30,16 @@ from components.utilities.live_fps_latency import (
 from components.utilities.live_memory_usage import LiveMemoryUsage
 
 
+MODEL_THRESHOLDS = {
+    "arcface": 0.45,
+    "facenet": 0.75,
+    "facenet_camera": 0.70,
+    "facenet_original": 0.75,
+    "adaface": 0.55,
+    "adaface_camera": 0.55,
+}
+
+
 class HomeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -146,10 +156,15 @@ class HomeWindow(QMainWindow):
 
         # ---- Initialize memory tracker FIRST ----
         self.mem = LiveMemoryUsage()
-        self.mem.snapshot_baseline()  # ✅ baseline BEFORE model load
+        self.mem.snapshot_baseline()
 
         # ---- Load model ----
         self.wrapper = load_model(model_name)
+        print(f"[INFO] Loaded model: {self.wrapper.name}")
+
+        # ---- Load correct embedding database ----
+        self.face_db = DatasetEmbeddingCache(self.wrapper)
+        self.face_db.load_or_build()
 
         # ---- Force external USB camera selection ----
         selected_cam = None
@@ -187,13 +202,20 @@ class HomeWindow(QMainWindow):
 
     def stop_camera(self):
         self.timer.stop()
+
         if self.cap:
             self.cap.release()
             self.cap = None
+
+        # 🔴 CLEAR MODEL + DB
+        self.wrapper = None
+        self.face_db = None
+
         print("[INFO] Camera stopped.")
         self.video_label.setText("Camera stopped.")
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+
 
     # ------------------------------------------------------------------
 
@@ -240,9 +262,16 @@ class HomeWindow(QMainWindow):
                 emb /= n
 
             label_text = ""
+            sim = 0.0
+
             if self.face_db:
                 name, sim = self.face_db.match(emb)
-                label_text = f"{name} | cos={sim:.3f}" if sim >= 0.65 else "Unknown"
+
+                threshold = MODEL_THRESHOLDS.get(self.wrapper.name, 0.65)
+
+                label = name if sim >= threshold else "Unknown"
+                label_text = f"{label} | {self.wrapper.name} | cos={sim:.3f}"
+
 
             color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
             cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1)
