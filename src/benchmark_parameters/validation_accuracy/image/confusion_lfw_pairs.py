@@ -119,10 +119,12 @@ def run_confusion_protocol(
         pairs = pairs[:max_pairs]
         fold_ids = fold_ids[:max_pairs]
 
-    sims_valid = []
-    labels_valid = []
+    sims = []
+    labels = []
+
     num_failed = 0
     total = len(pairs)
+
     use_detection = dataset_needs_alignment(dataset_path)
 
     # only non-ArcFace, non-AdaFace models may use embed_aligned
@@ -208,7 +210,7 @@ def run_confusion_protocol(
     sims = np.array(sims, dtype=object)
     labels = np.array(labels, dtype=np.int32)
 
-    valid_mask = sims != None
+    valid_mask = np.array([s is not None for s in sims])
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
 
@@ -221,8 +223,9 @@ def run_confusion_protocol(
         msg = "best threshold"
     else:
         best_thr = float(threshold)
-        preds_tmp = (sims >= best_thr).astype(np.int32)
-        best_acc = float(np.mean(preds_tmp == labels))
+        preds_tmp = (sims_valid >= best_thr).astype(np.int32)
+        best_acc = float(np.mean(preds_tmp == labels_valid))
+
         thr_source = "user-provided (--threshold)"
         msg = "provided threshold"
 
