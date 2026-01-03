@@ -14,8 +14,8 @@ from models.wrap_facedetection import FaceDetectorAligner
 from adaface_repo.net import IR_50
 
 
-class AdaFaceWrapper:
-    name = "adaface"
+class AdaFaceOriginalWrapper:
+    name = "adaface_original"
 
     def __init__(self, device: str = "cpu", input_size=(112, 112)):
         """

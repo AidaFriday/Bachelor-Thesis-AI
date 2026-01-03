@@ -146,7 +146,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
 
     model_name_lower = getattr(wrapper, "name", "").lower()
     is_arcface = model_name_lower == "arcface"
-    is_adaface = model_name_lower == "adaface"
+    is_adaface = model_name_lower.startswith("adaface")
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
     num_total = len(pairs)
@@ -166,8 +166,6 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     # only non-ArcFace, non-AdaFace models may use embed_aligned
     use_aligned = (
         (not use_detection)
-        and (not is_arcface)
-        and (not is_adaface)
         and hasattr(wrapper, "embed_aligned")
     )
 
@@ -191,11 +189,21 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     emb2 = wrapper.get_embedding(img2)
 
                 elif is_adaface:
-                    # AdaFace: its own embed() expects an aligned crop.
-                    # For LFW-deepfunneled we can treat the full image as a crop.
-                    # Always treat LFW as aligned
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
+                    faces_a = wrapper.detector.detect(a)
+                    faces_b = wrapper.detector.detect(b)
+
+                    if not faces_a or not faces_b:
+                        error = True
+                    else:
+                        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
+                        if aligned_a is None or aligned_b is None:
+                            error = True
+                        else:
+                            emb1 = wrapper.embed(aligned_a)
+                            emb2 = wrapper.embed(aligned_b)
+
 
                 elif use_aligned:
                     # Other models that have embed_aligned on aligned datasets
