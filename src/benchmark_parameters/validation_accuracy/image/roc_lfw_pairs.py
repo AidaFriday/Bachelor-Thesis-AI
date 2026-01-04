@@ -1,5 +1,6 @@
-#roc_lfw_pairs.py
+# roc_lfw_pairs.py
 import os
+
 os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
@@ -159,15 +160,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
 
     sims = []
     labels = []
-    num_failed = 0 
+    num_failed = 0
     total = len(pairs)
     use_detection = dataset_needs_alignment(dataset_path)
 
     # only non-ArcFace, non-AdaFace models may use embed_aligned
-    use_aligned = (
-        (not use_detection)
-        and hasattr(wrapper, "embed_aligned")
-    )
+    use_aligned = (not use_detection) and hasattr(wrapper, "embed_aligned")
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
         if i == 1 or i % 200 == 0 or i == total:
@@ -189,21 +187,26 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     emb2 = wrapper.get_embedding(img2)
 
                 elif is_adaface:
-                    faces_a = wrapper.detector.detect(a)
-                    faces_b = wrapper.detector.detect(b)
+                    if use_detection:
+                        # Non-aligned dataset → detect + align
+                        faces_a = wrapper.detector.detect(a)
+                        faces_b = wrapper.detector.detect(b)
 
-                    if not faces_a or not faces_b:
-                        error = True
-                    else:
-                        aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
-                        aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
-
-                        if aligned_a is None or aligned_b is None:
+                        if not faces_a or not faces_b:
                             error = True
                         else:
-                            emb1 = wrapper.embed(aligned_a)
-                            emb2 = wrapper.embed(aligned_b)
+                            aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
+                            aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
 
+                            if aligned_a is None or aligned_b is None:
+                                error = True
+                            else:
+                                emb1 = wrapper.embed(aligned_a)
+                                emb2 = wrapper.embed(aligned_b)
+                    else:
+                        # LFW-deepfunneled → already aligned, bypass detection
+                        emb1 = wrapper.embed(a)
+                        emb2 = wrapper.embed(b)
 
                 elif use_aligned:
                     # Other models that have embed_aligned on aligned datasets
@@ -236,11 +239,10 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
             error = True
 
         if error:
-            num_failed += 1  
+            num_failed += 1
             sim = None
         else:
             sim = cosine_similarity(emb1, emb2)
-
 
         sims.append(sim)
         labels.append(label)
@@ -253,18 +255,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     labels_valid = labels[valid_mask]
     num_valid = len(sims_valid)
 
-
-
-
     fold_ids = np.array(fold_ids, dtype=np.int32)
 
     # ---------- 10-fold accuracy ----------
     thresholds, accs, mean_acc, std_acc = compute_lfw_10fold_accuracy(
-        sims_valid,
-        labels_valid,
-        fold_ids[valid_mask]
-)
-
+        sims_valid, labels_valid, fold_ids[valid_mask]
+    )
 
     # ---------- global ROC / AUC / EER ----------
     fpr, tpr, roc_thresholds = roc_curve(labels_valid, sims_valid)
@@ -295,12 +291,10 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "kind": "lfw_10fold_roc",
         "model": model_name,
         "dataset": os.path.basename(dataset_path),
-
         # --- pair statistics ---
         "pairs_total": int(num_total),
         "pairs_valid": int(num_valid),
         "pairs_failed": int(num_failed),
-
         # --- metrics (computed on valid pairs only) ---
         "mean_accuracy": float(mean_acc),
         "std_accuracy": float(std_acc),
@@ -308,14 +302,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "per_fold_threshold": [float(t) for t in thresholds],
         "auc": float(roc_auc),
         "eer": float(eer),
-
         # --- ROC data ---
         "roc_fpr": [float(x) for x in fpr],
         "roc_tpr": [float(x) for x in tpr],
         "roc_thresholds": [float(x) for x in roc_thresholds],
         "best_threshold": float(best_threshold),
     }
-
 
     json_path = os.path.join(exports_dir, base_name + ".json")
     with open(json_path, "w") as f:
@@ -351,7 +343,6 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     "auc": float(roc_auc),
                     "eer": float(eer),
                     "pairs_tested": int(num_valid),
-
                 }
             )
         )
