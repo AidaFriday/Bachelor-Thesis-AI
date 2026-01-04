@@ -5,7 +5,7 @@ import os
 # -----------------------
 # MODEL MAPPING
 # -----------------------
-MODEL_MAP = {"1": "facenet", "2": "adaface", "3": "arcface"}
+MODEL_MAP = {"1": "facenet", "2": "adaface", "3": "arcface", "4": "adaface_original"}
 
 # -----------------------
 # CONSTANT PATHS
