@@ -329,6 +329,7 @@ def run_confusion_protocol(
         "dataset": os.path.basename(dataset_path),
         "pairs": int(total_pairs),
         "threshold": float(best_thr),
+        "threshold_mode": thr_source,
         "pairs_total": int(len(pairs)),
         "pairs_used": int(len(labels_valid)),
         "pairs_failed": int(num_failed),
@@ -367,7 +368,10 @@ def run_confusion_protocol(
     exports_dir = os.path.join(os.path.dirname(__file__), "exports")
     os.makedirs(exports_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    json_path = os.path.join(exports_dir, f"{model_name}_confusion_{ts}.json")
+    json_path = os.path.join(
+        exports_dir, f"{model_name}_confusion_thr{best_thr:.2f}_{ts}.json"
+    )
+
     with open(json_path, "w") as f:
         json.dump(result, f, indent=2)
 
