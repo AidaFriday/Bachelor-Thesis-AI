@@ -25,17 +25,6 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-def dataset_needs_alignment(dataset_path: str) -> bool:
-    """
-    Return False for already-aligned datasets (e.g. LFW-deepfunneled),
-    True for "raw" datasets.
-    """
-    path = dataset_path.lower()
-    if "lfw" in path and "deepfunneled" in path:
-        return False
-    return True
-
-
 def load_lfw_pairs_with_folds(pairs_file, dataset_path):
     """
     Same loader as in roc_lfw_pairs.py – builds the 6000 pairs for LFW.
@@ -108,8 +97,16 @@ def run_confusion_protocol(
 
     wrapper = load_model(model_name)
     model_name_lower = getattr(wrapper, "name", "").lower()
+
     is_arcface = model_name_lower == "arcface"
-    is_adaface = model_name_lower == "adaface"
+    is_facenet_original = model_name_lower == "facenet_original"
+    is_adaface_original = model_name_lower == "adaface_original"
+
+    assert (
+        is_arcface or is_facenet_original or is_adaface_original
+    ), f"LFW confusion not supported for model: {model_name_lower}"
+
+
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
 
@@ -125,15 +122,6 @@ def run_confusion_protocol(
     num_failed = 0
     total = len(pairs)
 
-    use_detection = dataset_needs_alignment(dataset_path)
-
-    # only non-ArcFace, non-AdaFace models may use embed_aligned
-    use_aligned = (
-        (not use_detection)
-        and (not is_arcface)
-        and (not is_adaface)
-        and hasattr(wrapper, "embed_aligned")
-    )
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
         if i == 1 or i % 200 == 0 or i == total:
@@ -159,38 +147,33 @@ def run_confusion_protocol(
         else:
             try:
                 if is_arcface:
-                    # ArcFace: use its tested path (internal detection/alignment)
+                    # ArcFace: internal detection + alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
-                elif is_adaface:
-                    # AdaFace: use its own embed() which expects an aligned crop
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
-
-                elif use_aligned:
-                    # Other models that have embed_aligned on aligned datasets
-                    emb1 = wrapper.embed_aligned(a)
-                    emb2 = wrapper.embed_aligned(b)
-
-                elif use_detection:
-                    # Facenet / others on non-aligned datasets
+                elif is_facenet_original or is_adaface_original:
+                    # FORCE detect + align (match ROC exactly)
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
+
                     if not faces_a or not faces_b:
+                        print(f"[CM] Detection failed for pair {i}")
                         error = True
+
                     else:
                         aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
                         aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
                         if aligned_a is None or aligned_b is None:
                             error = True
                         else:
                             emb1 = wrapper.embed(aligned_a)
                             emb2 = wrapper.embed(aligned_b)
+
                 else:
-                    # Already aligned dataset, generic embed
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
+                    raise RuntimeError(
+                        f"Confusion protocol not defined for model: {model_name_lower}"
+                    )
 
             except Exception:
                 error = True
