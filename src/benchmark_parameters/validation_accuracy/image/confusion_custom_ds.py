@@ -176,26 +176,29 @@ def run_confusion(model_name, dataset_root, pairs_file):
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
 
-    # ----- Best threshold -----
-    best_thr = 0
-    best_acc = -1
-    for t in np.unique(sims_valid):
-        preds = (sims_valid >= t).astype(np.int32)
-        acc = np.mean(preds == labels_valid)
+    # ----- Threshold selection -----
+    if args.threshold is not None:
+        best_thr = float(args.threshold)
+        preds = (sims_valid >= best_thr).astype(np.int32)
+        best_acc = np.mean(preds == labels_valid)
+        thr_source = "manual (--threshold)"
+    else:
+        best_thr = 0
+        best_acc = -1
+        for t in np.unique(sims_valid):
+            preds = (sims_valid >= t).astype(np.int32)
+            acc = np.mean(preds == labels_valid)
+            if acc > best_acc:
+                best_acc, best_thr = acc, t
+        thr_source = "pooled best-by-accuracy"
 
-        if acc > best_acc:
-            best_acc, best_thr = acc, t
-
-    preds = (sims_valid >= best_thr).astype(np.int32)
+    # ----- Confusion matrix counts -----
     labels_np = labels_valid
 
     tn = int(np.sum((preds == 0) & (labels_np == 0)))
     fp = int(np.sum((preds == 1) & (labels_np == 0)))
     fn = int(np.sum((preds == 0) & (labels_np == 1)))
     tp = int(np.sum((preds == 1) & (labels_np == 1)))
-
-    print(f"[THRESHOLD] best={best_thr:.4f}")
-    print(f"[ACCURACY] {best_acc*100:.2f}%")
 
     # ============================================================
     # Save JSON & PNG to: /validation_accuracy/image/exports/confusion/
@@ -230,7 +233,7 @@ def run_confusion(model_name, dataset_root, pairs_file):
         "pairs_failed": int(num_failed),
         "failure_rate": float(num_failed / (len(labels_valid) + num_failed)),
         "threshold": float(best_thr),
-        "threshold_source": "pooled best-by-accuracy",
+        "threshold_source": thr_source,
         "accuracy": float(best_acc),
         "precision": precision,
         "recall": recall,
@@ -262,6 +265,7 @@ if __name__ == "__main__":
     p.add_argument("--model", required=True)
     p.add_argument("--dataset", required=True)
     p.add_argument("--pairs", required=True)
+    p.add_argument("--threshold", type=float, default=None)
     args = p.parse_args()
 
     run_confusion(args.model, args.dataset, args.pairs)
