@@ -1,6 +1,7 @@
 # ==== logic_dataset_video.py ====
 import json, sys, time, numpy as np
 import os, cv2
+from models.wrap_facedetection import FaceDetectorAligner
 from datetime import datetime  # ✅ NEW
 from connector import load_model
 
@@ -22,19 +23,33 @@ def _cuda_sync():
         torch.cuda.synchronize()
 
 
-def measure_once(wrapper, frame):
-    """Measure latency (ms) for a single frame."""
+def measure_once(detector, embedder, frame):
     _cuda_sync()
     t0 = time.perf_counter()
-    _ = wrapper.embed(frame)
+
+    dets = detector.detect(frame)
+    if not dets:
+        _cuda_sync()
+        return None
+
+    best = max(dets, key=lambda d: d["conf"])
+    aligned = detector.align_for(frame, best["kps"], out_size=(160, 160))
+    if aligned is None:
+        _cuda_sync()
+        return None
+
+    _ = embedder.embed(aligned)
+
     _cuda_sync()
-    return (time.perf_counter() - t0) * 1000.0  # milliseconds
+    return (time.perf_counter() - t0) * 1000.0
 
 
-def run_logic(model_name, iters, frame_h, frame_w, dataset,
-              progress_callback=None, device=None):
+def run_logic(
+    model_name, iters, frame_h, frame_w, dataset, progress_callback=None, device=None
+):
 
-    wrapper = load_model(model_name)
+    detector = FaceDetectorAligner(device=device)
+    embedder = load_model(model_name, device=device)
 
     # ✅ Selected subjects (from GUI dialog)
     selected_env = os.getenv("YTF_SELECTED_SUBJECTS", "")
@@ -91,27 +106,29 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
     send_log(f"🔥 Performing {warmup_iters} warm-up iteration(s) on {device_name}")
 
     for _ in range(warmup_iters):
-        _ = wrapper.embed(first_frame)
+        _ = measure_once(detector, embedder, first_frame)
         _cuda_sync()
 
     # --- Multiple runs ---
-    #latency_series_all = []  # per-frame latency per run
+    # latency_series_all = []  # per-frame latency per run
     avg_latency_runs = []
-    #frame_paths_all = []  #  create inside function scope
+    # frame_paths_all = []  #  create inside function scope
 
     for r in range(num_runs):
         send_log(f"--- Run {r+1}/{num_runs} ---")
         latencies = []
-        #run_paths = []
+        # run_paths = []
 
         for i, img_path in enumerate(image_paths[:iters]):
             frame = cv2.imread(img_path)
             if frame is None:
                 continue
 
-            t_ms = measure_once(wrapper, frame)
-            latencies.append(t_ms)
-            #run_paths.append(img_path)
+            t_ms = measure_once(detector, embedder, frame)
+            if t_ms is not None:
+                latencies.append(t_ms)
+
+            # run_paths.append(img_path)
 
             # ✅ Send live progress every 10 frames or at the end
             if (i + 1) % 10 == 0 or (i + 1) == iters:
@@ -130,8 +147,8 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
 
         avg_ms = float(np.mean(latencies))
         avg_latency_runs.append(avg_ms)
-        #latency_series_all.append(latencies)
-        #frame_paths_all.append(run_paths)  # ✅ append paths for this run
+        # latency_series_all.append(latencies)
+        # frame_paths_all.append(run_paths)  # ✅ append paths for this run
 
         fps = 1000.0 / avg_ms if avg_ms > 0 else 0
         send_log(f"[Run {r+1}] {iters} frames → {avg_ms:.2f} ms → {fps:.2f} FPS")
@@ -163,13 +180,12 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         "iters": iters,
         "avg_latency_ms": avg_all_ms,
         "avg_fps": avg_all_fps,
-        #"latency_series_all": latency_series_all,
+        # "latency_series_all": latency_series_all,
         "runs": avg_latency_runs,
         "model": model_name,
-        #"frame_paths_all": frame_paths_all,
+        # "frame_paths_all": frame_paths_all,
     }
 
     print(json.dumps(payload))
     sys.stdout.flush()
-    return payload      # <--- ADD THIS
-    
+    return payload  # <--- ADD THIS

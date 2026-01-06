@@ -1,13 +1,16 @@
 # ==== logic_dataset_image.py ====
 import json, sys, time, numpy as np, os, cv2
+from models.wrap_facedetection import FaceDetectorAligner
 from datetime import datetime
 from connector import load_model
 
 try:
     import torch
+
     _HAS_TORCH = True
 except Exception:
     _HAS_TORCH = False
+
 
 def print_progress_bar(percent, run, num_runs, width=40):
     filled = int(width * percent / 100)
@@ -25,10 +28,23 @@ def _cuda_sync():
         torch.cuda.synchronize()
 
 
-def measure_once(wrapper, frame):
+def measure_once(detector, embedder, frame):
     _cuda_sync()
     t0 = time.perf_counter()
-    _ = wrapper.embed(frame)
+
+    dets = detector.detect(frame)
+    if not dets:
+        _cuda_sync()
+        return None
+
+    best = max(dets, key=lambda d: d["conf"])
+    aligned = detector.align_for(frame, best["kps"], out_size=(160, 160))
+    if aligned is None:
+        _cuda_sync()
+        return None
+
+    _ = embedder.embed(aligned)
+
     _cuda_sync()
     return (time.perf_counter() - t0) * 1000.0
 
@@ -38,15 +54,14 @@ _cached_wrapper = None
 _cached_model_name = None
 
 
-def run_logic(model_name, iters, frame_h, frame_w, dataset,
-              progress_callback=None, device=None):
+def run_logic(
+    model_name, iters, frame_h, frame_w, dataset, progress_callback=None, device=None
+):
     global _cached_wrapper, _cached_model_name
 
     # Load model if needed
-    if _cached_wrapper is None or _cached_model_name != model_name:
-        _cached_wrapper = load_model(model_name)
-        _cached_model_name = model_name
-    wrapper = _cached_wrapper
+    detector = FaceDetectorAligner(device=device)
+    embedder = load_model(model_name, device=device)
 
     run_start = datetime.now().isoformat(timespec="seconds")
 
@@ -59,8 +74,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         return
 
     # -------- Collect dataset --------
-    people = sorted([d for d in os.listdir(dataset)
-                     if os.path.isdir(os.path.join(dataset, d))])
+    people = sorted(
+        [d for d in os.listdir(dataset) if os.path.isdir(os.path.join(dataset, d))]
+    )
     if not people:
         send_log("No folders found in dataset", "error")
         return
@@ -75,11 +91,13 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
     image_paths = []
     for person in people[start_idx:]:
         pdir = os.path.join(dataset, person)
-        imgs = sorted([
-            os.path.join(pdir, f)
-            for f in os.listdir(pdir)
-            if f.lower().endswith(".jpg")
-        ])
+        imgs = sorted(
+            [
+                os.path.join(pdir, f)
+                for f in os.listdir(pdir)
+                if f.lower().endswith(".jpg")
+            ]
+        )
         image_paths.extend(imgs)
         if img_limit and len(image_paths) >= img_limit:
             break
@@ -104,7 +122,7 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
     send_log(f"🔥 Performing {warm} warm-up iteration(s)")
 
     for _ in range(warm):
-        wrapper.embed(first_frame)
+        _ = measure_once(detector, embedder, first_frame)
         _cuda_sync()
 
     # -------- Runs --------
@@ -121,14 +139,14 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
             if frame is None:
                 continue
 
-            t_ms = measure_once(wrapper, frame)
-            latencies.append(t_ms)
+            t_ms = measure_once(detector, embedder, frame)
+            if t_ms is not None:
+                latencies.append(t_ms)
 
             # ---- CLEAN progress reporting ----
             if progress_callback:
                 percent = int((i / total_images) * 100)
                 print_progress_bar(percent, r + 1, num_runs)
-
 
         if not latencies:
             send_log(f"Run {r+1} failed", "warn")
@@ -159,7 +177,5 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         "end_time": run_end,
     }
 
-
-
-    #print(json.dumps(payload), flush=True)
+    # print(json.dumps(payload), flush=True)
     return payload
