@@ -12,15 +12,15 @@ FOLDS_DIR = BASE_DIR / "folds"
 MODELS = {
     "ArcFace": {
         "prefix": "arcface_ytf",
-        "stamp": "20251124-164339",
+        "stamp": "20260105-155449",
     },
     "FaceNet": {
         "prefix": "facenet_ytf",
-        "stamp": "20251124-164242",
+        "stamp": "20260105-150804",
     },
     "AdaFace": {
         "prefix": "adaface_ytf",
-        "stamp": "20251124-164152",
+        "stamp": "20260105-120835",
     },
 }
 
