@@ -24,40 +24,152 @@ SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
 
 LIGHT_THEME = """
-    QWidget {
-        background-color: #ffffff;
-        color: #000000;
-    }
-    QPushButton {
-        background-color: #f0f0f0;
-        border: 1px solid #888;
-        padding: 6px;
-    }
-    QPushButton:hover {
-        background-color: #e0e0e0;
-    }
-    QLabel {
-        color: #000000;
-    }
+QWidget {
+    background: #ffffff;
+    color: #111827;
+    font-size: 13px;
+}
+
+/* Labels */
+QLabel {
+    color: #111827;
+    font-weight: 500;
+}
+
+/* Inputs */
+QComboBox {
+    background: rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 12px;
+    padding: 8px 12px;
+    min-height: 34px;
+}
+QComboBox:hover {
+    border: 1px solid rgba(0,0,0,0.18);
+    background: rgba(0,0,0,0.045);
+}
+QComboBox:focus {
+    border: 1px solid rgba(10,163,127,0.65);
+}
+
+/* Primary button */
+QPushButton#PrimaryButton {
+    background: rgba(10,163,127,0.14);
+    border: 1px solid rgba(10,163,127,0.25);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-weight: 600;
+}
+QPushButton#PrimaryButton:hover {
+    background: rgba(10,163,127,0.18);
+    border: 1px solid rgba(10,163,127,0.35);
+}
+QPushButton#PrimaryButton:pressed {
+    background: rgba(10,163,127,0.24);
+}
+
+/* Secondary button */
+QPushButton#SecondaryButton {
+    background: rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-weight: 600;
+}
+QPushButton#SecondaryButton:hover {
+    background: rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.18);
+}
+QPushButton#SecondaryButton:pressed {
+    background: rgba(0,0,0,0.08);
+}
+
+/* Disabled */
+QPushButton:disabled {
+    color: rgba(17,24,39,0.35);
+    background: rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.06);
+}
 """
 
 DARK_THEME = """
-    QWidget {
-        background-color: #2d2d2d;
-        color: #dddddd;
-    }
-    QPushButton {
-        background-color: #444;
-        border: 1px solid #888;
-        padding: 6px;
-        color: #ffffff;
-    }
-    QPushButton:hover {
-        background-color: #555;
-    }
-    QLabel {
-        color: #dddddd;
-    }
+QWidget {
+    background: #1f1f23;
+    color: #e5e7eb;
+    font-size: 13px;
+}
+
+/* Labels */
+QLabel {
+    color: #e5e7eb;
+    font-weight: 500;
+}
+
+/* Inputs */
+QComboBox {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 8px 12px;
+    min-height: 34px;
+    color: #e5e7eb;
+}
+QComboBox:hover {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16);
+}
+QComboBox:focus {
+    border: 1px solid rgba(158,240,200,0.55);
+}
+
+/* Dropdown list */
+QAbstractItemView {
+    background: #1f1f23;
+    color: #e5e7eb;
+    border: 1px solid rgba(255,255,255,0.10);
+    selection-background-color: rgba(158,240,200,0.18);
+}
+
+/* Primary button */
+QPushButton#PrimaryButton {
+    background: rgba(158,240,200,0.14);
+    border: 1px solid rgba(158,240,200,0.22);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+}
+QPushButton#PrimaryButton:hover {
+    background: rgba(158,240,200,0.18);
+    border: 1px solid rgba(158,240,200,0.32);
+}
+QPushButton#PrimaryButton:pressed {
+    background: rgba(158,240,200,0.24);
+}
+
+/* Secondary button */
+QPushButton#SecondaryButton {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+}
+QPushButton#SecondaryButton:hover {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16);
+}
+QPushButton#SecondaryButton:pressed {
+    background: rgba(255,255,255,0.12);
+}
+
+/* Disabled */
+QPushButton:disabled {
+    color: rgba(229,231,235,0.35);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+}
 """
 
 
@@ -81,12 +193,17 @@ class SettingsPage(QWidget):
 
         # --- Layout ---
         layout = QVBoxLayout()
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(10)
 
         # --- Dataset section (auto detection, no combo box) ---
         self.dataset_label = QLabel("Dataset:")
         self.dataset_name_label = QLabel(self.dataset_name or "Not selected")
         self.dataset_path_label = QLabel(f"Path: {self.dataset_path or 'Not selected'}")
+
         self.dataset_browse_btn = QPushButton("Browse Dataset Folder")
+        self.dataset_browse_btn.setObjectName("PrimaryButton")
+        self.dataset_browse_btn.setCursor(Qt.PointingHandCursor)
         self.dataset_browse_btn.clicked.connect(self.browse_dataset)
 
         # --- Model selection ---
@@ -117,11 +234,16 @@ class SettingsPage(QWidget):
         if idx >= 0:
             self.theme_combo.setCurrentIndex(idx)
         self.theme_combo.currentTextChanged.connect(self.update_theme)
+
         self.theme_toggle_btn = QPushButton("Toggle Light/Dark")
+        self.theme_toggle_btn.setObjectName("SecondaryButton")
+        self.theme_toggle_btn.setCursor(Qt.PointingHandCursor)
         self.theme_toggle_btn.clicked.connect(self.toggle_theme)
 
         # --- Save button ---
         self.save_btn = QPushButton("Save Settings")
+        self.save_btn.setObjectName("PrimaryButton")
+        self.save_btn.setCursor(Qt.PointingHandCursor)
         self.save_btn.clicked.connect(self.save_settings)
 
         # --- Assemble layout ---
@@ -129,10 +251,10 @@ class SettingsPage(QWidget):
         layout.addWidget(self.dataset_name_label)
         layout.addWidget(self.dataset_path_label)
         layout.addWidget(self.dataset_browse_btn)
-        layout.addSpacing(15)
+        layout.addSpacing(12)
         layout.addWidget(self.model_label)
         layout.addWidget(self.model_combo)
-        layout.addSpacing(15)
+        layout.addSpacing(12)
         layout.addWidget(self.theme_label)
         layout.addWidget(self.theme_combo)
         layout.addWidget(self.theme_toggle_btn)
@@ -176,9 +298,6 @@ class SettingsPage(QWidget):
         self.theme = text
         self.theme_changed.emit(self.effective_theme())
 
-    # ===============================================================
-    # 🔹 Save & Load
-    # ===============================================================
     # ===============================================================
     # 🔹 Save & Load
     # ===============================================================
@@ -267,7 +386,7 @@ class SettingsPage(QWidget):
         If user selected 'system', map to actual 'light'/'dark'.
         """
         return self.system_theme() if self.theme == "system" else self.theme
-    
+
     def toggle_theme(self):
         # If currently 'system', toggle the *effective* theme and switch to explicit mode
         current = self.effective_theme()
