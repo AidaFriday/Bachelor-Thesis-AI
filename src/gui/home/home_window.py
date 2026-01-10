@@ -114,11 +114,17 @@ class HomeWindow(QMainWindow):
         # Navigation
         # Navigation (update page + active highlight)
         self.sidebar.btn_home.clicked.connect(
-            lambda: (self.stacked.setCurrentIndex(0), self.sidebar.set_active(self.sidebar.btn_home))
+            lambda: (
+                self.stacked.setCurrentIndex(0),
+                self.sidebar.set_active(self.sidebar.btn_home),
+            )
         )
 
         self.sidebar.btn_settings.clicked.connect(
-            lambda: (self.stacked.setCurrentIndex(1), self.sidebar.set_active(self.sidebar.btn_settings))
+            lambda: (
+                self.stacked.setCurrentIndex(1),
+                self.sidebar.set_active(self.sidebar.btn_settings),
+            )
         )
 
         # Layout wrapper
@@ -150,7 +156,6 @@ class HomeWindow(QMainWindow):
 
         # Apply theme
         self.apply_theme(self.settings_page.effective_theme())
-
 
     # ------------------------------------------------------------------
     def start_camera(self):
@@ -199,7 +204,6 @@ class HomeWindow(QMainWindow):
         self.stop_btn.setEnabled(True)
         self.timer.start(30)
 
-
     # ------------------------------------------------------------------
 
     def stop_camera(self):
@@ -218,7 +222,6 @@ class HomeWindow(QMainWindow):
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
 
-
     # ------------------------------------------------------------------
 
     def update_frame(self):
@@ -231,7 +234,16 @@ class HomeWindow(QMainWindow):
             return
 
         disp = frame.copy()
-        detections = self.wrapper.detector.detect(frame)
+        detector = self.wrapper.detector
+
+        # InsightFace
+        if hasattr(detector, "get"):
+            detections = detector.get(frame)
+            mode = "insightface"
+        else:
+            # FaceDetectorAligner
+            detections = detector.detect(frame)
+            mode = "generic"
 
         def _extract_bbox_kps(det):
             if isinstance(det, dict):
@@ -250,14 +262,28 @@ class HomeWindow(QMainWindow):
                 continue
 
             x1, y1, x2, y2 = bbox
-            aligned = self.wrapper.detector.align_for(frame, kps)
-            if aligned is None:
-                continue
 
-            emb = self.wrapper.embed(aligned)
-            if emb is None:
-                continue
+            # ---------------------------
+            # INSIGHTFACE PATH
+            # ---------------------------
+            if mode == "insightface":
+                emb = getattr(det, "embedding", None)
+                if emb is None:
+                    continue
 
+            # ---------------------------
+            # GENERIC (FACENET / ADAFACE)
+            # ---------------------------
+            else:
+                aligned = self.wrapper.detector.align_for(frame, kps)
+                if aligned is None:
+                    continue
+
+                emb = self.wrapper.embed(aligned)
+                if emb is None:
+                    continue
+
+            # Normalize
             emb = emb.astype(np.float32)
             n = np.linalg.norm(emb)
             if n > 0:
@@ -268,12 +294,9 @@ class HomeWindow(QMainWindow):
 
             if self.face_db:
                 name, sim = self.face_db.match(emb)
-
                 threshold = MODEL_THRESHOLDS.get(self.wrapper.name, 0.65)
-
                 label = name if sim >= threshold else "Unknown"
                 label_text = f"{label} | {self.wrapper.name} | cos={sim:.3f}"
-
 
             color = self.model_colors.get(self.wrapper.name, (0, 255, 0))
             cv2.rectangle(disp, (x1, y1), (x2, y2), color, 1)
