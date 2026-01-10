@@ -196,16 +196,6 @@ class SettingsPage(QWidget):
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(10)
 
-        # --- Dataset section (auto detection, no combo box) ---
-        self.dataset_label = QLabel("Dataset:")
-        self.dataset_name_label = QLabel(self.dataset_name or "Not selected")
-        self.dataset_path_label = QLabel(f"Path: {self.dataset_path or 'Not selected'}")
-
-        self.dataset_browse_btn = QPushButton("Browse Dataset Folder")
-        self.dataset_browse_btn.setObjectName("PrimaryButton")
-        self.dataset_browse_btn.setCursor(Qt.PointingHandCursor)
-        self.dataset_browse_btn.clicked.connect(self.browse_dataset)
-
         # --- Model selection ---
         self.model_label = QLabel("Select model:")
         self.model_combo = QComboBox()
@@ -247,11 +237,6 @@ class SettingsPage(QWidget):
         self.save_btn.clicked.connect(self.save_settings)
 
         # --- Assemble layout ---
-        layout.addWidget(self.dataset_label)
-        layout.addWidget(self.dataset_name_label)
-        layout.addWidget(self.dataset_path_label)
-        layout.addWidget(self.dataset_browse_btn)
-        layout.addSpacing(12)
         layout.addWidget(self.model_label)
         layout.addWidget(self.model_combo)
         layout.addSpacing(12)
@@ -261,32 +246,6 @@ class SettingsPage(QWidget):
         layout.addStretch()
         layout.addWidget(self.save_btn)
         self.setLayout(layout)
-
-    # ===============================================================
-    # 🔹 Dataset Handling
-    # ===============================================================
-    def browse_dataset(self):
-        """Manually browse for a dataset folder and auto-detect type."""
-        path = QFileDialog.getExistingDirectory(
-            self, "Select Dataset Folder", os.getcwd()
-        )
-        if not path:
-            return
-
-        self.dataset_path = path
-
-        # Auto-detect dataset type from folder name or path
-        lower = path.lower()
-        if "ytf" in lower or "aligned_images_db" in lower:
-            self.dataset_name = "ytf"
-        elif "lfw" in lower:
-            self.dataset_name = "lfw"
-        else:
-            self.dataset_name = "unknown"
-
-        # Update UI
-        self.dataset_name_label.setText(self.dataset_name.upper())
-        self.dataset_path_label.setText(f"Path: {path}")
 
     # ===============================================================
     # 🔹 Model & Theme
@@ -312,7 +271,6 @@ class SettingsPage(QWidget):
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
-        # Normal confirmation message
         msg = (
             f"✅ Settings saved:\n\n"
             f"Model: {self.model_name}\n"
@@ -320,7 +278,6 @@ class SettingsPage(QWidget):
             f"Path: {self.dataset_path or 'N/A'}\n"
             f"Theme: {self.theme}"
         )
-
         QMessageBox.information(self, "Settings", msg)
 
     def load_settings(self):
@@ -353,12 +310,6 @@ class SettingsPage(QWidget):
                 print(f"[WARN] Could not load settings.json: {e}")
 
         # If widgets already exist, sync UI with loaded values
-        if hasattr(self, "dataset_name_label"):
-            self.dataset_name_label.setText(self.dataset_name or "Not selected")
-        if hasattr(self, "dataset_path_label"):
-            self.dataset_path_label.setText(
-                f"Path: {self.dataset_path or 'Not selected'}"
-            )
         if hasattr(self, "model_combo"):
             idx = self.model_combo.findText(self.model_name)
             if idx >= 0:
@@ -369,31 +320,19 @@ class SettingsPage(QWidget):
                 self.theme_combo.setCurrentIndex(idx)
 
     def system_theme(self) -> str:
-        """
-        Best-effort system theme detection.
-        Returns "dark" or "light".
-        """
-        # Works reasonably cross-platform by checking palette brightness
         pal = self.palette()
         base = pal.color(QPalette.Window).lightness()
         text = pal.color(QPalette.WindowText).lightness()
-
-        # If window is dark and text is light -> dark theme
         return "dark" if base < text else "light"
 
     def effective_theme(self) -> str:
-        """
-        If user selected 'system', map to actual 'light'/'dark'.
-        """
         return self.system_theme() if self.theme == "system" else self.theme
 
     def toggle_theme(self):
-        # If currently 'system', toggle the *effective* theme and switch to explicit mode
         current = self.effective_theme()
         new_theme = "dark" if current == "light" else "light"
 
         self.theme = new_theme
-        # Update combo selection
         idx = self.theme_combo.findText(new_theme)
         if idx >= 0:
             self.theme_combo.setCurrentIndex(idx)
