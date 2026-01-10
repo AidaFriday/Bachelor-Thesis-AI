@@ -112,10 +112,15 @@ class HomeWindow(QMainWindow):
         self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
         # Navigation
-        self.sidebar.btn_home.clicked.connect(lambda: self.stacked.setCurrentIndex(0))
-        self.sidebar.btn_settings.clicked.connect(
-            lambda: self.stacked.setCurrentIndex(1)
+        # Navigation (update page + active highlight)
+        self.sidebar.btn_home.clicked.connect(
+            lambda: (self.stacked.setCurrentIndex(0), self.sidebar.set_active(self.sidebar.btn_home))
         )
+
+        self.sidebar.btn_settings.clicked.connect(
+            lambda: (self.stacked.setCurrentIndex(1), self.sidebar.set_active(self.sidebar.btn_settings))
+        )
+
         # Layout wrapper
         wrapper_layout = QVBoxLayout()
         wrapper_layout.addWidget(self.toggle_btn, alignment=Qt.AlignLeft)
@@ -144,7 +149,8 @@ class HomeWindow(QMainWindow):
         self.stop_btn.clicked.connect(self.stop_camera)
 
         # Apply theme
-        self.apply_theme(self.settings_page.theme)
+        self.apply_theme(self.settings_page.effective_theme())
+
 
     # ------------------------------------------------------------------
     def start_camera(self):

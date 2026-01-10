@@ -1,3 +1,6 @@
+import sys
+from PyQt5.QtGui import QPalette
+
 from PyQt5.QtWidgets import (
     QWidget,
     QLabel,
@@ -114,6 +117,8 @@ class SettingsPage(QWidget):
         if idx >= 0:
             self.theme_combo.setCurrentIndex(idx)
         self.theme_combo.currentTextChanged.connect(self.update_theme)
+        self.theme_toggle_btn = QPushButton("Toggle Light/Dark")
+        self.theme_toggle_btn.clicked.connect(self.toggle_theme)
 
         # --- Save button ---
         self.save_btn = QPushButton("Save Settings")
@@ -130,6 +135,7 @@ class SettingsPage(QWidget):
         layout.addSpacing(15)
         layout.addWidget(self.theme_label)
         layout.addWidget(self.theme_combo)
+        layout.addWidget(self.theme_toggle_btn)
         layout.addStretch()
         layout.addWidget(self.save_btn)
         self.setLayout(layout)
@@ -168,7 +174,7 @@ class SettingsPage(QWidget):
 
     def update_theme(self, text):
         self.theme = text
-        self.theme_changed.emit(text)
+        self.theme_changed.emit(self.effective_theme())
 
     # ===============================================================
     # 🔹 Save & Load
@@ -242,3 +248,35 @@ class SettingsPage(QWidget):
             idx = self.theme_combo.findText(self.theme)
             if idx >= 0:
                 self.theme_combo.setCurrentIndex(idx)
+
+    def system_theme(self) -> str:
+        """
+        Best-effort system theme detection.
+        Returns "dark" or "light".
+        """
+        # Works reasonably cross-platform by checking palette brightness
+        pal = self.palette()
+        base = pal.color(QPalette.Window).lightness()
+        text = pal.color(QPalette.WindowText).lightness()
+
+        # If window is dark and text is light -> dark theme
+        return "dark" if base < text else "light"
+
+    def effective_theme(self) -> str:
+        """
+        If user selected 'system', map to actual 'light'/'dark'.
+        """
+        return self.system_theme() if self.theme == "system" else self.theme
+    
+    def toggle_theme(self):
+        # If currently 'system', toggle the *effective* theme and switch to explicit mode
+        current = self.effective_theme()
+        new_theme = "dark" if current == "light" else "light"
+
+        self.theme = new_theme
+        # Update combo selection
+        idx = self.theme_combo.findText(new_theme)
+        if idx >= 0:
+            self.theme_combo.setCurrentIndex(idx)
+
+        self.theme_changed.emit(new_theme)
