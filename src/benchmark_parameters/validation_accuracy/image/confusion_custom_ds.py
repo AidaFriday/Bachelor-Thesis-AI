@@ -86,6 +86,8 @@ def extract_embedding(model_name, wrapper, detector, img):
 
     # ▣ ARC FACE — InsightFace alignment (112)
     if model_name.lower() == "arcface":
+        if not INSIGHT_AVAILABLE:
+            return None
         kps_ins = np.array([kps[1], kps[0], kps[2], kps[3], kps[4]], np.float32)
         aligned = face_align.norm_crop(img, kps_ins, image_size=112)
         return wrapper.embed_aligned(aligned)
@@ -191,6 +193,9 @@ def run_confusion(model_name, dataset_root, pairs_file):
             if acc > best_acc:
                 best_acc, best_thr = acc, t
         thr_source = "pooled best-by-accuracy"
+
+        # IMPORTANT: recompute preds at the selected best_thr
+        preds = (sims_valid >= best_thr).astype(np.int32)
 
     # ----- Confusion matrix counts -----
     labels_np = labels_valid

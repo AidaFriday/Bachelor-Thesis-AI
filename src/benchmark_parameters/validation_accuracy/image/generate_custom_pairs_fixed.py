@@ -9,7 +9,7 @@ from itertools import combinations, product
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 sys.path.insert(0, PROJECT_ROOT)
 
-DATASET_PATH = r"C:/programming/Datasets/CUSTOM_DATASET"
+DATASET_PATH = r"C:/programming/Datasets/CUSTOM_DATASET_ORG"
 OUTPUT_FILE = "pairs_custom.txt"
 
 NUM_FOLDS = 3
