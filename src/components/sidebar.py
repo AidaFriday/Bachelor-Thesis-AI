@@ -1,4 +1,4 @@
-# sidebar.py
+# components/sidebar.py
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt5.QtCore import Qt, QPropertyAnimation
 
@@ -9,27 +9,21 @@ class SideBar(QWidget):
 
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
-        layout.setSpacing(12)  # more breathing space
+        layout.setSpacing(12)
 
-        # Buttons
+        # Buttons you actually want
         self.btn_home = QPushButton("Home")
-        self.btn_dataset = QPushButton("Dataset")
-        self.btn_models = QPushButton("Models")
-        self.btn_benchmark = QPushButton("Benchmark")
         self.btn_settings = QPushButton("Settings")
 
         self.buttons = [
             self.btn_home,
-            self.btn_dataset,
-            self.btn_models,
-            self.btn_benchmark,
             self.btn_settings,
         ]
 
         for btn in self.buttons:
             btn.setMinimumHeight(45)
-            btn.setCursor(Qt.PointingHandCursor)  # hand cursor
-            btn.setFlat(True)  # remove old 3D look
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setFlat(True)
             layout.addWidget(btn)
 
         self.setLayout(layout)
@@ -42,7 +36,7 @@ class SideBar(QWidget):
     def toggle(self):
         if self._collapsed:
             self.anim.setStartValue(0)
-            self.anim.setEndValue(220)  # a little wider for nicer look
+            self.anim.setEndValue(220)
         else:
             self.anim.setStartValue(220)
             self.anim.setEndValue(0)
@@ -50,7 +44,6 @@ class SideBar(QWidget):
         self._collapsed = not self._collapsed
 
     def apply_theme(self, theme: str):
-        """Update button styles when theme changes."""
         if theme == "dark":
             style = """
                 QPushButton {
@@ -61,12 +54,8 @@ class SideBar(QWidget):
                     font-size: 14px;
                     text-align: left;
                 }
-                QPushButton:hover {
-                    background-color: #505050;
-                }
-                QPushButton:pressed {
-                    background-color: #2d2d2d;
-                }
+                QPushButton:hover { background-color: #505050; }
+                QPushButton:pressed { background-color: #2d2d2d; }
             """
         else:
             style = """
@@ -78,12 +67,8 @@ class SideBar(QWidget):
                     font-size: 14px;
                     text-align: left;
                 }
-                QPushButton:hover {
-                    background-color: #e0e0e0;
-                }
-                QPushButton:pressed {
-                    background-color: #d0d0d0;
-                }
+                QPushButton:hover { background-color: #e0e0e0; }
+                QPushButton:pressed { background-color: #d0d0d0; }
             """
         for btn in self.buttons:
             btn.setStyleSheet(style)

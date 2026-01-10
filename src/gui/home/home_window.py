@@ -116,10 +116,6 @@ class HomeWindow(QMainWindow):
         self.sidebar.btn_settings.clicked.connect(
             lambda: self.stacked.setCurrentIndex(1)
         )
-        self.sidebar.btn_benchmark.clicked.connect(
-            lambda: self.stacked.setCurrentIndex(2)
-        )
-
         # Layout wrapper
         wrapper_layout = QVBoxLayout()
         wrapper_layout.addWidget(self.toggle_btn, alignment=Qt.AlignLeft)
