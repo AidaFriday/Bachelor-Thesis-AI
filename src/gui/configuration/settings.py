@@ -205,10 +205,14 @@ class SettingsPage(QWidget):
         try:
             with open(model_config_path, "r") as f:
                 model_config = json.load(f)
-                model_names = list(model_config.keys())
+                all_models = list(model_config.keys())
         except Exception as e:
             print(f"[WARN] Could not read model.config: {e}")
-            model_names = ["arcface", "facenet", "insightface"]
+            all_models = ["arcface", "facenet_camera", "adaface_camera"]
+
+        # ✅ Keep only the models you want
+        allowed_models = {"arcface", "facenet_camera", "adaface_camera"}
+        model_names = [m for m in all_models if m in allowed_models]
 
         self.model_combo.addItems(model_names)
         idx = self.model_combo.findText(self.model_name)
