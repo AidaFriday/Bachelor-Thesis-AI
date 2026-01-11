@@ -315,8 +315,9 @@ class HomeWindow(QMainWindow):
                     2,
                 )
 
+        H, W = disp.shape[:2]
         # -------------------------------
-        # PERF + MEMORY METRICS (RESTORED VISIBILITY)
+        # PERF + MEMORY METRICS (RIGHT SIDE, SMALLER TEXT)
         # -------------------------------
         latency_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -336,17 +337,41 @@ class HomeWindow(QMainWindow):
             f"Model RAM: {model_ram:.1f} MB",
         ]
 
-        H, W = disp.shape[:2]
-        x, y0, dy = 20, 40, 34  # ✅ FIX: always visible
+        # 🔧 Position on the right
+        margin_right = 20
+        x_right = W - margin_right
+        y0 = 40
+        dy = 24  # vertical spacing (smaller)
+        font_scale = 0.55
+        thickness = 1
 
         for i, txt in enumerate(lines):
-            (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-            y = y0 + i * dy
-            cv2.rectangle(
-                disp, (x - 10, y - th - 10), (x + tw + 10, y + 6), (0, 0, 0), -1
+            (tw, th), _ = cv2.getTextSize(
+                txt, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
             )
+            y = y0 + i * dy
+
+            # Right-aligned text
+            x = x_right - tw
+
+            # Background box
+            cv2.rectangle(
+                disp,
+                (x - 8, y - th - 6),
+                (x + tw + 8, y + 4),
+                (0, 0, 0),
+                -1,
+            )
+
+            # Text
             cv2.putText(
-                disp, txt, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2
+                disp,
+                txt,
+                (x, y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (255, 255, 255),
+                thickness,
             )
 
         rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
