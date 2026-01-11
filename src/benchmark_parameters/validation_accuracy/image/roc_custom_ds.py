@@ -207,7 +207,10 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     # --------------------------------------------------
     #       PROCESS ALL PAIRS
     # --------------------------------------------------
-    for (img1, img2, lab), fold in zip(pairs, fold_ids):
+    for idx, ((img1, img2, lab), fold) in enumerate(zip(pairs, fold_ids), 1):
+
+        if idx % 50 == 0:
+            print(f"[INFO] Processed {idx}/{len(pairs)} pairs")
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
@@ -224,7 +227,6 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
 
         sim = cosine_similarity(emb1, emb2)
 
-        # ✅ LFW-correct exclusion logic
         sims.append(sim)
         labels.append(lab)
         valid_fold_ids.append(fold)
@@ -254,7 +256,9 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     thresholds, accs, mean_acc, std_acc = compute_fold_accuracy(sims, labels, fold_ids)
 
     print("\n--------------- RESULTS ----------------")
-    print(f"3-fold mean accuracy: {mean_acc*100:.4f}% ± {std_acc*100:.4f}%")
+    print(
+        f"{int(fold_ids.max()+1)}-fold mean accuracy: {mean_acc*100:.4f}% ± {std_acc*100:.4f}%"
+    )
 
     # --------------------------------------------------
     #       GLOBAL ROC
@@ -314,7 +318,7 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
 
         # Save JSON
         summary = {
-            "kind": "lfw_10fold_roc",
+            "kind": "custom_dataset_lfw_protocol",
             "model": model_name,
             "dataset": os.path.basename(dataset_root),
             # --- pair statistics (LFW-style) ---

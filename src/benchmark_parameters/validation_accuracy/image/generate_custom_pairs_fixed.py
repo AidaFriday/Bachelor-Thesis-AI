@@ -1,4 +1,5 @@
-# generate_custom_pairs_fixed.py  (IMPROVED, NO DUPLICATES)
+# generate_custom_pairs_fixed.py
+# EXACT: 1080 POS, 1080 NEG, 10 FOLDS, NO DUPLICATES
 
 import os
 import random
@@ -12,14 +13,18 @@ sys.path.insert(0, PROJECT_ROOT)
 DATASET_PATH = r"C:/programming/Datasets/CUSTOM_DATASET_ORG"
 OUTPUT_FILE = "pairs_custom.txt"
 
-NUM_FOLDS = 3
-PAIRS_PER_FOLD = 10  # per fold: 10 positive + 10 negative
+NUM_FOLDS = 10
+TOTAL_POS = 1080
+TOTAL_NEG = 1080
+
+POS_PER_FOLD = TOTAL_POS // NUM_FOLDS  # 108
+NEG_PER_FOLD = TOTAL_NEG // NUM_FOLDS  # 108
 
 random.seed(42)  # reproducible
 
 
 # --------------------------------------------------------------
-# Load dataset: dictionary of { person: [img1.jpg, img2.jpg, ...] }
+# Load dataset: { person: [img1.jpg, img2.jpg, ...] }
 # --------------------------------------------------------------
 def load_dataset(dataset_path):
     people = {}
@@ -42,13 +47,12 @@ def load_dataset(dataset_path):
 
 
 # --------------------------------------------------------------
-# Create ALL POSSIBLE POSITIVE PAIRS (combinations)
+# Create ALL POSSIBLE POSITIVE PAIRS
 # --------------------------------------------------------------
 def build_positive_pairs(people):
     pos = []
 
     for person, imgs in people.items():
-        # all 2-combinations → (imgA, imgB)
         for img1, img2 in combinations(imgs, 2):
             pos.append((person, img1, img2))
 
@@ -57,7 +61,7 @@ def build_positive_pairs(people):
 
 
 # --------------------------------------------------------------
-# Create ALL POSSIBLE NEGATIVE PAIRS (cross combinations)
+# Create ALL POSSIBLE NEGATIVE PAIRS
 # --------------------------------------------------------------
 def build_negative_pairs(people):
     persons = list(people.keys())
@@ -66,8 +70,6 @@ def build_negative_pairs(people):
     for i in range(len(persons)):
         for j in range(i + 1, len(persons)):
             p1, p2 = persons[i], persons[j]
-
-            # every cross-combination of images
             for img1, img2 in product(people[p1], people[p2]):
                 neg.append((p1, img1, p2, img2))
 
@@ -76,13 +78,11 @@ def build_negative_pairs(people):
 
 
 # --------------------------------------------------------------
-# Split pairs into folds WITHOUT repetition
+# Split into folds WITHOUT repetition
 # --------------------------------------------------------------
 def build_folds(pos_pairs, neg_pairs):
-    folds = []
-
-    required_pos = NUM_FOLDS * PAIRS_PER_FOLD
-    required_neg = NUM_FOLDS * PAIRS_PER_FOLD
+    required_pos = TOTAL_POS
+    required_neg = TOTAL_NEG
 
     if len(pos_pairs) < required_pos:
         raise ValueError(
@@ -94,13 +94,18 @@ def build_folds(pos_pairs, neg_pairs):
             f"Not enough negative pairs: need {required_neg}, have {len(neg_pairs)}"
         )
 
-    # slice disjoint segments
-    for f in range(NUM_FOLDS):
-        start_p = f * PAIRS_PER_FOLD
-        end_p = start_p + PAIRS_PER_FOLD
+    # take only what we need
+    pos_pairs = pos_pairs[:required_pos]
+    neg_pairs = neg_pairs[:required_neg]
 
-        start_n = f * PAIRS_PER_FOLD
-        end_n = start_n + PAIRS_PER_FOLD
+    folds = []
+
+    for f in range(NUM_FOLDS):
+        start_p = f * POS_PER_FOLD
+        end_p = start_p + POS_PER_FOLD
+
+        start_n = f * NEG_PER_FOLD
+        end_n = start_n + NEG_PER_FOLD
 
         fold_pos = pos_pairs[start_p:end_p]
         fold_neg = neg_pairs[start_n:end_n]
@@ -111,11 +116,12 @@ def build_folds(pos_pairs, neg_pairs):
 
 
 # --------------------------------------------------------------
-# Write pairs file identical to old format
+# Write pairs file (LFW-style format)
 # --------------------------------------------------------------
 def write_pairs(folds, out_file):
     with open(out_file, "w") as f:
-        f.write(f"{NUM_FOLDS} {PAIRS_PER_FOLD}\n")
+        # header: <num_folds> <pairs_per_fold>
+        f.write(f"{NUM_FOLDS} {POS_PER_FOLD}\n")
 
         for positives, negatives in folds:
 
@@ -128,6 +134,9 @@ def write_pairs(folds, out_file):
                 f.write(f"{p1} {i1} {p2} {i2}\n")
 
     print(f"[OK] Saved pairs file: {out_file}")
+    print(f"[INFO] Total positive pairs: {TOTAL_POS}")
+    print(f"[INFO] Total negative pairs: {TOTAL_NEG}")
+    print(f"[INFO] Folds: {NUM_FOLDS} (each: {POS_PER_FOLD} pos + {NEG_PER_FOLD} neg)")
 
 
 # --------------------------------------------------------------
@@ -145,5 +154,4 @@ if __name__ == "__main__":
     print(f"[INFO] Negative pairs available: {len(neg_pairs)}")
 
     folds = build_folds(pos_pairs, neg_pairs)
-
     write_pairs(folds, OUTPUT_FILE)
