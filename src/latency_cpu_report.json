@@ -1,18 +1,26 @@
 {
     "model": "facenet_original",
-    "dataset": "C:\\programming\\Datasets\\LFW",
-    "start_time": "2025-12-20T18:02:39",
-    "end_time": "2025-12-20T18:11:43",
-    "duration_sec": 544.96,
+    "dataset": "C:\\programming\\Datasets\\YTF",
+    "start_time": "2026-01-11T00:22:34",
+    "end_time": "2026-01-11T21:25:27",
+    "duration_sec": 75773.6,
     "result": {
-        "kind": "latency_image",
-        "dataset": "C:\\programming\\Datasets\\LFW\\lfw-deepfunneled",
-        "num_images": 10000,
+        "source_file": "logic_dataset_video.py",
+        "kind": "latency_video",
+        "dataset": "C:\\programming\\Datasets\\YTF",
+        "subjects": [],
+        "start_identity": null,
+        "start_person": null,
+        "start_time": "2026-01-11T00:23:13",
+        "end_time": "2026-01-11T21:25:27",
         "num_runs": 1,
-        "avg_latency_ms": 53.35146121019498,
-        "model": "facenet_original",
-        "start_time": "2025-12-20T18:02:40",
-        "end_time": "2025-12-20T18:11:43"
+        "iters": 621126,
+        "avg_latency_ms": 119.65068507411372,
+        "avg_fps": 8.357662134408862,
+        "runs": [
+            119.65068507411372
+        ],
+        "model": "facenet_original"
     },
     "device": "cpu"
 }
