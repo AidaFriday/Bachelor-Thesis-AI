@@ -4,17 +4,19 @@ import matplotlib.pyplot as plt
 import os
 
 BASE_DIR = os.path.dirname(__file__)
+ROC_DIR = os.path.join(BASE_DIR, "roc")
 
 files = {
-    "ArcFace": "arcface_customroc_20260103-161342.json",
-    "FaceNet": "facenet_original_customroc_20260103-161139.json",
-    "AdaFace": "adaface_original_customroc_20260103-162313.json",
+    "ArcFace": "arcface_customroc_20260111-142045.json",
+    "FaceNet": "facenet_original_customroc_20260111-131827.json",
+    "AdaFace": "adaface_original_customroc_20260111-135723.json",
 }
+
 
 plt.figure(figsize=(7, 6))
 
 for display_name, fname in files.items():
-    path = os.path.join(BASE_DIR, fname)
+    path = os.path.join(ROC_DIR, fname)
 
     with open(path, "r") as f:
         data = json.load(f)

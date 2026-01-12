@@ -203,6 +203,7 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
     labels = []
     valid_fold_ids = []
     num_failed = 0
+    failed_pairs = []
 
     # --------------------------------------------------
     #       PROCESS ALL PAIRS
@@ -216,6 +217,13 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
         b = cv2.imread(img2)
         if a is None or b is None:
             num_failed += 1
+            failed_pairs.append(
+                {
+                    "img1": os.path.relpath(img1, dataset_root),
+                    "img2": os.path.relpath(img2, dataset_root),
+                    "reason": "imread_failed",
+                }
+            )
             continue
 
         emb1 = extract_embedding(model_name, wrapper, detector, a)
@@ -223,6 +231,13 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
 
         if emb1 is None or emb2 is None:
             num_failed += 1
+            failed_pairs.append(
+                {
+                    "img1": os.path.relpath(img1, dataset_root),
+                    "img2": os.path.relpath(img2, dataset_root),
+                    "reason": "embedding_failed",
+                }
+            )
             continue
 
         sim = cosine_similarity(emb1, emb2)
@@ -338,6 +353,7 @@ def run_custom_roc(model_name, dataset_root, pairs_file):
             "per_fold_threshold": thresholds.tolist(),
             "mean_accuracy": mean_acc,
             "std_accuracy": std_acc,
+            "failed_pairs": failed_pairs,
         }
 
         with open(out_json, "w") as f:

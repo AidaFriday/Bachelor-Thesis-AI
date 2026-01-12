@@ -5,9 +5,11 @@ from connector import load_model
 
 try:
     import torch
+
     _HAS_TORCH = True
 except Exception:
     _HAS_TORCH = False
+
 
 def print_progress_bar(percent, run, num_runs, width=40):
     filled = int(width * percent / 100)
@@ -38,8 +40,9 @@ _cached_wrapper = None
 _cached_model_name = None
 
 
-def run_logic(model_name, iters, frame_h, frame_w, dataset,
-              progress_callback=None, device=None):
+def run_logic(
+    model_name, iters, frame_h, frame_w, dataset, progress_callback=None, device=None
+):
     global _cached_wrapper, _cached_model_name
 
     # Load model if needed
@@ -58,29 +61,18 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         send_log(f"Invalid dataset path: {dataset}", "error")
         return
 
-    # -------- Collect dataset --------
-    people = sorted([d for d in os.listdir(dataset)
-                     if os.path.isdir(os.path.join(dataset, d))])
-    if not people:
-        send_log("No folders found in dataset", "error")
-        return
-
-    # Start index
-    try:
-        start_idx = people.index(start_person)
-    except ValueError:
-        start_idx = 0
-
-    # Gather image paths
+    # -------- Collect dataset (CUSTOM / RECURSIVE) --------
+    image_exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
     image_paths = []
-    for person in people[start_idx:]:
-        pdir = os.path.join(dataset, person)
-        imgs = sorted([
-            os.path.join(pdir, f)
-            for f in os.listdir(pdir)
-            if f.lower().endswith(".jpg")
-        ])
-        image_paths.extend(imgs)
+
+    for dirpath, _, filenames in os.walk(dataset):
+        for fname in filenames:
+            if fname.lower().endswith(image_exts):
+                full_path = os.path.join(dirpath, fname)
+                image_paths.append(full_path)
+
+                if img_limit and len(image_paths) >= img_limit:
+                    break
         if img_limit and len(image_paths) >= img_limit:
             break
 
@@ -93,6 +85,9 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
 
     total_images = len(image_paths)
     send_log(f"[CONFIG] Images={total_images}, Runs={num_runs}")
+    print("[DEBUG] First 5 images:")
+    for p in image_paths[:5]:
+        print("   ", p)
 
     # ---- Warmup ----
     first_frame = cv2.imread(image_paths[0])
@@ -129,7 +124,6 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
                 percent = int((i / total_images) * 100)
                 print_progress_bar(percent, r + 1, num_runs)
 
-
         if not latencies:
             send_log(f"Run {r+1} failed", "warn")
             continue
@@ -159,7 +153,5 @@ def run_logic(model_name, iters, frame_h, frame_w, dataset,
         "end_time": run_end,
     }
 
-
-
-    #print(json.dumps(payload), flush=True)
+    # print(json.dumps(payload), flush=True)
     return payload

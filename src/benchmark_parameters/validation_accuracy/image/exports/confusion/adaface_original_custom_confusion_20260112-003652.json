@@ -1,0 +1,21 @@
+{
+  "kind": "confusion_matrix",
+  "model": "adaface_original",
+  "pairs_total": 2160,
+  "pairs_used": 2128,
+  "pairs_failed": 32,
+  "failure_rate": 0.014814814814814815,
+  "threshold": 0.6,
+  "threshold_source": "manual (--threshold)",
+  "accuracy": 0.8331766917293233,
+  "precision": 1.0,
+  "recall": 0.6663533834586466,
+  "specificity": 1.0,
+  "f1": 0.799774393683023,
+  "far": 0.0,
+  "frr": 0.33364661654135336,
+  "tn": 1064,
+  "fp": 0,
+  "fn": 355,
+  "tp": 709
+}

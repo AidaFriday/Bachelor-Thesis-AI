@@ -1,0 +1,21 @@
+{
+  "kind": "confusion_matrix",
+  "model": "facenet_original",
+  "pairs_total": 2160,
+  "pairs_used": 2128,
+  "pairs_failed": 32,
+  "failure_rate": 0.014814814814814815,
+  "threshold": 0.6,
+  "threshold_source": "manual (--threshold)",
+  "accuracy": 0.9219924812030075,
+  "precision": 0.9648033126293996,
+  "recall": 0.8759398496240601,
+  "specificity": 0.9680451127819549,
+  "f1": 0.9182266009852217,
+  "far": 0.03195488721804511,
+  "frr": 0.12406015037593984,
+  "tn": 1030,
+  "fp": 34,
+  "fn": 132,
+  "tp": 932
+}

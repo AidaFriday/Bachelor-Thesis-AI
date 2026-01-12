@@ -6,14 +6,16 @@ import sys
 # -------------------------------------------------------------
 # Resolve project src path   (.../Bachelor-Thesis-AI/src)
 # -------------------------------------------------------------
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))                      # /src/benchmark_parameters/performance_gpu
-SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))     # /src
+CURRENT_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)  # /src/benchmark_parameters/performance_gpu
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))  # /src
 
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # Project root (used only for saving JSON)
-PROJECT_ROOT = os.path.dirname(SRC_DIR)                                      # /Bachelor-Thesis-AI
+PROJECT_ROOT = os.path.dirname(SRC_DIR)  # /Bachelor-Thesis-AI
 
 
 # -------------------------------------------------------------
@@ -32,6 +34,7 @@ from dataset import YTF
 
 try:
     import torch
+
     TORCH_AVAILABLE = True
 
     # 🔥 Force CPU only
@@ -39,6 +42,29 @@ try:
 
 except Exception:
     TORCH_AVAILABLE = False
+
+
+# -------------------------------------------------------------
+# Load custom dataset frames (recursive)
+# -------------------------------------------------------------
+def load_custom_frames(root, limit=None):
+    image_exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+    frames = []
+    paths = []
+
+    for dirpath, _, filenames in os.walk(root):
+        for fname in filenames:
+            if fname.lower().endswith(image_exts):
+                full_path = os.path.join(dirpath, fname)
+                img = cv2.imread(full_path)
+                if img is not None:
+                    frames.append(img)
+                    paths.append(full_path)
+
+                if limit and len(frames) >= limit:
+                    return frames, paths
+
+    return frames, paths
 
 
 # -------------------------------------------------------------
@@ -95,7 +121,7 @@ def run(model_name, dataset_path, iters, frame_size):
         print(json.dumps({"error": "Dataset path invalid"}))
         sys.exit(1)
 
-    frames, paths = load_ytf_frames(dataset_path, limit=iters)
+    frames, paths = load_custom_frames(dataset_path, limit=iters)
     if len(frames) == 0:
         print(json.dumps({"error": "Dataset contains no frames"}))
         sys.exit(1)
@@ -137,7 +163,7 @@ def run(model_name, dataset_path, iters, frame_size):
     result = {
         "kind": "cpu_fps",
         "model": model_name,
-        "dataset": "YTF",
+        "dataset": os.path.basename(os.path.normpath(dataset_path)),
         "iters": iters,
         "start_time": run_start,
         "end_time": run_end,
