@@ -1,18 +1,18 @@
 {
-    "model": "facenet_original",
-    "dataset": "C:\\programming\\Datasets\\CUSTOM_DATASET_ORG\\",
-    "start_time": "2026-01-12T21:56:10",
-    "end_time": "2026-01-12T21:56:50",
-    "duration_sec": 39.5,
+    "model": "arcface",
+    "dataset": "C:\\programming\\Datasets\\CUSTOM_DATASET_ORG",
+    "start_time": "2026-01-13T09:05:34",
+    "end_time": "2026-01-13T09:06:32",
+    "duration_sec": 58.03,
     "result": {
         "kind": "latency_image",
         "dataset": "C:\\programming\\Datasets\\CUSTOM_DATASET_ORG",
         "num_images": 510,
         "num_runs": 1,
-        "avg_latency_ms": 57.79526176583935,
-        "model": "facenet_original",
-        "start_time": "2026-01-12T21:56:13",
-        "end_time": "2026-01-12T21:56:50"
+        "avg_latency_ms": 96.97032627699824,
+        "model": "arcface",
+        "start_time": "2026-01-13T09:05:36",
+        "end_time": "2026-01-13T09:06:32"
     },
     "device": "cpu"
 }
