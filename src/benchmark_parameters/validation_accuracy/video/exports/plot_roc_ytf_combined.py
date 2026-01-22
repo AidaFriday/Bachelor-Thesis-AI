@@ -53,18 +53,46 @@ def load_all_folds(prefix, stamp):
 # -----------------------------
 plt.figure(figsize=(7, 6))
 
+colors = {
+    "ArcFace": "blue",
+    "FaceNet": "green",
+    "AdaFace": "red",
+}
+
 for name, cfg in MODELS.items():
     scores, labels = load_all_folds(cfg["prefix"], cfg["stamp"])
 
-    fpr, tpr, _ = roc_curve(labels, scores)
+    fpr, tpr, thresholds = roc_curve(labels, scores)
     roc_auc = auc(fpr, tpr)
 
+    # --------- EER computation ---------
+    fnr = 1.0 - tpr
+    eer_idx = np.nanargmin(np.abs(fnr - fpr))
+    eer = (fpr[eer_idx] + fnr[eer_idx]) / 2.0
+    eer_fpr = fpr[eer_idx]
+    eer_tpr = tpr[eer_idx]
+    # ----------------------------------
+
+    # ROC curve (color per model)
     plt.plot(
         fpr,
         tpr,
         linewidth=2,
-        label=f"{name} (AUC = {roc_auc:.3f})",
+        color=colors[name],
+        label=f"{name} (AUC={roc_auc:.3f}, EER={eer:.3f})",
     )
+
+    # 🔴 EER point (same color as curve)
+    plt.scatter(
+        eer_fpr,
+        eer_tpr,
+        color=colors[name],
+        s=80,
+        marker="o",
+        edgecolors="black",
+        zorder=5,
+    )
+
 
 # random baseline
 plt.plot([0, 1], [0, 1], "k--", linewidth=1)
@@ -74,6 +102,11 @@ plt.ylabel("True Positive Rate")
 plt.title("ROC Curves on YTF Dataset")
 plt.legend(loc="lower right")
 plt.grid(True)
+
+# 🔍 ZOOM into EER region (ADD HERE)
+plt.xlim(0, 0.12)
+plt.ylim(0.90, 1.0)
+
 
 plt.tight_layout()
 plt.savefig("roc_ytf_all_models.png", dpi=300)
