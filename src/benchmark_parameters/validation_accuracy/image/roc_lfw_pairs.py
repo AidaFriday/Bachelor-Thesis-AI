@@ -1,11 +1,17 @@
-#roc_lfw_pairs.py
+# roc_lfw_pairs.py
+# runs the official LFW face verification protocol:
+# loads LFW pairs with fold information
+# computes cosine similarities between face embeddings
+# also it does 10 - fold cross - validation to estimate accuracy
+# exports ROC, AUC, EER, and thresholds as JSON and PNG
+
 import os
+
 os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
-
 import cv2
 import numpy as np
 from sklearn.metrics import roc_curve, auc
@@ -15,47 +21,51 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from connector import load_model  # noqa: E402
 
 
+# Computing cosine similarity between two embedding vectors. Theoretical range: [-1, 1], in practice for face embeddings: [0, 1]
 def cosine_similarity(a, b):
     a = np.asarray(a, dtype=np.float32).flatten()
     b = np.asarray(b, dtype=np.float32).flatten()
     denom = np.linalg.norm(a) * np.linalg.norm(b)
     if denom == 0:
         return 0.0
-    return float(np.dot(a, b) / denom)
+    return float(np.dot(a, b) / denom)  # L2 normalization
 
 
 def dataset_needs_alignment(dataset_path: str) -> bool:
-    """
-    Return False for already-aligned datasets (e.g. LFW-deepfunneled),
-    True for "raw" datasets.
-    """
+
+    # Return False for already-aligned datasets (like my dataset LFW-deepfunneled),
+    # True for "raw" datasets.
+
     path = dataset_path.lower()
     if "lfw" in path and "deepfunneled" in path:
         return False
     return True
 
 
-# ---------------------------------------------------------------------
-# loader that also returns fold indices for each pair
-# ---------------------------------------------------------------------
+# Load LFW verification pairs and keep track of which fold
+# (0–9) each pair belongs to, as required by the official protocol.
+
+
 def load_lfw_pairs_with_folds(pairs_file, dataset_path):
     pairs = []
-    fold_ids = []
+    fold_ids = []  # stores fold index (0–9) for each pair
     with open(pairs_file, "r") as f:
         lines = f.read().strip().split("\n")
 
-    num_folds, pairs_per_fold = map(int, lines[0].split())
-    idx = 1
+    num_folds, pairs_per_fold = map(
+        int, lines[0].split()
+    )  # num_folds = 10,  pairs_per_fold = 300 (300 positive pairs, 300 negative pairs)
+    idx = 1  # start reading real data after the header
 
-    for fold in range(num_folds):  # 0..9
+    for fold in range(num_folds):
         # positive pairs
         for _ in range(pairs_per_fold):
             name, n1, n2 = lines[idx].split()
             img1 = os.path.join(dataset_path, name, f"{name}_{int(n1):04d}.jpg")
             img2 = os.path.join(dataset_path, name, f"{name}_{int(n2):04d}.jpg")
             pairs.append((img1, img2, 1))
-            fold_ids.append(fold)
-            idx += 1
+            fold_ids.append(fold)  # which fold this pair belongs to
+            idx += 1  # move to next line
 
         # negative pairs
         for _ in range(pairs_per_fold):
@@ -69,36 +79,40 @@ def load_lfw_pairs_with_folds(pairs_file, dataset_path):
     return pairs, np.array(fold_ids, dtype=np.int32)
 
 
-# ---------------------------------------------------------------------
 # 10-fold LFW accuracy (threshold per fold)
-# ---------------------------------------------------------------------
+
+
 def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
-    """
-    Official-style 10-fold evaluation:
-      For each fold k:
-        - train on folds != k → find best threshold (max accuracy)
-        - evaluate on fold k with that threshold
-    Returns:
-      thresholds_per_fold, accuracies_per_fold, mean_acc, std_acc
-    """
+
+    # Official-style 10-fold evaluation:
+    # For each fold k:
+    # - train on folds != k → find best threshold (max accuracy)
+    # - evaluate on fold k with that threshold
+    # Returns:
+    # thresholds_per_fold, accuracies_per_fold, mean_acc, std_acc
+
     num_folds = int(fold_ids.max()) + 1
-    thresholds = []
-    accuracies = []
+    thresholds = []  # one threshold per fold
+    accuracies = []  # 1 accuracy per fold
 
     for k in range(num_folds):
         train_mask = fold_ids != k
         test_mask = fold_ids == k
 
-        sims_train = sims[train_mask]
-        labels_train = labels[train_mask]
+        sims_train = sims[train_mask]  # # similarity scores (cosine similarity)
+        labels_train = labels[train_mask]  # # ground-truth labels (0 or 1)
         sims_test = sims[test_mask]
         labels_test = labels[test_mask]
 
         # candidate thresholds = unique scores on training folds
-        cand_thr = np.unique(sims_train)
+        cand_thr = np.unique(
+            sims_train
+        )  # np.unique(x) returns all distinct values in x, we remove the duplicates
 
         best_thr = None
-        best_acc = -1.0
+        best_acc = (
+            -1.0
+        )  # it kind of guarantees the first real threshold wins, since accuracy is always ≥ 0
 
         for t in cand_thr:
             preds = (sims_train >= t).astype(np.int32)
@@ -129,9 +143,9 @@ def compute_lfw_10fold_accuracy(sims, labels, fold_ids):
     return thresholds, accuracies, mean_acc, std_acc
 
 
-# ---------------------------------------------------------------------
 # MAIN PROTOCOL
-# ---------------------------------------------------------------------
+
+
 def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     # if user passed parent LFW folder, go into lfw-deepfunneled
     if os.path.isdir(os.path.join(dataset_path, "lfw-deepfunneled")):
@@ -141,7 +155,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     print(f"[LFW] Dataset : {dataset_path}")
     print(f"[LFW] Pairs   : {pairs_file}")
 
-    # Load model (ArcFace, AdaFace, FaceNetOriginal, etc.)
+    # Load model (ArcFace, AdaFace, FaceNet)
     wrapper = load_model(model_name)
 
     model_name_lower = getattr(wrapper, "name", "").lower()
@@ -149,10 +163,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     is_adaface = model_name_lower.startswith("adaface")
     is_facenet_original = model_name_lower == "facenet_original"
 
-    pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
+    pairs, fold_ids = load_lfw_pairs_with_folds(
+        pairs_file, dataset_path
+    )  # load LFW verification pairs (with folds)
     num_total = len(pairs)
 
-    # optional speed-up for debugging
+    # optional speed-up for debugging, for example --max_pairs 200
     if max_pairs is not None and max_pairs < len(pairs):
         pairs = pairs[:max_pairs]
         fold_ids = fold_ids[:max_pairs]
@@ -160,24 +176,25 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
 
     sims = []
     labels = []
-    num_failed = 0 
+    num_failed = 0
     total = len(pairs)
     use_detection = dataset_needs_alignment(dataset_path)
 
     # only non-ArcFace, non-AdaFace models may use embed_aligned
-    use_aligned = (
-        (not use_detection)
-        and hasattr(wrapper, "embed_aligned")
-    )
+    use_aligned = (not use_detection) and hasattr(wrapper, "embed_aligned")
 
-    for i, (img1, img2, label) in enumerate(pairs, start=1):
+    for i, (img1, img2, label) in enumerate(
+        pairs, start=1
+    ):  # start=1  avoiding Pair 0/6000
         if i == 1 or i % 200 == 0 or i == total:
+            # progress logging [LFW] Pair 200/6000 (3.3%)
             print(f"[LFW] Pair {i}/{total} ({(i/total)*100:.1f}%)")
 
         a = cv2.imread(img1)
         b = cv2.imread(img2)
 
         error = False
+        # similarity score is computed only if both embeddings exist, if one of them is missing, the pair is failed
         emb1 = emb2 = None
 
         if a is None or b is None:
@@ -185,7 +202,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         else:
             try:
                 if is_arcface:
-                    # ArcFace: tested path using internal detection/alignment
+                    # ArcFace tested path using internal detection/alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
@@ -196,6 +213,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     if not faces_a or not faces_b:
                         error = True
                     else:
+                        # faces_b[0]["kps"] - if multiple faces are detected use the first one
                         aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
                         aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
 
@@ -227,7 +245,7 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     emb2 = wrapper.embed_aligned(b)
 
                 elif use_detection:
-                    # Facenet / others on non-aligned datasets
+
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
                     if not faces_a or not faces_b:
@@ -252,11 +270,10 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
             error = True
 
         if error:
-            num_failed += 1  
+            num_failed += 1
             sim = None
         else:
             sim = cosine_similarity(emb1, emb2)
-
 
         sims.append(sim)
         labels.append(label)
@@ -264,37 +281,42 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
     sims = np.array(sims, dtype=object)
     labels = np.array(labels, dtype=np.int32)
 
+    # remove failed pairs
     valid_mask = sims != None
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
     num_valid = len(sims_valid)
 
-
-
-
+    # align fold IDs with valid pairs
     fold_ids = np.array(fold_ids, dtype=np.int32)
 
-    # ---------- 10-fold accuracy ----------
+    #  10-fold accuracy
     thresholds, accs, mean_acc, std_acc = compute_lfw_10fold_accuracy(
-        sims_valid,
-        labels_valid,
-        fold_ids[valid_mask]
-)
+        sims_valid, labels_valid, fold_ids[valid_mask]
+    )
 
-
-    # ---------- global ROC / AUC / EER ----------
+    # global ROC / AUC / EER
+    # TPR = TP / (TP + FN)
     fpr, tpr, roc_thresholds = roc_curve(labels_valid, sims_valid)
     roc_auc = auc(fpr, tpr)
 
+    # FNR =  FN / (TP + FN)
     fnr = 1.0 - tpr
+    # eer = FPR ≈ FNR
+    # fpr - fnr = difference between the two error rates at each threshold
+    # np.abs()  how far apart they are
+    # np.nanargmin() index where the difference is smallest (so basically it is ike find the threshold where FPR and FNR are closest)
     eer_idx = np.nanargmin(np.abs(fpr - fnr))
+    # FPR and FNR are not always exactly equal, so we have to avearge them
     eer = 0.5 * (fpr[eer_idx] + fnr[eer_idx])
 
     print(f"\nGlobal ROC AUC (all pairs): {roc_auc:.4f}")
     print(f"Global EER               : {eer*100:.2f}%")
 
-    # --- Best global threshold (Youden's J statistic) ---
+    # Best global threshold (Youden's J statistic)
+    # How far above random guessing is this threshold? Higher TPR - good, Lower FPR - good, higher J - better trade of
     j_scores = tpr - fpr
+    # threshold that maximizes (TPR − FPR)
     best_idx = int(np.argmax(j_scores))
     best_threshold = float(roc_thresholds[best_idx])
     print(f"[ROC] Best global threshold (Youden J): {best_threshold:.6f}")
@@ -311,12 +333,10 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "kind": "lfw_10fold_roc",
         "model": model_name,
         "dataset": os.path.basename(dataset_path),
-
         # --- pair statistics ---
         "pairs_total": int(num_total),
         "pairs_valid": int(num_valid),
         "pairs_failed": int(num_failed),
-
         # --- metrics (computed on valid pairs only) ---
         "mean_accuracy": float(mean_acc),
         "std_accuracy": float(std_acc),
@@ -324,14 +344,12 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
         "per_fold_threshold": [float(t) for t in thresholds],
         "auc": float(roc_auc),
         "eer": float(eer),
-
         # --- ROC data ---
         "roc_fpr": [float(x) for x in fpr],
         "roc_tpr": [float(x) for x in tpr],
         "roc_thresholds": [float(x) for x in roc_thresholds],
         "best_threshold": float(best_threshold),
     }
-
 
     json_path = os.path.join(exports_dir, base_name + ".json")
     with open(json_path, "w") as f:
@@ -367,7 +385,6 @@ def run_lfw_protocol(model_name, dataset_path, pairs_file, max_pairs=None):
                     "auc": float(roc_auc),
                     "eer": float(eer),
                     "pairs_tested": int(num_valid),
-
                 }
             )
         )

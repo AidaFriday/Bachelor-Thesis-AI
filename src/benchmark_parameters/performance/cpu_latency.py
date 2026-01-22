@@ -1,4 +1,4 @@
-# ==== latency.py ====
+# ==== cpu_latency.py ====
 
 import argparse
 import json

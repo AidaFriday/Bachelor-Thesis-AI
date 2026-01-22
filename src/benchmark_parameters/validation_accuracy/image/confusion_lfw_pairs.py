@@ -26,9 +26,6 @@ def cosine_similarity(a, b):
 
 
 def load_lfw_pairs_with_folds(pairs_file, dataset_path):
-    """
-    Same loader as in roc_lfw_pairs.py – builds the 6000 pairs for LFW.
-    """
     pairs = []
     fold_ids = []
     with open(pairs_file, "r") as f:
@@ -59,22 +56,24 @@ def load_lfw_pairs_with_folds(pairs_file, dataset_path):
     return pairs, np.array(fold_ids, dtype=np.int32)
 
 
+# Scan all unique similarity scores and pick the threshold that maximizes overall accuracy
 def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
-    """
-    Scan all unique similarity scores and pick the threshold
-    that maximizes overall accuracy.
-    """
+    # every unique similarity value is treated as a possible threshold
+    # accuracy only changes when the threshold crosses a score
     cand_thr = np.unique(sims)
+    # if all similarity scores are identical, uses that value, compue accuracy once, return immediately,  becaue no alternative threshold can change the predictions
     if cand_thr.size == 1:
         t = float(cand_thr[0])
         acc = float(np.mean((sims >= t).astype(np.int32) == labels))
         return t, acc
 
     best_thr = None
+    # acc is always ≥ 0, starting at -1 guarantees the first real threshold wins
     best_acc = -1.0
 
     for t in cand_thr:
         preds = (sims >= t).astype(np.int32)
+        # accuracy = number of correct predictions​/total number of predictions
         acc = np.mean(preds == labels)
         if acc > best_acc:
             best_acc = acc
@@ -106,11 +105,9 @@ def run_confusion_protocol(
         is_arcface or is_facenet_original or is_adaface_original
     ), f"LFW confusion not supported for model: {model_name_lower}"
 
-
-
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
 
-    # 🔹 NEW: optional limit for faster debugging
+    # optional limit for faster debugging
     if max_pairs is not None:
         print(f"[CM] DEBUG: restricting to first {max_pairs} pairs")
         pairs = pairs[:max_pairs]
@@ -122,13 +119,13 @@ def run_confusion_protocol(
     num_failed = 0
     total = len(pairs)
 
-
     for i, (img1, img2, label) in enumerate(pairs, start=1):
+        # progress logging [LFW] Pair 200/6000 (3.3%)
         if i == 1 or i % 200 == 0 or i == total:
             # human-readable log
             print(f"[CM] Pair {i}/{total} ({(i/total)*100:.1f}%)")
 
-            # --- progress JSON for the GUI ---
+            # progress JSON for the GUI
             prog = {
                 "_type": "progress",
                 "progress": i,
@@ -147,12 +144,12 @@ def run_confusion_protocol(
         else:
             try:
                 if is_arcface:
-                    # ArcFace: internal detection + alignment
+                    # ArcFace internal detection + alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
                 elif is_facenet_original or is_adaface_original:
-                    # FORCE detect + align (match ROC exactly)
+                    # force detect + align (match ROC exactly)
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
 
@@ -194,10 +191,12 @@ def run_confusion_protocol(
     labels = np.array(labels, dtype=np.int32)
 
     valid_mask = np.array([s is not None for s in sims])
+    # failed pairs no longer exist for evaluation
     sims_valid = sims[valid_mask].astype(np.float32)
     labels_valid = labels[valid_mask]
 
-    # ---------- choose threshold ----------
+    #  choose threshold
+    # user did not pass --threshold, the system must decide automatically
     if threshold is None:
         best_thr, best_acc = find_best_global_threshold(
             sims_valid, labels_valid
@@ -205,6 +204,7 @@ def run_confusion_protocol(
         thr_source = "pooled best-by-accuracy"
         msg = "best threshold"
     else:
+        # user provides
         best_thr = float(threshold)
         preds_tmp = (sims_valid >= best_thr).astype(np.int32)
         best_acc = float(np.mean(preds_tmp == labels_valid))
@@ -217,6 +217,7 @@ def run_confusion_protocol(
 
     # ---------- confusion matrix at that threshold ----------
     preds = (sims_valid >= best_thr).astype(np.int32)
+    # Ensure labels are integer array
     labels_np = np.asarray(labels_valid, dtype=np.int32)
 
     # counts
@@ -225,6 +226,7 @@ def run_confusion_protocol(
     fp = int(np.sum((preds == 1) & (labels_np == 0)))
     fn = int(np.sum((preds == 0) & (labels_np == 1)))
 
+    # Total evaluated pairs
     total_pairs = tp + tn + fp + fn
 
     # core metrics
@@ -344,7 +346,7 @@ def run_confusion_protocol(
     print("\n[CM] JSON summary:")
     print(json.dumps(result, indent=2))  # nice for CLI
 
-    # 👉 ONE-LINE JSON FOR THE GUI
+    # ONE-LINE JSON FOR THE GUI
     print(json.dumps(result))
 
     # save JSON next to ROC exports

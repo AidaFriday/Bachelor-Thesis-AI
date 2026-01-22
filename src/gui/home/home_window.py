@@ -50,11 +50,9 @@ class HomeWindow(QMainWindow):
         # --- Stacked pages ---
         self.stacked = QStackedWidget()
 
-        # Page 1 – Home (Camera UI)
         self.home_page = QWidget()
         home_layout = QVBoxLayout()
 
-        # ✅ FIX: reduce gaps + keep content at top
         home_layout.setAlignment(Qt.AlignTop)
         home_layout.setSpacing(8)
 
@@ -65,7 +63,6 @@ class HomeWindow(QMainWindow):
         self.video_label = QLabel("Camera feed will appear here")
         self.video_label.setAlignment(Qt.AlignCenter)
 
-        # ✅ FIX: allow video to grow in fullscreen
         # self.video_label.setFixedSize(800, 500)
         self.video_label.setScaledContents(True)
         self.video_label.setSizePolicy(
@@ -76,15 +73,13 @@ class HomeWindow(QMainWindow):
         home_layout.addWidget(self.start_btn)
         home_layout.addWidget(self.stop_btn)
 
-        # ✅ FIX: give video stretch so it takes remaining space
         home_layout.addWidget(self.video_label, 1)
 
         self.home_page.setLayout(home_layout)
 
-        # Page 2 – Settings
         self.settings_page = SettingsPage()
 
-        # --- Model colors (consistent) ---
+        # color maybe i will change alter
         self.model_colors = {
             "arcface": (0, 180, 255),  # cyan
             "facenet": (0, 255, 0),  # green
@@ -95,7 +90,6 @@ class HomeWindow(QMainWindow):
 
         self.settings_page.theme_changed.connect(self.apply_theme)
 
-        # Page 3 – Benchmark
         self.benchmark_page = BenchmarkPage(
             get_model_name=lambda: self.settings_page.model_name
         )
@@ -111,8 +105,6 @@ class HomeWindow(QMainWindow):
         self.toggle_btn.setFixedSize(QSize(40, 40))
         self.toggle_btn.clicked.connect(self.toggle_sidebar)
 
-        # Navigation
-        # Navigation (update page + active highlight)
         self.sidebar.btn_home.clicked.connect(
             lambda: (
                 self.stacked.setCurrentIndex(0),
@@ -161,7 +153,7 @@ class HomeWindow(QMainWindow):
     def start_camera(self):
         model_name = self.settings_page.model_name
 
-        # ---- Initialize memory tracker FIRST ----
+        # ---- Initialize memory
         self.mem = LiveMemoryUsage()
         self.mem.snapshot_baseline()
 
@@ -213,7 +205,7 @@ class HomeWindow(QMainWindow):
             self.cap.release()
             self.cap = None
 
-        # 🔴 CLEAR MODEL + DB
+        #  CLEAR MODEL + DB
         self.wrapper = None
         self.face_db = None
 
@@ -317,7 +309,7 @@ class HomeWindow(QMainWindow):
 
         H, W = disp.shape[:2]
         # -------------------------------
-        # PERF + MEMORY METRICS (RIGHT SIDE, SMALLER TEXT)
+        #  RIGHT SIDE  SMALLER TEXT still bit big
         # -------------------------------
         latency_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -337,7 +329,7 @@ class HomeWindow(QMainWindow):
             f"Model RAM: {model_ram:.1f} MB",
         ]
 
-        # 🔧 Position on the right
+        #  Position on the right
         margin_right = 20
         x_right = W - margin_right
         y0 = 40
