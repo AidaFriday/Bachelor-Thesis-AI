@@ -1,7 +1,7 @@
 {
-    "generated_at": "2026-01-12T17:22:11",
+    "generated_at": "2026-02-03T09:49:21",
     "root": "C:\\programming\\Bachelor-Thesis-AI\\src",
-    "count": 73,
+    "count": 75,
     "files": [
         "benchmark_parameters/performance/cpu_fps.py",
         "benchmark_parameters/performance/cpu_latency.py",
@@ -23,6 +23,7 @@
         "benchmark_parameters/validation_accuracy/image/utilities/embeddings_extractor.py",
         "benchmark_parameters/validation_accuracy/validation_accuracy.py",
         "benchmark_parameters/validation_accuracy/video/exports/plot_roc_ytf_combined.py",
+        "benchmark_parameters/validation_accuracy/video/exports/roc_ytf_combined_zoom.py",
         "benchmark_parameters/validation_accuracy/video/legacy/adaface_ytf_precompute_embeddings.py",
         "benchmark_parameters/validation_accuracy/video/legacy/arcface_ytf_precompute_embeddings.py",
         "benchmark_parameters/validation_accuracy/video/legacy/facenet_ytf_precompute_embeddings.py",
@@ -75,6 +76,7 @@
         "models/wrap_facenet_camera.py",
         "models/wrap_facenet_onnx.py",
         "models/wrap_facenet_original.py",
-        "models/wrap_yolov5face.py"
+        "models/wrap_yolov5face.py",
+        "roc_auc_eer_visual.py"
     ]
 }

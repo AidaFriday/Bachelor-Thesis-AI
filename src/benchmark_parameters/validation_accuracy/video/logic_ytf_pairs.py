@@ -1,26 +1,24 @@
-#logic_ytf_pairs.py
+# logic_ytf_pairs.py
 import os
 import sys
 from pathlib import Path
 from datetime import datetime
 import json
-
 import cv2
 import numpy as np
 from scipy.io import loadmat
 from tqdm import tqdm
 
-# === FIX PACKAGE PATH ISSUE ===
+# ensures Python can import modules from my project
 current_file = Path(__file__).resolve()
 project_root = current_file.parents[3]  # <project>/src
 sys.path.insert(0, str(project_root))
-# =================================
 
 # make project root importable (kept for safety)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 from connector import load_model  # noqa: E402
 
-# re-use helpers from your existing video logic
+# re-use helpers from my existing video logic
 try:
     # When run as part of the package
     from .legacy.logic_confusion_matrix_video import (
@@ -35,25 +33,20 @@ except ImportError:
     )
 
 
+# Load precomputed YTF video embeddings from npz., returns a dict: { "Person_X/1": embedding_vector, ... }
 def load_precomputed_embs(npz_path: str):
-    """
-    Load precomputed YTF video embeddings from npz.
-
-    Returns a dict:
-        { "Person_X/1": embedding_vector, ... }
-    """
     data = np.load(npz_path)
     names = data["names"]  # array of strings
-    embs = data["embs"]  # array (N, D)
+    embs = data[
+        "embs"
+    ]  # array (N = number of videos, D = embedding dimension e.g 128, 512)
     return {str(n): e for n, e in zip(names, embs)}
 
 
+# Load YTF meta_and_splits.mat and return (video_names, splits)
 def load_ytf_meta(meta_path: str):
-    """
-    Load YTF meta_and_splits.mat and return (video_names, splits).
-    """
     meta = loadmat(str(meta_path), squeeze_me=True)
-    video_names = meta["video_names"]  # (3425,)
+    video_names = meta["video_names"]  # (3425)
     splits = meta["Splits"]  # (500, 3, 10)
     return video_names, splits
 
@@ -78,18 +71,23 @@ def compute_ytf_pairs(
     labels = []
     pair_records = []
 
+    # Loop through all pairs in the fold
     for idx1, idx2, is_same in tqdm(fold, desc=f"[YTF] Fold {fold_idx}"):
-        idx1 = int(idx1) - 1  # meta is 1-based
+        idx1 = (
+            int(idx1) - 1
+        )  # fix indexing, mATLAB indices start at 1, but Python starts at 0
         idx2 = int(idx2) - 1
         label = int(is_same)
 
-        # video_names entries look like "Sadie_Frost/1"
+        # Convert indices → video names like "Sadie_Frost/1"
         video_key1 = str(video_names[idx1])
         video_key2 = str(video_names[idx2])
 
+        # get embeddings from .npz
         emb1 = video_embs.get(video_key1)
         emb2 = video_embs.get(video_key2)
 
+        # store label, labels = [1, 0, 1, 1, 0, ...]
         labels.append(label)
         emb_missing = (emb1 is None) or (emb2 is None)
 
@@ -100,20 +98,17 @@ def compute_ytf_pairs(
 
         scores.append(score)
 
-
         pair_records.append(
             {
                 "video1": video_key1,
                 "video2": video_key2,
                 "label": "same" if label == 1 else "diff",
                 "similarity": None if score is None else float(score),
-                "emb_missing": bool(emb_missing)
-,
+                "emb_missing": bool(emb_missing),
             }
         )
 
     return scores, labels, pair_records
-
 
 
 def export_ytf_pairs(
@@ -136,7 +131,7 @@ def export_ytf_pairs(
     print(f"[YTF] Meta:    {meta_path}")
     print(f"[YTF] Embs:    {embs_path}")
 
-    # we no longer need load_model() here – embeddings are precomputed
+    # load metadata and embeddings
     video_names, splits = load_ytf_meta(meta_path)
     video_embs = load_precomputed_embs(embs_path)
 
@@ -150,6 +145,7 @@ def export_ytf_pairs(
         fold_list = [fold]
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+
     # if main_folds.py passes an output directory, use it
     if hasattr(export_ytf_pairs, "outdir") and export_ytf_pairs.outdir is not None:
         export_dir = Path(export_ytf_pairs.outdir)
@@ -158,6 +154,7 @@ def export_ytf_pairs(
 
     export_dir.mkdir(parents=True, exist_ok=True)
 
+    # Loop over folds
     for f_idx in fold_list:
         print(f"\n[YTF] ==== Fold {f_idx} ====")
         scores, labels, pair_records = compute_ytf_pairs(
@@ -169,9 +166,8 @@ def export_ytf_pairs(
 
         fold_tag = f"fold{f_idx}"
         base = f"{model_name}_ytf_{fold_tag}_{ts}"
-        # -------------------------------
-        # Filter failed pairs (LFW-style)
-        # -------------------------------
+
+        # Filter failed pairs
         scores = np.array(scores, dtype=object)
         labels = np.array(labels, dtype=np.int32)
 
@@ -183,10 +179,8 @@ def export_ytf_pairs(
         num_total = int(len(scores))
         num_valid = int(len(scores_valid))
 
-
         np.save(export_dir / f"{base}_scores.npy", scores_valid)
         np.save(export_dir / f"{base}_labels.npy", labels_valid)
-
 
         export_json = {
             "meta": {
@@ -199,7 +193,6 @@ def export_ytf_pairs(
                 "failure_rate": float(num_failed / num_total) if num_total > 0 else 0.0,
                 "timestamp": ts,
             },
-
             "pairs": pair_records,
         }
         with open(export_dir / f"{base}_pairs.json", "w") as f:
@@ -227,10 +220,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-    "--outdir",
-    required=False,
-    default=None,
-    help="Optional output directory for saving fold results",
+        "--outdir",
+        required=False,
+        default=None,
+        help="Optional output directory for saving fold results",
     )
 
     args = parser.parse_args()
@@ -246,4 +239,3 @@ if __name__ == "__main__":
         args.embs,
         fold_arg,
     )
-

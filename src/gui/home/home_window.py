@@ -31,12 +31,12 @@ from components.utilities.live_memory_usage import LiveMemoryUsage
 
 
 MODEL_THRESHOLDS = {
-    "arcface": 0.60,
+    "arcface": 0.70,
     "facenet": 0.75,
-    "facenet_camera": 0.60,
-    "facenet_original": 0.75,
+    "facenet_camera": 0.70,
+    "facenet_original": 0.70,
     "adaface": 0.55,
-    "adaface_camera": 0.60,
+    "adaface_camera": 0.70,
 }
 
 

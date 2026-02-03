@@ -53,9 +53,8 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     labels = np.concatenate(labels_list, axis=0)
     return scores, labels
 
-# =========================================================
-# NEW: load failure statistics from per-fold pairs.json
-# =========================================================
+
+# load failure statistics from per-fold pairs.json
 def load_failure_stats(exports_dir: Path, model: str, stamp: str):
     pairs_total = 0
     pairs_valid = 0
@@ -75,11 +74,9 @@ def load_failure_stats(exports_dir: Path, model: str, stamp: str):
 
     return pairs_total, pairs_valid, pairs_failed
 
+
+# Compute ROC metrics
 def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
-    """
-    Compute ROC metrics on all 10 folds (5000 pairs) of YTF
-    using precomputed scores/labels.
-    """
     if exports_dir is None:
         exports_dir = Path(__file__).resolve().parents[2] / "exports"
     else:
@@ -91,10 +88,9 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         exports_dir, model_name, stamp
     )
 
-
-    # --- basic sanity check ---
-    pos_count = int((labels == 1).sum())
-    neg_count = int((labels == 0).sum())
+    #  Count positive and negative pairs
+    pos_count = int((labels == 1).sum())  # 2500
+    neg_count = int((labels == 0).sum())  # 2500
     print(f"[YTF ROC] pos_pairs={pos_count}, neg_pairs={neg_count}")
     print(
         f"[YTF ROC] scores range: [{float(scores.min()):.4f}, {float(scores.max()):.4f}]"
@@ -124,16 +120,10 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         "kind": "roc_ytf",
         "model": model_name,
         "dataset": "YTF",
-
-        # LFW-style pair statistics
         "pairs_total": pairs_total,
         "pairs_valid": pairs_valid,
         "pairs_failed": pairs_failed,
-        "failure_rate": (
-            pairs_failed / pairs_total if pairs_total > 0 else 0.0
-        ),
-
-        # existing metrics
+        "failure_rate": (pairs_failed / pairs_total if pairs_total > 0 else 0.0),
         "pairs_used": int(len(labels)),
         "pos_pairs": pos_count,
         "neg_pairs": neg_count,
@@ -141,7 +131,6 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         "eer": float(eer),
         "best_threshold": float(best_thr),
     }
-
 
     # --- export JSON ---
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -169,13 +158,6 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
     print(f"[YTF ROC] JSON -> {json_path}")
     print(f"[YTF ROC] PNG  -> {png_path}")
     print(json.dumps(metrics))
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":

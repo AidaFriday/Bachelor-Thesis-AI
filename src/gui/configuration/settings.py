@@ -276,11 +276,7 @@ class SettingsPage(QWidget):
             json.dump(data, f, indent=2)
 
         msg = (
-            f"✅ Settings saved:\n\n"
-            f"Model: {self.model_name}\n"
-            f"Dataset: {self.dataset_name or 'Not selected'}\n"
-            f"Path: {self.dataset_path or 'N/A'}\n"
-            f"Theme: {self.theme}"
+            f"Settings saved:\n\n" f"Model: {self.model_name}\n" f"Theme: {self.theme}"
         )
         QMessageBox.information(self, "Settings", msg)
 
@@ -297,9 +293,7 @@ class SettingsPage(QWidget):
                 self.theme = data.get("theme", "light")
 
                 print(
-                    f"[INFO] Loaded settings: "
-                    f"model={self.model_name}, dataset={self.dataset_name}, "
-                    f"path={self.dataset_path}, theme={self.theme}"
+                    f"[INFO] Loaded settings: model={self.model_name}, theme={self.theme}"
                 )
 
                 if self.dataset_name:

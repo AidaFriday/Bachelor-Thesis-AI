@@ -19,6 +19,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 FIXED_THRESHOLD = 0.8
 
 
+# loads prediction scores and labels from 10 folds, then merges them into two big arrays
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores_list = []
     labels_list = []
@@ -39,6 +40,8 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores = np.concatenate(scores_list, axis=0)
     labels = np.concatenate(labels_list, axis=0)
     return scores, labels
+
+
 def load_failure_stats(exports_dir: Path, model: str, stamp: str):
     pairs_total = 0
     pairs_valid = 0
@@ -71,7 +74,6 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         exports_dir, model_name, stamp
     )
 
-
     preds = (scores >= FIXED_THRESHOLD).astype(int)
 
     tp = int(((preds == 1) & (labels == 1)).sum())
@@ -91,22 +93,16 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "kind": "confusion_matrix_ytf",
         "model": model_name,
         "dataset": "YTF",
-
-        # LFW-style pair statistics
         "pairs_total": pairs_total,
         "pairs_valid": pairs_valid,
         "pairs_failed": pairs_failed,
-        "failure_rate": (
-            pairs_failed / pairs_total if pairs_total > 0 else 0.0
-        ),
+        "failure_rate": (pairs_failed / pairs_total if pairs_total > 0 else 0.0),
         "pairs_used": int(len(labels)),
-
         # confusion counts
         "tp": tp,
         "tn": tn,
         "fp": fp,
         "fn": fn,
-
         # metrics
         "accuracy": float(accuracy),
         "precision": float(precision),
@@ -118,8 +114,7 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "threshold": float(FIXED_THRESHOLD),
     }
 
-
-    # ---------- NEW: draw confusion-matrix PNG ----------
+    #  draw confusion-matrix PNG
     cm = np.array([[tp, fp], [fn, tn]])
 
     labels_cm = [["TP", "FP"], ["FN", "TN"]]
@@ -161,7 +156,6 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
 
     plt.savefig(png_path, dpi=200, bbox_inches="tight")
     plt.close()
-    # ---------- END NEW PART ----------
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"

@@ -7,9 +7,7 @@ import sys
 import time
 import numpy as np
 
-# -------------------------------------------------------------
-# 🔥 FORCE PROJECT ROOT INTO PYTHONPATH
-# -------------------------------------------------------------
+# FORCE PROJECT ROOT INTO PYTHONPATH
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "../../"))
 COMPONENTS_DIR = os.path.join(PROJECT_ROOT, "components")
@@ -39,19 +37,14 @@ def load_custom_frames(root, limit=None):
     return frames, paths
 
 
-# -------------------------------------------------------------
-# 🔹 FORCE CPU-ONLY (DISABLE GPU DETECTION)
-# -------------------------------------------------------------
+# FORCE CPU-ONLY (DISABLE GPU DETECTION)
 def _gpu_available():
     return False  # always CPU
 
 
 # REMOVE GPU ABORT
 # (No sys.exit if GPU missing)
-
-# -------------------------------------------------------------
-# 🔹 LOAD PROJECT FILE INDEX
-# -------------------------------------------------------------
+# LOAD PROJECT FILE INDEX
 try:
     from components.utilities.file_indexer import load_file_index
 except ModuleNotFoundError:
@@ -74,16 +67,12 @@ from connector import load_model
 SETTINGS_FILE = os.path.join(PROJECT_ROOT, "settings.json")
 
 
-# -------------------------------------------------------------
 # LOGGING
-# -------------------------------------------------------------
 def send_log(msg, level="info"):
     print(json.dumps({"log": msg, "level": level}), flush=True)
 
 
-# -------------------------------------------------------------
 # CLEAN PROGRESS EVENT
-# -------------------------------------------------------------
 _last_progress = -1
 
 
@@ -108,9 +97,7 @@ def send_progress(current, total, run=1, num_runs=1):
         )
 
 
-# -------------------------------------------------------------
 # SETTINGS
-# -------------------------------------------------------------
 def _resolve_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -120,9 +107,7 @@ def _resolve_settings():
     return {}
 
 
-# -------------------------------------------------------------
 # DATASET NORMALIZATION
-# -------------------------------------------------------------
 def normalize_dataset_path(dataset):
     if not dataset:
         return dataset
@@ -141,9 +126,7 @@ def normalize_dataset_path(dataset):
     return dataset
 
 
-# -------------------------------------------------------------
 # ROUTER
-# -------------------------------------------------------------
 def run(model_name, iters, frame_h, frame_w, dataset, device):
 
     dataset = normalize_dataset_path(dataset)
@@ -194,9 +177,7 @@ def resolve_device(choice):
     return "cpu"
 
 
-# -------------------------------------------------------------
 # MAIN ENTRY
-# -------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, help="arcface | facenet | insightface")

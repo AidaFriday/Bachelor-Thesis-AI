@@ -1,4 +1,4 @@
-# ==== performance_gpu/fps_gpu.py ====
+# performance_gpu/fps_gpu.py
 
 import os
 import sys
@@ -17,10 +17,7 @@ if SRC_DIR not in sys.path:
 # Project root (used only for saving JSON)
 PROJECT_ROOT = os.path.dirname(SRC_DIR)  # /Bachelor-Thesis-AI
 
-
-# -------------------------------------------------------------
 # Standard imports
-# -------------------------------------------------------------
 import argparse
 import json
 import time
@@ -37,16 +34,14 @@ try:
 
     TORCH_AVAILABLE = True
 
-    # 🔥 Force CPU only
+    # Force CPU only
     torch.cuda.is_available = lambda: False
 
 except Exception:
     TORCH_AVAILABLE = False
 
 
-# -------------------------------------------------------------
 # Load custom dataset frames (recursive)
-# -------------------------------------------------------------
 def load_custom_frames(root, limit=None):
     image_exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
     frames = []
@@ -67,16 +62,12 @@ def load_custom_frames(root, limit=None):
     return frames, paths
 
 
-# -------------------------------------------------------------
 # CPU sync utility (no-op now)
-# -------------------------------------------------------------
 def cuda_sync():
-    return  # CPU only → nothing to sync
+    return  # CPU only, nothing to sync
 
 
-# -------------------------------------------------------------
 # Full detect → align → embed pipeline
-# -------------------------------------------------------------
 def process_frame(detector, embedder, frame):
     dets = detector.detect(frame)
     if not dets:
@@ -95,9 +86,7 @@ def process_frame(detector, embedder, frame):
     raise RuntimeError("Embedder has no embed() or get_embedding()!")
 
 
-# -------------------------------------------------------------
 # Load YTF frames
-# -------------------------------------------------------------
 def load_ytf_frames(root, limit=None):
     paths = YTF.list_all_images(root_dir=root, shuffle=False, verbose=False)
     frames = []
@@ -112,9 +101,7 @@ def load_ytf_frames(root, limit=None):
     return frames, paths
 
 
-# -------------------------------------------------------------
 # High-accuracy **CPU** benchmark
-# -------------------------------------------------------------
 def run(model_name, dataset_path, iters, frame_size):
 
     if not os.path.exists(dataset_path):
@@ -128,20 +115,20 @@ def run(model_name, dataset_path, iters, frame_size):
 
     print(f"Loaded {len(frames)} frames from YTF")
 
-    # ---------- Load detector + model on CPU ----------
+    # Load detector + model on CPU
     detector = FaceDetectorAligner(device="cpu")
     embedder = load_model(model_name, device="cpu")
 
-    # ---------- Warm-up (CPU) ----------
+    #  Warm-up (CPU)
     warmup_iters = 5
-    print(f"🔥 Warm-up on CPU ({warmup_iters} iterations)...")
+    print(f"Warm-up on CPU ({warmup_iters} iterations)...")
 
     test_frame = frames[0]
     for _ in range(warmup_iters):
         process_frame(detector, embedder, test_frame)
 
-    # ---------- Benchmark ----------
-    print("🚀 Running CPU FPS benchmark...")
+    #  Benchmark
+    print("Running CPU FPS benchmark...")
     run_start = datetime.now().isoformat(timespec="seconds")
 
     t0 = time.perf_counter()
@@ -177,16 +164,14 @@ def run(model_name, dataset_path, iters, frame_size):
         json.dump(result, f, indent=4)
 
     print("=" * 40)
-    print(f"🧠 CPU FPS: {fps:.2f}")
-    print(f"📄 Saved → {out_file}")
+    print(f"CPU FPS: {fps:.2f}")
+    print(f"Saved → {out_file}")
     print("=" * 40)
 
     print(json.dumps(result))
 
 
-# -------------------------------------------------------------
 # CLI
-# -------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True)
