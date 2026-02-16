@@ -1,6 +1,7 @@
 # confusion_lfw_pairs.py
 import os
-os.environ["MPLBACKEND"] = "Agg" 
+
+os.environ["MPLBACKEND"] = "Agg"
 import sys
 import json
 from datetime import datetime
@@ -24,21 +25,7 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-def dataset_needs_alignment(dataset_path: str) -> bool:
-    """
-    Return False for already-aligned datasets (e.g. LFW-deepfunneled),
-    True for "raw" datasets.
-    """
-    path = dataset_path.lower()
-    if "lfw" in path and "deepfunneled" in path:
-        return False
-    return True
-
-
 def load_lfw_pairs_with_folds(pairs_file, dataset_path):
-    """
-    Same loader as in roc_lfw_pairs.py – builds the 6000 pairs for LFW.
-    """
     pairs = []
     fold_ids = []
     with open(pairs_file, "r") as f:
@@ -69,22 +56,24 @@ def load_lfw_pairs_with_folds(pairs_file, dataset_path):
     return pairs, np.array(fold_ids, dtype=np.int32)
 
 
+# Scan all unique similarity scores and pick the threshold that maximizes overall accuracy
 def find_best_global_threshold(sims: np.ndarray, labels: np.ndarray):
-    """
-    Scan all unique similarity scores and pick the threshold
-    that maximizes overall accuracy.
-    """
+    # every unique similarity value is treated as a possible threshold
+    # accuracy only changes when the threshold crosses a score
     cand_thr = np.unique(sims)
+    # if all similarity scores are identical, uses that value, compue accuracy once, return immediately,  becaue no alternative threshold can change the predictions
     if cand_thr.size == 1:
         t = float(cand_thr[0])
         acc = float(np.mean((sims >= t).astype(np.int32) == labels))
         return t, acc
-    
+
     best_thr = None
+    # acc is always ≥ 0, starting at -1 guarantees the first real threshold wins
     best_acc = -1.0
 
     for t in cand_thr:
         preds = (sims >= t).astype(np.int32)
+        # accuracy = number of correct predictions​/total number of predictions
         acc = np.mean(preds == labels)
         if acc > best_acc:
             best_acc = acc
@@ -107,12 +96,18 @@ def run_confusion_protocol(
 
     wrapper = load_model(model_name)
     model_name_lower = getattr(wrapper, "name", "").lower()
+
     is_arcface = model_name_lower == "arcface"
-    is_adaface = model_name_lower == "adaface"
+    is_facenet_original = model_name_lower == "facenet_original"
+    is_adaface_original = model_name_lower == "adaface_original"
+
+    assert (
+        is_arcface or is_facenet_original or is_adaface_original
+    ), f"LFW confusion not supported for model: {model_name_lower}"
 
     pairs, fold_ids = load_lfw_pairs_with_folds(pairs_file, dataset_path)
 
-    # 🔹 NEW: optional limit for faster debugging
+    # optional limit for faster debugging
     if max_pairs is not None:
         print(f"[CM] DEBUG: restricting to first {max_pairs} pairs")
         pairs = pairs[:max_pairs]
@@ -121,23 +116,16 @@ def run_confusion_protocol(
     sims = []
     labels = []
 
+    num_failed = 0
     total = len(pairs)
-    use_detection = dataset_needs_alignment(dataset_path)
-
-    # only non-ArcFace, non-AdaFace models may use embed_aligned
-    use_aligned = (
-        (not use_detection)
-        and (not is_arcface)
-        and (not is_adaface)
-        and hasattr(wrapper, "embed_aligned")
-    )
 
     for i, (img1, img2, label) in enumerate(pairs, start=1):
+        # progress logging [LFW] Pair 200/6000 (3.3%)
         if i == 1 or i % 200 == 0 or i == total:
             # human-readable log
             print(f"[CM] Pair {i}/{total} ({(i/total)*100:.1f}%)")
 
-            # --- progress JSON for the GUI ---
+            # progress JSON for the GUI
             prog = {
                 "_type": "progress",
                 "progress": i,
@@ -156,38 +144,33 @@ def run_confusion_protocol(
         else:
             try:
                 if is_arcface:
-                    # ArcFace: use its tested path (internal detection/alignment)
+                    # ArcFace internal detection + alignment
                     emb1 = wrapper.get_embedding(img1)
                     emb2 = wrapper.get_embedding(img2)
 
-                elif is_adaface:
-                    # AdaFace: use its own embed() which expects an aligned crop
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
-
-                elif use_aligned:
-                    # Other models that have embed_aligned on aligned datasets
-                    emb1 = wrapper.embed_aligned(a)
-                    emb2 = wrapper.embed_aligned(b)
-
-                elif use_detection:
-                    # Facenet / others on non-aligned datasets
+                elif is_facenet_original or is_adaface_original:
+                    # force detect + align (match ROC exactly)
                     faces_a = wrapper.detector.detect(a)
                     faces_b = wrapper.detector.detect(b)
+
                     if not faces_a or not faces_b:
+                        print(f"[CM] Detection failed for pair {i}")
                         error = True
+
                     else:
                         aligned_a = wrapper.detector.align_for(a, faces_a[0]["kps"])
                         aligned_b = wrapper.detector.align_for(b, faces_b[0]["kps"])
+
                         if aligned_a is None or aligned_b is None:
                             error = True
                         else:
                             emb1 = wrapper.embed(aligned_a)
                             emb2 = wrapper.embed(aligned_b)
+
                 else:
-                    # Already aligned dataset, generic embed
-                    emb1 = wrapper.embed(a)
-                    emb2 = wrapper.embed(b)
+                    raise RuntimeError(
+                        f"Confusion protocol not defined for model: {model_name_lower}"
+                    )
 
             except Exception:
                 error = True
@@ -196,28 +179,36 @@ def run_confusion_protocol(
             error = True
 
         if error:
-            # worst-case scores so they are misclassified for any thr in [0,1]
-            sim = -1.0 if label == 1 else 2.0
+            num_failed += 1
+            sim = None
         else:
             sim = cosine_similarity(emb1, emb2)
 
         sims.append(sim)
         labels.append(label)
 
-    sims = np.array(sims, dtype=np.float32)
+    sims = np.array(sims, dtype=object)
     labels = np.array(labels, dtype=np.int32)
 
-    # ---------- choose threshold ----------
+    valid_mask = np.array([s is not None for s in sims])
+    # failed pairs no longer exist for evaluation
+    sims_valid = sims[valid_mask].astype(np.float32)
+    labels_valid = labels[valid_mask]
+
+    #  choose threshold
+    # user did not pass --threshold, the system must decide automatically
     if threshold is None:
         best_thr, best_acc = find_best_global_threshold(
-            sims, labels
+            sims_valid, labels_valid
         )  # pooled best-by-accuracy
         thr_source = "pooled best-by-accuracy"
         msg = "best threshold"
     else:
+        # user provides
         best_thr = float(threshold)
-        preds_tmp = (sims >= best_thr).astype(np.int32)
-        best_acc = float(np.mean(preds_tmp == labels))
+        preds_tmp = (sims_valid >= best_thr).astype(np.int32)
+        best_acc = float(np.mean(preds_tmp == labels_valid))
+
         thr_source = "user-provided (--threshold)"
         msg = "provided threshold"
 
@@ -225,8 +216,9 @@ def run_confusion_protocol(
     print(f"[CM] Accuracy at {msg}: {best_acc*100:.2f}%")
 
     # ---------- confusion matrix at that threshold ----------
-    preds = (sims >= best_thr).astype(np.int32)
-    labels_np = np.asarray(labels, dtype=np.int32)
+    preds = (sims_valid >= best_thr).astype(np.int32)
+    # Ensure labels are integer array
+    labels_np = np.asarray(labels_valid, dtype=np.int32)
 
     # counts
     tp = int(np.sum((preds == 1) & (labels_np == 1)))
@@ -234,6 +226,7 @@ def run_confusion_protocol(
     fp = int(np.sum((preds == 1) & (labels_np == 0)))
     fn = int(np.sum((preds == 0) & (labels_np == 1)))
 
+    # Total evaluated pairs
     total_pairs = tp + tn + fp + fn
 
     # core metrics
@@ -246,11 +239,7 @@ def run_confusion_protocol(
         else 0.0
     )
 
-    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
-    fpr = 1.0 - tnr
-    fnr = 1.0 - recall
-
-    total_pairs = len(labels)
+    total_pairs = len(labels_valid)
     tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0  # recall / sensitivity
     tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0  # specificity
     fpr = 1.0 - tnr
@@ -325,8 +314,13 @@ def run_confusion_protocol(
         "dataset": os.path.basename(dataset_path),
         "pairs": int(total_pairs),
         "threshold": float(best_thr),
+        "threshold_mode": thr_source,
+        "pairs_total": int(len(pairs)),
+        "pairs_used": int(len(labels_valid)),
+        "pairs_failed": int(num_failed),
+        "failure_rate": float(num_failed / (len(labels_valid) + num_failed)),
         # core confusion metrics
-        "accuracy": float(best_acc),
+        "accuracy": float(accuracy),
         "tp": int(tp),
         "tn": int(tn),
         "fp": int(fp),
@@ -352,14 +346,17 @@ def run_confusion_protocol(
     print("\n[CM] JSON summary:")
     print(json.dumps(result, indent=2))  # nice for CLI
 
-    # 👉 ONE-LINE JSON FOR THE GUI
+    # ONE-LINE JSON FOR THE GUI
     print(json.dumps(result))
 
     # save JSON next to ROC exports
     exports_dir = os.path.join(os.path.dirname(__file__), "exports")
     os.makedirs(exports_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    json_path = os.path.join(exports_dir, f"{model_name}_confusion_{ts}.json")
+    json_path = os.path.join(
+        exports_dir, f"{model_name}_confusion_thr{best_thr:.2f}_{ts}.json"
+    )
+
     with open(json_path, "w") as f:
         json.dump(result, f, indent=2)
 

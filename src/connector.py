@@ -19,8 +19,12 @@ from models.wrap_facedetection import FaceDetectorAligner
 # --- Model registry (hardcoded). Remove model.config check since unused.
 WRAPPERS = {
     "arcface": ("models.wrap_arcface", "ArcFaceWrapper"),
-    "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),  # ✅ USE ONNX VERSION
+    "facenet": ("models.wrap_facenet_onnx", "FaceNetONNX"),
     "adaface": ("models.wrap_adaface_onnx", "AdaFaceONNX"),
+    "adaface_camera": ("models.wrap_adaface_camera", "AdaFaceCameraWrapper"),
+    "facenet_original": ("models.wrap_facenet_original", "FaceNetOriginalWrapper"),
+    "facenet_camera": ("models.wrap_facenet_camera", "FaceNetCameraWrapper"),
+    "adaface_original": ("models.wrap_adaface_original", "AdaFaceOriginalWrapper"),
 }
 
 
@@ -84,8 +88,9 @@ def load_model(model_name: str, device: str | None = None):
 
     wrapper = wrapper_class(device=device)
 
-    # Attach a detector on the same device as the wrapper
-    wrapper.detector = _get_detector(device)
+    # Attach detector ONLY for models that need shared external detection
+    if model_name in ("facenet_original", "adaface", "adaface_original"):
+        wrapper.detector = _get_detector(device)
 
     # Encourage consistent naming
     if not hasattr(wrapper, "name"):

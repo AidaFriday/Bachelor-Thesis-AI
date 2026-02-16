@@ -1,0 +1,20 @@
+{
+  "model": "facenet",
+  "dataset": "/home/aida/Datasets/LFW",
+  "start_time": "2025-12-20T18:04:59",
+  "end_time": "2025-12-20T18:05:56",
+  "duration_sec": 57.06,
+  "result": {
+    "kind": "latency_image",
+    "dataset": "/home/aida/Datasets/LFW/lfw-deepfunneled",
+    "num_images": 10000,
+    "num_runs": 1,
+    "avg_latency_ms": 5.4198573958303315,
+    "model": "facenet",
+    "start_time": "2025-12-20T18:05:00",
+    "end_time": "2025-12-20T18:05:56",
+    "avg_latency": null,
+    "min_latency": null,
+    "max_latency": null
+  }
+}

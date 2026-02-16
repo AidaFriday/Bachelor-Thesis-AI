@@ -45,29 +45,42 @@ class ArcFaceWrapper:
 
     # ---------- NEW: embedding for LFW-style aligned faces ----------
     def embed_aligned(self, bgr: np.ndarray) -> np.ndarray:
-        """
-        Embedding for an already cropped + aligned face (e.g. LFW-deepfunneled).
-        This avoids running detection.
-        """
         if bgr is None:
             return None
 
         if self._rec is None:
-            # fall back to generic embed (which may use detection)
             return self.embed(bgr)
 
         W, H = self._rec_input
         face = cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA)
         face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
 
+        emb = None
+
+        # insightface-onnx models may use different APIs
         if hasattr(self._rec, "get"):
-            emb = self._rec.get(face)
-        elif hasattr(self._rec, "get_feat"):
-            emb = self._rec.get_feat(face)
-        elif hasattr(self._rec, "forward"):
-            emb = self._rec.forward(face)
-        else:
-            emb = None
+            try:
+                emb = self._rec.get(face, None)
+            except:
+                emb = None
+
+        if emb is None and hasattr(self._rec, "get_feat"):
+            try:
+                emb = self._rec.get_feat(face)
+            except:
+                emb = None
+
+        if emb is None and hasattr(self._rec, "forward"):
+            try:
+                emb = self._rec.forward(face)
+            except:
+                emb = None
+
+        if emb is None and callable(self._rec):
+            try:
+                emb = self._rec(face)
+            except:
+                emb = None
 
         if emb is None:
             return None
@@ -93,39 +106,48 @@ class ArcFaceWrapper:
 
     # ------- generic embed (kept for backwards compatibility) ----------
     def embed(self, bgr: np.ndarray) -> np.ndarray:
-        """
-        Embedding for a face crop. Uses the recognition backbone when possible,
-        otherwise falls back to detection.
-        """
         if bgr is None:
             return None
 
-        # try direct recognition first
         if self._rec is not None:
-            try:
-                W, H = self._rec_input
-                face = cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA)
-                face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+            W, H = self._rec_input
+            face = cv2.resize(bgr, (W, H), interpolation=cv2.INTER_AREA)
+            face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
 
-                if hasattr(self._rec, "get"):
-                    emb = self._rec.get(face)
-                elif hasattr(self._rec, "get_feat"):
-                    emb = self._rec.get_feat(face)
-                elif hasattr(self._rec, "forward"):
-                    emb = self._rec.forward(face)
-                else:
+            emb = None
+
+            if hasattr(self._rec, "get"):
+                try:
+                    emb = self._rec.get(face, None)
+                except:
                     emb = None
 
-                if emb is not None:
-                    return np.asarray(emb, dtype=np.float32).reshape(-1)
-            except Exception:
-                # fall through to detector
-                pass
+            if emb is None and hasattr(self._rec, "get_feat"):
+                try:
+                    emb = self._rec.get_feat(face)
+                except:
+                    pass
 
-        # fallback: run detector and use first face embedding
+            if emb is None and hasattr(self._rec, "forward"):
+                try:
+                    emb = self._rec.forward(face)
+                except:
+                    pass
+
+            if emb is None and callable(self._rec):
+                try:
+                    emb = self._rec(face)
+                except:
+                    pass
+
+            if emb is not None:
+                return np.asarray(emb, np.float32).reshape(-1)
+
+        # fallback on InsightFace detection+embedding
         faces = self.app.get(bgr)
         if len(faces) > 0 and getattr(faces[0], "embedding", None) is not None:
             return faces[0].embedding.astype(np.float32)
+
         return None
 
     # ------- convenience for path-based tests ----------

@@ -1,0 +1,15 @@
+{
+  "kind": "roc_ytf",
+  "model": "facenet",
+  "dataset": "YTF",
+  "pairs_total": 5000,
+  "pairs_valid": 5000,
+  "pairs_failed": 0,
+  "failure_rate": 0.0,
+  "pairs_used": 5000,
+  "pos_pairs": 2500,
+  "neg_pairs": 2500,
+  "auc": 0.97192992,
+  "eer": 0.07980000000000001,
+  "best_threshold": 0.40328025817871094
+}

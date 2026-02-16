@@ -1,3 +1,4 @@
+# logic_confusion_ytf_pairs.py
 # Computes confusion matrix and evaluation metrics for YTF (all 10 folds)
 # using precomputed scores and labels, and exports JSON + confusion matrix PNG.
 
@@ -7,13 +8,18 @@ import json
 from pathlib import Path
 import numpy as np
 from datetime import datetime
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-FIXED_THRESHOLD = 0.40
+FIXED_THRESHOLD = 0.8
 
 
+# loads prediction scores and labels from 10 folds, then merges them into two big arrays
 def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     scores_list = []
     labels_list = []
@@ -36,6 +42,26 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     return scores, labels
 
 
+def load_failure_stats(exports_dir: Path, model: str, stamp: str):
+    pairs_total = 0
+    pairs_valid = 0
+    pairs_failed = 0
+
+    for fold in range(10):
+        json_path = exports_dir / f"{model}_ytf_fold{fold}_{stamp}_pairs.json"
+        if not json_path.exists():
+            raise FileNotFoundError(f"Missing pairs file: {json_path}")
+
+        with open(json_path, "r") as f:
+            meta = json.load(f)["meta"]
+
+        pairs_total += meta["num_pairs_total"]
+        pairs_valid += meta["num_pairs_valid"]
+        pairs_failed += meta["num_pairs_failed"]
+
+    return pairs_total, pairs_valid, pairs_failed
+
+
 def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
     if exports_dir is None:
         exports_dir = Path(__file__).resolve().parents[2] / "exports"
@@ -43,6 +69,10 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         exports_dir = Path(exports_dir)
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
+
+    pairs_total, pairs_valid, pairs_failed = load_failure_stats(
+        exports_dir, model_name, stamp
+    )
 
     preds = (scores >= FIXED_THRESHOLD).astype(int)
 
@@ -63,11 +93,17 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "kind": "confusion_matrix_ytf",
         "model": model_name,
         "dataset": "YTF",
-        "pairs": int(len(labels)),
+        "pairs_total": pairs_total,
+        "pairs_valid": pairs_valid,
+        "pairs_failed": pairs_failed,
+        "failure_rate": (pairs_failed / pairs_total if pairs_total > 0 else 0.0),
+        "pairs_used": int(len(labels)),
+        # confusion counts
         "tp": tp,
         "tn": tn,
         "fp": fp,
         "fn": fn,
+        # metrics
         "accuracy": float(accuracy),
         "precision": float(precision),
         "recall": float(recall),
@@ -78,7 +114,7 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
         "threshold": float(FIXED_THRESHOLD),
     }
 
-    # ---------- NEW: draw confusion-matrix PNG ----------
+    #  draw confusion-matrix PNG
     cm = np.array([[tp, fp], [fn, tn]])
 
     labels_cm = [["TP", "FP"], ["FN", "TN"]]
@@ -113,10 +149,13 @@ def run_confusion_ytf(model_name: str, stamp: str, exports_dir: str | None = Non
     ax.set_title(f"YTF Confusion Matrix – {model_name} (thr={FIXED_THRESHOLD})")
     fig.tight_layout()
 
-    png_path = Path(__file__).with_name("confusion_ytf_result.png")
+    # SAVE INTO FOLDS DIRECTORY
+    png_path = (
+        exports_dir / f"{model_name}_ytf_confusion_thr{FIXED_THRESHOLD}_{stamp}.png"
+    )
+
     plt.savefig(png_path, dpi=200, bbox_inches="tight")
     plt.close()
-    # ---------- END NEW PART ----------
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_path = exports_dir / f"{model_name}_ytf_confusion_{ts}.json"

@@ -1,0 +1,3514 @@
+{
+  "meta": {
+    "model": "arcface",
+    "dataset": "YTF",
+    "fold": "fold6",
+    "num_pairs_total": 500,
+    "num_pairs_valid": 500,
+    "num_pairs_failed": 0,
+    "failure_rate": 0.0,
+    "timestamp": "20260105-155449"
+  },
+  "pairs": [
+    {
+      "video1": "Karen_Lynn_Gorney/0",
+      "video2": "Karen_Lynn_Gorney/5",
+      "label": "same",
+      "similarity": 0.07172051072120667,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Ridge/2",
+      "video2": "Tom_Ridge/3",
+      "label": "same",
+      "similarity": 0.7231704592704773,
+      "emb_missing": false
+    },
+    {
+      "video1": "Peter_OToole/0",
+      "video2": "Peter_OToole/1",
+      "label": "same",
+      "similarity": 0.4940668046474457,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/1",
+      "video2": "Laura_Bush/5",
+      "label": "same",
+      "similarity": 0.4780092239379883,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/4",
+      "video2": "Sara_Silverman/5",
+      "label": "same",
+      "similarity": 0.6771947741508484,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/1",
+      "video2": "Beatriz_Merino/2",
+      "label": "same",
+      "similarity": 0.01734539493918419,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/2",
+      "video2": "Kirk_Ferentz/5",
+      "label": "same",
+      "similarity": 0.585170567035675,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/1",
+      "video2": "Clark_Randt/2",
+      "label": "same",
+      "similarity": 0.6614544987678528,
+      "emb_missing": false
+    },
+    {
+      "video1": "Luis_Fonsi/2",
+      "video2": "Luis_Fonsi/5",
+      "label": "same",
+      "similarity": 0.6441569924354553,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/3",
+      "video2": "Hassan_Nasrallah/4",
+      "label": "same",
+      "similarity": 0.3759042024612427,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/0",
+      "video2": "Alastair_Campbell/3",
+      "label": "same",
+      "similarity": 0.7700732350349426,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/0",
+      "video2": "Agnes_Bruckner/1",
+      "label": "same",
+      "similarity": 0.5499117374420166,
+      "emb_missing": false
+    },
+    {
+      "video1": "Marc_Racicot/2",
+      "video2": "Marc_Racicot/4",
+      "label": "same",
+      "similarity": 0.63414067029953,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/3",
+      "video2": "Felicity_Huffman/5",
+      "label": "same",
+      "similarity": 0.30887725949287415,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/0",
+      "video2": "Alastair_Campbell/2",
+      "label": "same",
+      "similarity": 0.3727574646472931,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/3",
+      "video2": "Eliane_Karp/4",
+      "label": "same",
+      "similarity": 0.5284327864646912,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pilar_Montenegro/2",
+      "video2": "Pilar_Montenegro/5",
+      "label": "same",
+      "similarity": 0.37522152066230774,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/1",
+      "video2": "Eliane_Karp/3",
+      "label": "same",
+      "similarity": 0.5972720980644226,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/0",
+      "video2": "Eliane_Karp/4",
+      "label": "same",
+      "similarity": 0.5784081816673279,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/1",
+      "video2": "Fred_Eckhard/4",
+      "label": "same",
+      "similarity": 0.7069054841995239,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Ridge/2",
+      "video2": "Tom_Ridge/5",
+      "label": "same",
+      "similarity": 0.7510280013084412,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/0",
+      "video2": "Ahmed_Ahmed/4",
+      "label": "same",
+      "similarity": 0.6994006037712097,
+      "emb_missing": false
+    },
+    {
+      "video1": "Bela_Karolyi/1",
+      "video2": "Bela_Karolyi/3",
+      "label": "same",
+      "similarity": 0.5253877639770508,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ilie_Nastase/0",
+      "video2": "Ilie_Nastase/2",
+      "label": "same",
+      "similarity": 0.4865301251411438,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/1",
+      "video2": "Laura_Bush/2",
+      "label": "same",
+      "similarity": 0.6136971712112427,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/3",
+      "video2": "T_Boone_Pickens/5",
+      "label": "same",
+      "similarity": 0.7004883885383606,
+      "emb_missing": false
+    },
+    {
+      "video1": "Damon_Stoudamire/0",
+      "video2": "Damon_Stoudamire/3",
+      "label": "same",
+      "similarity": 0.7935009598731995,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/4",
+      "video2": "Kim_Gandy/5",
+      "label": "same",
+      "similarity": 0.5996699929237366,
+      "emb_missing": false
+    },
+    {
+      "video1": "Wen_Jiabao/1",
+      "video2": "Wen_Jiabao/3",
+      "label": "same",
+      "similarity": 0.49889811873435974,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dai_Bachtiar/1",
+      "video2": "Dai_Bachtiar/5",
+      "label": "same",
+      "similarity": 0.7348706126213074,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/2",
+      "video2": "Felicity_Huffman/5",
+      "label": "same",
+      "similarity": 0.3892858028411865,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/0",
+      "video2": "Carrie-Anne_Moss/1",
+      "label": "same",
+      "similarity": 0.5612082481384277,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nursultan_Nazarbayev/1",
+      "video2": "Nursultan_Nazarbayev/3",
+      "label": "same",
+      "similarity": 0.6591942310333252,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/0",
+      "video2": "Linda_Dano/5",
+      "label": "same",
+      "similarity": 0.4837351143360138,
+      "emb_missing": false
+    },
+    {
+      "video1": "Penelope_Cruz/2",
+      "video2": "Penelope_Cruz/4",
+      "label": "same",
+      "similarity": 0.6978954076766968,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/0",
+      "video2": "Valerie_Harper/3",
+      "label": "same",
+      "similarity": 0.5325010418891907,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/2",
+      "video2": "Laura_Bush/4",
+      "label": "same",
+      "similarity": 0.6834420561790466,
+      "emb_missing": false
+    },
+    {
+      "video1": "Robert_Altman/2",
+      "video2": "Robert_Altman/5",
+      "label": "same",
+      "similarity": 0.4505791664123535,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/3",
+      "video2": "Crispin_Glover/5",
+      "label": "same",
+      "similarity": 0.261074960231781,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/2",
+      "video2": "Agnes_Bruckner/4",
+      "label": "same",
+      "similarity": 0.5691225528717041,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/1",
+      "video2": "Jane_Rooney/2",
+      "label": "same",
+      "similarity": 0.6941341757774353,
+      "emb_missing": false
+    },
+    {
+      "video1": "Mack_Brown/0",
+      "video2": "Mack_Brown/4",
+      "label": "same",
+      "similarity": 0.5292844772338867,
+      "emb_missing": false
+    },
+    {
+      "video1": "Richard_Rodriguez/0",
+      "video2": "Richard_Rodriguez/3",
+      "label": "same",
+      "similarity": 0.7566516995429993,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laurence_Fishburne/4",
+      "video2": "Laurence_Fishburne/5",
+      "label": "same",
+      "similarity": 0.3539466857910156,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Bettany/1",
+      "video2": "Paul_Bettany/2",
+      "label": "same",
+      "similarity": 0.6179215312004089,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/1",
+      "video2": "Christopher_Reeve/2",
+      "label": "same",
+      "similarity": 0.6040009260177612,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ciaran_Hinds/4",
+      "video2": "Ciaran_Hinds/5",
+      "label": "same",
+      "similarity": 0.42913636565208435,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/3",
+      "video2": "Linda_Dano/5",
+      "label": "same",
+      "similarity": 0.6396722793579102,
+      "emb_missing": false
+    },
+    {
+      "video1": "Mark_Geragos/2",
+      "video2": "Mark_Geragos/4",
+      "label": "same",
+      "similarity": 0.8072609901428223,
+      "emb_missing": false
+    },
+    {
+      "video1": "Damon_Stoudamire/0",
+      "video2": "Damon_Stoudamire/2",
+      "label": "same",
+      "similarity": 0.6787327527999878,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/1",
+      "video2": "T_Boone_Pickens/5",
+      "label": "same",
+      "similarity": 0.7072988748550415,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gael_Garcia_Bermal/3",
+      "video2": "Gael_Garcia_Bermal/4",
+      "label": "same",
+      "similarity": 0.01572306640446186,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/1",
+      "video2": "Beatriz_Merino/3",
+      "label": "same",
+      "similarity": 0.06361899524927139,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/3",
+      "video2": "Hassan_Nasrallah/5",
+      "label": "same",
+      "similarity": 0.743033766746521,
+      "emb_missing": false
+    },
+    {
+      "video1": "Luis_Fonsi/2",
+      "video2": "Luis_Fonsi/4",
+      "label": "same",
+      "similarity": 0.4652470052242279,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pilar_Montenegro/0",
+      "video2": "Pilar_Montenegro/1",
+      "label": "same",
+      "similarity": 0.6238986253738403,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/0",
+      "video2": "Keith_Olbermann/2",
+      "label": "same",
+      "similarity": 0.7228846549987793,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ralph_Klein/1",
+      "video2": "Ralph_Klein/3",
+      "label": "same",
+      "similarity": 0.7024691104888916,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edwina_Currie/0",
+      "video2": "Edwina_Currie/4",
+      "label": "same",
+      "similarity": 0.6341624855995178,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/2",
+      "video2": "Norah_Jones/5",
+      "label": "same",
+      "similarity": 0.6807147860527039,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/1",
+      "video2": "Phil_Gramm/4",
+      "label": "same",
+      "similarity": 0.8918355107307434,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/0",
+      "video2": "Hassan_Nasrallah/3",
+      "label": "same",
+      "similarity": 0.8368415832519531,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlos_Queiroz/0",
+      "video2": "Carlos_Queiroz/1",
+      "label": "same",
+      "similarity": 0.5480117797851562,
+      "emb_missing": false
+    },
+    {
+      "video1": "William_Delahunt/0",
+      "video2": "William_Delahunt/2",
+      "label": "same",
+      "similarity": 0.7402920126914978,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chuanyun_Li/0",
+      "video2": "Chuanyun_Li/1",
+      "label": "same",
+      "similarity": 0.7195379734039307,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/1",
+      "video2": "Kirk_Ferentz/4",
+      "label": "same",
+      "similarity": 0.7518989443778992,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/2",
+      "video2": "Christopher_Reeve/3",
+      "label": "same",
+      "similarity": 0.481073796749115,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/1",
+      "video2": "Fred_Eckhard/3",
+      "label": "same",
+      "similarity": 0.7605836987495422,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/2",
+      "video2": "Beatriz_Merino/3",
+      "label": "same",
+      "similarity": 0.43926146626472473,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/0",
+      "video2": "Keith_Olbermann/4",
+      "label": "same",
+      "similarity": 0.33080294728279114,
+      "emb_missing": false
+    },
+    {
+      "video1": "Robert_Altman/1",
+      "video2": "Robert_Altman/2",
+      "label": "same",
+      "similarity": 0.5820407271385193,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/0",
+      "video2": "Kirk_Ferentz/1",
+      "label": "same",
+      "similarity": 0.7300509810447693,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/2",
+      "video2": "Valerie_Harper/3",
+      "label": "same",
+      "similarity": 0.5780482292175293,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/1",
+      "video2": "Carrie-Anne_Moss/2",
+      "label": "same",
+      "similarity": 0.6366540193557739,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pilar_Montenegro/1",
+      "video2": "Pilar_Montenegro/5",
+      "label": "same",
+      "similarity": 0.4011363983154297,
+      "emb_missing": false
+    },
+    {
+      "video1": "Damon_Stoudamire/2",
+      "video2": "Damon_Stoudamire/3",
+      "label": "same",
+      "similarity": 0.7354956865310669,
+      "emb_missing": false
+    },
+    {
+      "video1": "Geoff_Dixon/0",
+      "video2": "Geoff_Dixon/1",
+      "label": "same",
+      "similarity": 0.36862534284591675,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/2",
+      "video2": "Amelia_Vega/4",
+      "label": "same",
+      "similarity": 0.6287215352058411,
+      "emb_missing": false
+    },
+    {
+      "video1": "Coleen_Rowley/0",
+      "video2": "Coleen_Rowley/3",
+      "label": "same",
+      "similarity": 0.8812810778617859,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/1",
+      "video2": "Phil_Gramm/2",
+      "label": "same",
+      "similarity": 0.9354022741317749,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/3",
+      "video2": "Linda_Dano/4",
+      "label": "same",
+      "similarity": 0.6673735976219177,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/4",
+      "video2": "Laura_Bush/5",
+      "label": "same",
+      "similarity": 0.6377019286155701,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cameron_Diaz/4",
+      "video2": "Cameron_Diaz/5",
+      "label": "same",
+      "similarity": 0.5239829421043396,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ralph_Klein/0",
+      "video2": "Ralph_Klein/1",
+      "label": "same",
+      "similarity": 0.6446583867073059,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/4",
+      "video2": "Ahmed_Ahmed/5",
+      "label": "same",
+      "similarity": 0.5814248323440552,
+      "emb_missing": false
+    },
+    {
+      "video1": "Prince_Harry/2",
+      "video2": "Prince_Harry/4",
+      "label": "same",
+      "similarity": 0.6934473514556885,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/0",
+      "video2": "Agnes_Bruckner/4",
+      "label": "same",
+      "similarity": 0.5027696490287781,
+      "emb_missing": false
+    },
+    {
+      "video1": "Warren_Beatty/3",
+      "video2": "Warren_Beatty/5",
+      "label": "same",
+      "similarity": 0.3439149856567383,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/4",
+      "video2": "Hassan_Nasrallah/5",
+      "label": "same",
+      "similarity": 0.36757585406303406,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/2",
+      "video2": "Kim_Gandy/3",
+      "label": "same",
+      "similarity": 0.6644883751869202,
+      "emb_missing": false
+    },
+    {
+      "video1": "Lee_Baca/1",
+      "video2": "Lee_Baca/4",
+      "label": "same",
+      "similarity": 0.7085503339767456,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/0",
+      "video2": "Eliane_Karp/1",
+      "label": "same",
+      "similarity": 0.5960900187492371,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pilar_Montenegro/0",
+      "video2": "Pilar_Montenegro/2",
+      "label": "same",
+      "similarity": 0.41864511370658875,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/3",
+      "video2": "Phil_Gramm/4",
+      "label": "same",
+      "similarity": 0.9277755618095398,
+      "emb_missing": false
+    },
+    {
+      "video1": "Marc_Racicot/0",
+      "video2": "Marc_Racicot/2",
+      "label": "same",
+      "similarity": 0.7673072814941406,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Smothers/2",
+      "video2": "Tom_Smothers/5",
+      "label": "same",
+      "similarity": 0.37351253628730774,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/0",
+      "video2": "Linda_Dano/2",
+      "label": "same",
+      "similarity": 0.528148889541626,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/0",
+      "video2": "Linda_Dano/3",
+      "label": "same",
+      "similarity": 0.37472692131996155,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/4",
+      "video2": "Keith_Olbermann/5",
+      "label": "same",
+      "similarity": 0.33481672406196594,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/0",
+      "video2": "Agnes_Bruckner/2",
+      "label": "same",
+      "similarity": 0.4176183044910431,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/1",
+      "video2": "Kirk_Ferentz/5",
+      "label": "same",
+      "similarity": 0.7022799253463745,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/4",
+      "video2": "Phil_Gramm/5",
+      "label": "same",
+      "similarity": 0.9344094395637512,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/0",
+      "video2": "Linda_Dano/4",
+      "label": "same",
+      "similarity": 0.2543114721775055,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/0",
+      "video2": "Kim_Gandy/5",
+      "label": "same",
+      "similarity": 0.40326112508773804,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/0",
+      "video2": "Fred_Eckhard/2",
+      "label": "same",
+      "similarity": 0.8823782801628113,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/1",
+      "video2": "Norah_Jones/5",
+      "label": "same",
+      "similarity": 0.6030312776565552,
+      "emb_missing": false
+    },
+    {
+      "video1": "Prince_Harry/1",
+      "video2": "Prince_Harry/4",
+      "label": "same",
+      "similarity": 0.551202118396759,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nora_Ephron/1",
+      "video2": "Nora_Ephron/4",
+      "label": "same",
+      "similarity": 0.693773090839386,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/1",
+      "video2": "Phil_Gramm/3",
+      "label": "same",
+      "similarity": 0.8729355931282043,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pupi_Avati/0",
+      "video2": "Pupi_Avati/3",
+      "label": "same",
+      "similarity": 0.6584039926528931,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/2",
+      "video2": "Carrie-Anne_Moss/5",
+      "label": "same",
+      "similarity": 0.7084575891494751,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ralph_Klein/0",
+      "video2": "Ralph_Klein/3",
+      "label": "same",
+      "similarity": 0.752699613571167,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlos_Queiroz/0",
+      "video2": "Carlos_Queiroz/5",
+      "label": "same",
+      "similarity": 0.6043195724487305,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gary_Carter/1",
+      "video2": "Gary_Carter/3",
+      "label": "same",
+      "similarity": 0.4459189176559448,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dai_Bachtiar/1",
+      "video2": "Dai_Bachtiar/2",
+      "label": "same",
+      "similarity": 0.980933666229248,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/0",
+      "video2": "Keith_Olbermann/5",
+      "label": "same",
+      "similarity": 0.7986699342727661,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gerard_Kleisterlee/1",
+      "video2": "Gerard_Kleisterlee/4",
+      "label": "same",
+      "similarity": 0.7526822090148926,
+      "emb_missing": false
+    },
+    {
+      "video1": "William_Delahunt/0",
+      "video2": "William_Delahunt/4",
+      "label": "same",
+      "similarity": 0.6422067880630493,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Coughlin/2",
+      "video2": "Tom_Coughlin/3",
+      "label": "same",
+      "similarity": 0.8454410433769226,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/1",
+      "video2": "Carrie-Anne_Moss/5",
+      "label": "same",
+      "similarity": 0.5923511385917664,
+      "emb_missing": false
+    },
+    {
+      "video1": "Naomi_Campbell/1",
+      "video2": "Naomi_Campbell/3",
+      "label": "same",
+      "similarity": 0.22331151366233826,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paula_Dobriansky/2",
+      "video2": "Paula_Dobriansky/3",
+      "label": "same",
+      "similarity": 0.6407285928726196,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/2",
+      "video2": "Keith_Olbermann/4",
+      "label": "same",
+      "similarity": 0.4264296293258667,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Ridge/3",
+      "video2": "Tom_Ridge/5",
+      "label": "same",
+      "similarity": 0.7877963781356812,
+      "emb_missing": false
+    },
+    {
+      "video1": "Xanana_Gusmao/1",
+      "video2": "Xanana_Gusmao/5",
+      "label": "same",
+      "similarity": 0.19217613339424133,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/0",
+      "video2": "Kim_Gandy/4",
+      "label": "same",
+      "similarity": 0.518470823764801,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/0",
+      "video2": "Valerie_Harper/4",
+      "label": "same",
+      "similarity": 0.4698287844657898,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andy_Roddick/4",
+      "video2": "Andy_Roddick/5",
+      "label": "same",
+      "similarity": 0.6160646080970764,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/1",
+      "video2": "Sara_Silverman/4",
+      "label": "same",
+      "similarity": 0.5320999622344971,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Coughlin/3",
+      "video2": "Tom_Coughlin/5",
+      "label": "same",
+      "similarity": 0.7507938742637634,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Murphy/1",
+      "video2": "Paul_Murphy/4",
+      "label": "same",
+      "similarity": 0.5587876439094543,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/1",
+      "video2": "Fred_Eckhard/2",
+      "label": "same",
+      "similarity": 0.6905063390731812,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/2",
+      "video2": "Keith_Olbermann/5",
+      "label": "same",
+      "similarity": 0.7398799657821655,
+      "emb_missing": false
+    },
+    {
+      "video1": "Marc_Racicot/0",
+      "video2": "Marc_Racicot/5",
+      "label": "same",
+      "similarity": 0.9500288963317871,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/2",
+      "video2": "Linda_Dano/5",
+      "label": "same",
+      "similarity": 0.5118775963783264,
+      "emb_missing": false
+    },
+    {
+      "video1": "Marc_Racicot/2",
+      "video2": "Marc_Racicot/5",
+      "label": "same",
+      "similarity": 0.7478545308113098,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/1",
+      "video2": "Amelia_Vega/4",
+      "label": "same",
+      "similarity": 0.40395429730415344,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/1",
+      "video2": "Kirk_Ferentz/2",
+      "label": "same",
+      "similarity": 0.5193479061126709,
+      "emb_missing": false
+    },
+    {
+      "video1": "Oxana_Fedorova/2",
+      "video2": "Oxana_Fedorova/4",
+      "label": "same",
+      "similarity": 0.3398998975753784,
+      "emb_missing": false
+    },
+    {
+      "video1": "Warren_Beatty/1",
+      "video2": "Warren_Beatty/5",
+      "label": "same",
+      "similarity": 0.3166941702365875,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/2",
+      "video2": "T_Boone_Pickens/3",
+      "label": "same",
+      "similarity": 0.7806767225265503,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/0",
+      "video2": "Fred_Eckhard/1",
+      "label": "same",
+      "similarity": 0.6731562614440918,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ben_Stein/3",
+      "video2": "Ben_Stein/5",
+      "label": "same",
+      "similarity": 0.7866342663764954,
+      "emb_missing": false
+    },
+    {
+      "video1": "Richard_Rodriguez/2",
+      "video2": "Richard_Rodriguez/3",
+      "label": "same",
+      "similarity": 0.8299417495727539,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/0",
+      "video2": "Jane_Rooney/1",
+      "label": "same",
+      "similarity": 0.41547825932502747,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/3",
+      "video2": "Christopher_Reeve/4",
+      "label": "same",
+      "similarity": 0.5080757737159729,
+      "emb_missing": false
+    },
+    {
+      "video1": "William_Delahunt/1",
+      "video2": "William_Delahunt/2",
+      "label": "same",
+      "similarity": 0.658883810043335,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/2",
+      "video2": "Valerie_Harper/5",
+      "label": "same",
+      "similarity": 0.4987865388393402,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/0",
+      "video2": "Fred_Eckhard/3",
+      "label": "same",
+      "similarity": 0.7411541938781738,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kate_Winslet/0",
+      "video2": "Kate_Winslet/1",
+      "label": "same",
+      "similarity": 0.6125770211219788,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/2",
+      "video2": "Sara_Silverman/5",
+      "label": "same",
+      "similarity": 0.5682089924812317,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carla_Sullivan/2",
+      "video2": "Carla_Sullivan/4",
+      "label": "same",
+      "similarity": -0.08634285628795624,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/2",
+      "video2": "Valerie_Harper/4",
+      "label": "same",
+      "similarity": 0.5368854403495789,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/0",
+      "video2": "Kirk_Ferentz/4",
+      "label": "same",
+      "similarity": 0.7520507574081421,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Gascoigne/4",
+      "video2": "Paul_Gascoigne/5",
+      "label": "same",
+      "similarity": 0.02916259504854679,
+      "emb_missing": false
+    },
+    {
+      "video1": "Vincent_Gallo/0",
+      "video2": "Vincent_Gallo/1",
+      "label": "same",
+      "similarity": 0.5793458819389343,
+      "emb_missing": false
+    },
+    {
+      "video1": "Prince_Harry/1",
+      "video2": "Prince_Harry/2",
+      "label": "same",
+      "similarity": 0.6176108121871948,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/1",
+      "video2": "Clark_Randt/5",
+      "label": "same",
+      "similarity": 0.6934999823570251,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/0",
+      "video2": "Kirk_Ferentz/2",
+      "label": "same",
+      "similarity": 0.6071266531944275,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/1",
+      "video2": "Sara_Silverman/2",
+      "label": "same",
+      "similarity": 0.5244861245155334,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/2",
+      "video2": "Linda_Dano/4",
+      "label": "same",
+      "similarity": 0.28069108724594116,
+      "emb_missing": false
+    },
+    {
+      "video1": "Franz_Muentefering/1",
+      "video2": "Franz_Muentefering/2",
+      "label": "same",
+      "similarity": 0.6809708476066589,
+      "emb_missing": false
+    },
+    {
+      "video1": "Warren_Beatty/1",
+      "video2": "Warren_Beatty/3",
+      "label": "same",
+      "similarity": 0.819157600402832,
+      "emb_missing": false
+    },
+    {
+      "video1": "Marc_Racicot/4",
+      "video2": "Marc_Racicot/5",
+      "label": "same",
+      "similarity": 0.826384425163269,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edward_Albee/3",
+      "video2": "Edward_Albee/4",
+      "label": "same",
+      "similarity": 0.6107628345489502,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alex_Sink/4",
+      "video2": "Alex_Sink/5",
+      "label": "same",
+      "similarity": 0.7445196509361267,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/0",
+      "video2": "Jane_Rooney/2",
+      "label": "same",
+      "similarity": 0.3985145092010498,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/1",
+      "video2": "Laura_Bush/4",
+      "label": "same",
+      "similarity": 0.5721926689147949,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/0",
+      "video2": "Dan_Ackroyd/3",
+      "label": "same",
+      "similarity": 0.5802180171012878,
+      "emb_missing": false
+    },
+    {
+      "video1": "Victor_Garber/0",
+      "video2": "Victor_Garber/4",
+      "label": "same",
+      "similarity": 0.496064156293869,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/2",
+      "video2": "Phil_Gramm/3",
+      "label": "same",
+      "similarity": 0.8937417268753052,
+      "emb_missing": false
+    },
+    {
+      "video1": "Richard_Rodriguez/0",
+      "video2": "Richard_Rodriguez/2",
+      "label": "same",
+      "similarity": 0.8226460218429565,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/0",
+      "video2": "Hassan_Nasrallah/4",
+      "label": "same",
+      "similarity": 0.43342325091362,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/4",
+      "video2": "Clark_Randt/5",
+      "label": "same",
+      "similarity": 0.9051673412322998,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tim_Howard/0",
+      "video2": "Tim_Howard/1",
+      "label": "same",
+      "similarity": 0.5384372472763062,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/1",
+      "video2": "Eliane_Karp/4",
+      "label": "same",
+      "similarity": 0.47331252694129944,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edward_Albee/2",
+      "video2": "Edward_Albee/4",
+      "label": "same",
+      "similarity": 0.3698287606239319,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laurence_Fishburne/2",
+      "video2": "Laurence_Fishburne/5",
+      "label": "same",
+      "similarity": 0.41454458236694336,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/2",
+      "video2": "Clark_Randt/4",
+      "label": "same",
+      "similarity": 0.9441547393798828,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ben_Stein/1",
+      "video2": "Ben_Stein/3",
+      "label": "same",
+      "similarity": 0.5349168181419373,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dai_Bachtiar/2",
+      "video2": "Dai_Bachtiar/5",
+      "label": "same",
+      "similarity": 0.7140231132507324,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/4",
+      "video2": "Linda_Dano/5",
+      "label": "same",
+      "similarity": 0.5978469848632812,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nathan_Lane/0",
+      "video2": "Nathan_Lane/4",
+      "label": "same",
+      "similarity": 0.47703298926353455,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Sarbanes/0",
+      "video2": "Paul_Sarbanes/1",
+      "label": "same",
+      "similarity": 0.7389353513717651,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tim_Allen/1",
+      "video2": "Tim_Allen/3",
+      "label": "same",
+      "similarity": 0.8076441884040833,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/2",
+      "video2": "Amelia_Vega/3",
+      "label": "same",
+      "similarity": 0.5297353267669678,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/0",
+      "video2": "Hassan_Nasrallah/5",
+      "label": "same",
+      "similarity": 0.7258433103561401,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chris_Noth/0",
+      "video2": "Chris_Noth/1",
+      "label": "same",
+      "similarity": 0.6921799778938293,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/1",
+      "video2": "Ahmed_Ahmed/4",
+      "label": "same",
+      "similarity": 0.5792879462242126,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/4",
+      "video2": "Valerie_Harper/5",
+      "label": "same",
+      "similarity": 0.4100918471813202,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/0",
+      "video2": "Dan_Ackroyd/2",
+      "label": "same",
+      "similarity": 0.6516963243484497,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/2",
+      "video2": "Kirk_Ferentz/4",
+      "label": "same",
+      "similarity": 0.6013113260269165,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/1",
+      "video2": "Amelia_Vega/2",
+      "label": "same",
+      "similarity": 0.537308931350708,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amy_Yasbeck/2",
+      "video2": "Amy_Yasbeck/4",
+      "label": "same",
+      "similarity": 0.503227174282074,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/2",
+      "video2": "Phil_Gramm/5",
+      "label": "same",
+      "similarity": 0.8284766674041748,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlos_Queiroz/1",
+      "video2": "Carlos_Queiroz/5",
+      "label": "same",
+      "similarity": 0.6500217318534851,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/2",
+      "video2": "Dan_Ackroyd/3",
+      "label": "same",
+      "similarity": 0.6230303049087524,
+      "emb_missing": false
+    },
+    {
+      "video1": "William_Delahunt/2",
+      "video2": "William_Delahunt/4",
+      "label": "same",
+      "similarity": 0.7232129573822021,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/2",
+      "video2": "Clark_Randt/5",
+      "label": "same",
+      "similarity": 0.8814941644668579,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nathan_Lane/1",
+      "video2": "Nathan_Lane/4",
+      "label": "same",
+      "similarity": 0.375118225812912,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/0",
+      "video2": "Kirk_Ferentz/5",
+      "label": "same",
+      "similarity": 0.8335598707199097,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cristina_Kirchner/3",
+      "video2": "Cristina_Kirchner/4",
+      "label": "same",
+      "similarity": 0.2920636832714081,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/2",
+      "video2": "Laura_Bush/5",
+      "label": "same",
+      "similarity": 0.6567234992980957,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/2",
+      "video2": "Felicity_Huffman/4",
+      "label": "same",
+      "similarity": 0.647388756275177,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/3",
+      "video2": "Kim_Gandy/4",
+      "label": "same",
+      "similarity": 0.6864107251167297,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/3",
+      "video2": "Valerie_Harper/5",
+      "label": "same",
+      "similarity": 0.49659213423728943,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/3",
+      "video2": "Felicity_Huffman/4",
+      "label": "same",
+      "similarity": 0.35808855295181274,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nathan_Lane/1",
+      "video2": "Nathan_Lane/2",
+      "label": "same",
+      "similarity": 0.49047788977622986,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/2",
+      "video2": "Christopher_Reeve/4",
+      "label": "same",
+      "similarity": 0.5714413523674011,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/1",
+      "video2": "T_Boone_Pickens/2",
+      "label": "same",
+      "similarity": 0.6662375926971436,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ben_Stein/3",
+      "video2": "Ben_Stein/4",
+      "label": "same",
+      "similarity": 0.4567210078239441,
+      "emb_missing": false
+    },
+    {
+      "video1": "Katalin_Kollat/2",
+      "video2": "Katalin_Kollat/4",
+      "label": "same",
+      "similarity": 0.873790979385376,
+      "emb_missing": false
+    },
+    {
+      "video1": "Richard_Rodriguez/0",
+      "video2": "Richard_Rodriguez/5",
+      "label": "same",
+      "similarity": 0.761345624923706,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/2",
+      "video2": "T_Boone_Pickens/5",
+      "label": "same",
+      "similarity": 0.7377638220787048,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ben_Stein/1",
+      "video2": "Ben_Stein/5",
+      "label": "same",
+      "similarity": 0.5337277054786682,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/0",
+      "video2": "Carrie-Anne_Moss/5",
+      "label": "same",
+      "similarity": 0.5365316271781921,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrew_Wetzler/0",
+      "video2": "Andrew_Wetzler/1",
+      "label": "same",
+      "similarity": 0.686133086681366,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chris_Noth/1",
+      "video2": "Chris_Noth/3",
+      "label": "same",
+      "similarity": 0.6900971531867981,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chris_Noth/0",
+      "video2": "Chris_Noth/3",
+      "label": "same",
+      "similarity": 0.9062175154685974,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cameron_Diaz/2",
+      "video2": "Cameron_Diaz/4",
+      "label": "same",
+      "similarity": 0.49358949065208435,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andy_Roddick/2",
+      "video2": "Andy_Roddick/4",
+      "label": "same",
+      "similarity": 0.8301200866699219,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/0",
+      "video2": "Kim_Gandy/3",
+      "label": "same",
+      "similarity": 0.5981855988502502,
+      "emb_missing": false
+    },
+    {
+      "video1": "Rand_Beers/2",
+      "video2": "Rand_Beers/5",
+      "label": "same",
+      "similarity": 0.581451416015625,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laurence_Fishburne/2",
+      "video2": "Laurence_Fishburne/4",
+      "label": "same",
+      "similarity": 0.4253116846084595,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edward_Albee/2",
+      "video2": "Edward_Albee/3",
+      "label": "same",
+      "similarity": 0.41982898116111755,
+      "emb_missing": false
+    },
+    {
+      "video1": "Richard_Rodriguez/0",
+      "video2": "Richard_Rodriguez/1",
+      "label": "same",
+      "similarity": 0.7631883025169373,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amy_Yasbeck/1",
+      "video2": "Amy_Yasbeck/4",
+      "label": "same",
+      "similarity": 0.7256715297698975,
+      "emb_missing": false
+    },
+    {
+      "video1": "Valerie_Harper/0",
+      "video2": "Valerie_Harper/2",
+      "label": "same",
+      "similarity": 0.5549548864364624,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrea_De_Cruz/1",
+      "video2": "Andrea_De_Cruz/4",
+      "label": "same",
+      "similarity": 0.2052035629749298,
+      "emb_missing": false
+    },
+    {
+      "video1": "Peter_OToole/0",
+      "video2": "Peter_OToole/3",
+      "label": "same",
+      "similarity": 0.4125162959098816,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Smothers/0",
+      "video2": "Tom_Smothers/5",
+      "label": "same",
+      "similarity": 0.8194305896759033,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/1",
+      "video2": "Norah_Jones/2",
+      "label": "same",
+      "similarity": 0.7289927005767822,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/1",
+      "video2": "Sara_Silverman/5",
+      "label": "same",
+      "similarity": 0.6708810329437256,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dai_Bachtiar/0",
+      "video2": "Dai_Bachtiar/1",
+      "label": "same",
+      "similarity": 0.7815945744514465,
+      "emb_missing": false
+    },
+    {
+      "video1": "Keith_Olbermann/1",
+      "video2": "Keith_Olbermann/5",
+      "label": "same",
+      "similarity": 0.8298587799072266,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/2",
+      "video2": "Kim_Gandy/5",
+      "label": "same",
+      "similarity": 0.6802666187286377,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ben_Stein/4",
+      "video2": "Ben_Stein/5",
+      "label": "same",
+      "similarity": 0.4737075865268707,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/1",
+      "video2": "Phil_Gramm/5",
+      "label": "same",
+      "similarity": 0.8449295163154602,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/1",
+      "video2": "Christopher_Reeve/3",
+      "label": "same",
+      "similarity": 0.4495834708213806,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/0",
+      "video2": "Eliane_Karp/3",
+      "label": "same",
+      "similarity": 0.49655646085739136,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pierre_Pettigrew/0",
+      "video2": "Pierre_Pettigrew/1",
+      "label": "same",
+      "similarity": 0.7672128081321716,
+      "emb_missing": false
+    },
+    {
+      "video1": "Richard_Rodriguez/3",
+      "video2": "Richard_Rodriguez/5",
+      "label": "same",
+      "similarity": 0.7259384393692017,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/3",
+      "video2": "Crispin_Glover/4",
+      "label": "same",
+      "similarity": 0.29629045724868774,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pupi_Avati/0",
+      "video2": "Pupi_Avati/5",
+      "label": "same",
+      "similarity": 0.7329277992248535,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kate_Winslet/0",
+      "video2": "Kate_Winslet/5",
+      "label": "same",
+      "similarity": 0.6138441562652588,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/1",
+      "video2": "Ahmed_Ahmed/5",
+      "label": "same",
+      "similarity": 0.8305044174194336,
+      "emb_missing": false
+    },
+    {
+      "video1": "Mack_Brown/4",
+      "video2": "Mack_Brown/5",
+      "label": "same",
+      "similarity": 0.4904969334602356,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/2",
+      "video2": "Phil_Gramm/4",
+      "label": "same",
+      "similarity": 0.9006550312042236,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/4",
+      "video2": "Felicity_Huffman/5",
+      "label": "same",
+      "similarity": 0.4508490264415741,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/0",
+      "video2": "Ahmed_Ahmed/5",
+      "label": "same",
+      "similarity": 0.6837331652641296,
+      "emb_missing": false
+    },
+    {
+      "video1": "Wen_Jiabao/1",
+      "video2": "William_Delahunt/1",
+      "label": "diff",
+      "similarity": -0.14322111010551453,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/2",
+      "video2": "Sara_Silverman/2",
+      "label": "diff",
+      "similarity": 0.12162317335605621,
+      "emb_missing": false
+    },
+    {
+      "video1": "Damon_Stoudamire/2",
+      "video2": "Dario_Franchitti/3",
+      "label": "diff",
+      "similarity": 0.042376477271318436,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ben_Howland/1",
+      "video2": "Phil_Gramm/1",
+      "label": "diff",
+      "similarity": 0.003423124784603715,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/3",
+      "video2": "Tim_Howard/3",
+      "label": "diff",
+      "similarity": 0.06537256389856339,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/2",
+      "video2": "Thomas_Birmingham/0",
+      "label": "diff",
+      "similarity": -0.012960698455572128,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chuanyun_Li/5",
+      "video2": "Marc_Racicot/4",
+      "label": "diff",
+      "similarity": -0.08182718604803085,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/0",
+      "video2": "Pierre_Pettigrew/0",
+      "label": "diff",
+      "similarity": -0.0670691579580307,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/3",
+      "video2": "Mark_Geragos/2",
+      "label": "diff",
+      "similarity": 0.052748631685972214,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/5",
+      "video2": "Mack_Brown/5",
+      "label": "diff",
+      "similarity": -0.03205593675374985,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alyson_Hannigan/2",
+      "video2": "Warren_Beatty/3",
+      "label": "diff",
+      "similarity": 0.07182231545448303,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cameron_Diaz/5",
+      "video2": "Ralph_Klein/1",
+      "label": "diff",
+      "similarity": -0.040953174233436584,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/2",
+      "video2": "Penelope_Cruz/2",
+      "label": "diff",
+      "similarity": -0.04323914647102356,
+      "emb_missing": false
+    },
+    {
+      "video1": "Liam_Neeson/4",
+      "video2": "Paul_Sarbanes/1",
+      "label": "diff",
+      "similarity": 0.06351001560688019,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/2",
+      "video2": "Vince_Dooley/0",
+      "label": "diff",
+      "similarity": 0.03205816447734833,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ciaran_Hinds/4",
+      "video2": "Keith_Olbermann/4",
+      "label": "diff",
+      "similarity": 0.04946460947394371,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/5",
+      "video2": "Thomas_Birmingham/0",
+      "label": "diff",
+      "similarity": -0.0035976902581751347,
+      "emb_missing": false
+    },
+    {
+      "video1": "Owen_Wilson/5",
+      "video2": "Warren_Beatty/5",
+      "label": "diff",
+      "similarity": -0.003792599542066455,
+      "emb_missing": false
+    },
+    {
+      "video1": "James_Caan/2",
+      "video2": "Jane_Rooney/1",
+      "label": "diff",
+      "similarity": 0.03255755826830864,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paula_Dobriansky/3",
+      "video2": "Tom_Ridge/5",
+      "label": "diff",
+      "similarity": -0.02132789045572281,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/2",
+      "video2": "Amram_Mitzna/0",
+      "label": "diff",
+      "similarity": 0.022262418642640114,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/5",
+      "video2": "Fred_Eckhard/3",
+      "label": "diff",
+      "similarity": -0.009636586531996727,
+      "emb_missing": false
+    },
+    {
+      "video1": "Victor_Garber/0",
+      "video2": "Zydrunas_Ilgauskas/1",
+      "label": "diff",
+      "similarity": -0.10634272545576096,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ivan_Stambolic/2",
+      "video2": "Paul_Gascoigne/5",
+      "label": "diff",
+      "similarity": 0.07110200822353363,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/2",
+      "video2": "Paul_Sarbanes/1",
+      "label": "diff",
+      "similarity": -0.11982550472021103,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/2",
+      "video2": "Marc_Racicot/0",
+      "label": "diff",
+      "similarity": -0.045188531279563904,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/2",
+      "video2": "Gerard_Kleisterlee/1",
+      "label": "diff",
+      "similarity": 0.0753614529967308,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrea_De_Cruz/1",
+      "video2": "Theresa_Gattung/1",
+      "label": "diff",
+      "similarity": 0.0824347585439682,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jacques_Chirac/5",
+      "video2": "Paul_Bettany/1",
+      "label": "diff",
+      "similarity": 0.08583739399909973,
+      "emb_missing": false
+    },
+    {
+      "video1": "Franz_Muentefering/2",
+      "video2": "Laura_Bush/5",
+      "label": "diff",
+      "similarity": 0.0993596613407135,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/4",
+      "video2": "Warren_Beatty/3",
+      "label": "diff",
+      "similarity": -0.0382821224629879,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/3",
+      "video2": "Paul_Ebert/2",
+      "label": "diff",
+      "similarity": 0.11095894128084183,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/5",
+      "video2": "Luis_Fonsi/4",
+      "label": "diff",
+      "similarity": 0.015099043026566505,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/3",
+      "video2": "Pilar_Montenegro/5",
+      "label": "diff",
+      "similarity": 0.020174464210867882,
+      "emb_missing": false
+    },
+    {
+      "video1": "Bela_Karolyi/3",
+      "video2": "Eric_Lloyd/2",
+      "label": "diff",
+      "similarity": -0.07086214423179626,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Matero/3",
+      "video2": "Pierre_Pettigrew/1",
+      "label": "diff",
+      "similarity": 0.039414145052433014,
+      "emb_missing": false
+    },
+    {
+      "video1": "Mark_Geragos/2",
+      "video2": "Vanessa_Incontrada/1",
+      "label": "diff",
+      "similarity": 0.023376859724521637,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlos_Queiroz/5",
+      "video2": "Norah_Jones/2",
+      "label": "diff",
+      "similarity": 0.03796256333589554,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlos_Queiroz/0",
+      "video2": "Phil_Gramm/1",
+      "label": "diff",
+      "similarity": 0.04278191551566124,
+      "emb_missing": false
+    },
+    {
+      "video1": "Janez_Drnovsek/1",
+      "video2": "Naomi_Campbell/1",
+      "label": "diff",
+      "similarity": 0.02751159854233265,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/2",
+      "video2": "Kirk_Ferentz/1",
+      "label": "diff",
+      "similarity": -0.04336053133010864,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlton_Dotson/1",
+      "video2": "Pilar_Montenegro/0",
+      "label": "diff",
+      "similarity": 0.019883286207914352,
+      "emb_missing": false
+    },
+    {
+      "video1": "Lee_Baca/2",
+      "video2": "William_Delahunt/2",
+      "label": "diff",
+      "similarity": -0.10585782676935196,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/4",
+      "video2": "Wolfgang_Schneiderhan/3",
+      "label": "diff",
+      "similarity": 0.023437997326254845,
+      "emb_missing": false
+    },
+    {
+      "video1": "Luis_Fonsi/2",
+      "video2": "Phil_Gramm/5",
+      "label": "diff",
+      "similarity": 0.018951047211885452,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrew_Wetzler/1",
+      "video2": "Wen_Jiabao/3",
+      "label": "diff",
+      "similarity": 0.009875786490738392,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/3",
+      "video2": "Oxana_Fedorova/2",
+      "label": "diff",
+      "similarity": 0.26207324862480164,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Hernandez/0",
+      "video2": "Victor_Garber/0",
+      "label": "diff",
+      "similarity": 0.08285300433635712,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/4",
+      "video2": "Laura_Bush/4",
+      "label": "diff",
+      "similarity": 0.007687537930905819,
+      "emb_missing": false
+    },
+    {
+      "video1": "Charlie_Zaa/2",
+      "video2": "Yashwant_Sinha/5",
+      "label": "diff",
+      "similarity": 0.08357875794172287,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrea_De_Cruz/4",
+      "video2": "Laurence_Fishburne/4",
+      "label": "diff",
+      "similarity": 0.003018248826265335,
+      "emb_missing": false
+    },
+    {
+      "video1": "Pilar_Montenegro/5",
+      "video2": "Tom_Smothers/2",
+      "label": "diff",
+      "similarity": -0.006740156095474958,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/0",
+      "video2": "Tom_Ridge/3",
+      "label": "diff",
+      "similarity": -0.05191199108958244,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/5",
+      "video2": "Tim_Allen/1",
+      "label": "diff",
+      "similarity": -0.03170240670442581,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nathan_Lane/2",
+      "video2": "Pilar_Montenegro/5",
+      "label": "diff",
+      "similarity": -0.10830286145210266,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/0",
+      "video2": "Warren_Beatty/1",
+      "label": "diff",
+      "similarity": 0.07229369878768921,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/3",
+      "video2": "Sara_Silverman/4",
+      "label": "diff",
+      "similarity": -0.1108124628663063,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gary_Carter/1",
+      "video2": "Wolfgang_Schuessel/2",
+      "label": "diff",
+      "similarity": 0.002137070056051016,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/1",
+      "video2": "Laura_Bush/5",
+      "label": "diff",
+      "similarity": 0.04211166501045227,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amram_Mitzna/0",
+      "video2": "Naomi_Campbell/1",
+      "label": "diff",
+      "similarity": -0.04657839983701706,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/5",
+      "video2": "Warren_Beatty/5",
+      "label": "diff",
+      "similarity": 0.023584650829434395,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/4",
+      "video2": "Linda_Dano/5",
+      "label": "diff",
+      "similarity": 0.2442835420370102,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/3",
+      "video2": "Clark_Randt/1",
+      "label": "diff",
+      "similarity": 0.10020346939563751,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/4",
+      "video2": "William_Joppy/1",
+      "label": "diff",
+      "similarity": -0.010580742731690407,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chuanyun_Li/5",
+      "video2": "Craig_Fitzgibbon/1",
+      "label": "diff",
+      "similarity": 0.04953368753194809,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Ebert/2",
+      "video2": "Sarah_Michelle_Gellar/4",
+      "label": "diff",
+      "similarity": -0.001193811185657978,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/1",
+      "video2": "Kirk_Ferentz/2",
+      "label": "diff",
+      "similarity": -0.0111019816249609,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edward_Albee/4",
+      "video2": "Phil_Gramm/5",
+      "label": "diff",
+      "similarity": -0.06886021047830582,
+      "emb_missing": false
+    },
+    {
+      "video1": "Al_Sharpton/3",
+      "video2": "Richard_Rodriguez/3",
+      "label": "diff",
+      "similarity": -0.036510102450847626,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/4",
+      "video2": "Marc_Racicot/2",
+      "label": "diff",
+      "similarity": 0.09836462885141373,
+      "emb_missing": false
+    },
+    {
+      "video1": "Angie_Martinez/1",
+      "video2": "Laura_Bush/2",
+      "label": "diff",
+      "similarity": -0.02805406227707863,
+      "emb_missing": false
+    },
+    {
+      "video1": "Angie_Martinez/1",
+      "video2": "Phil_Gramm/5",
+      "label": "diff",
+      "similarity": 0.022444607689976692,
+      "emb_missing": false
+    },
+    {
+      "video1": "Bela_Karolyi/3",
+      "video2": "Elizabeth_Hurley/0",
+      "label": "diff",
+      "similarity": -0.0068014864809811115,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laurence_Fishburne/4",
+      "video2": "Luis_Fonsi/2",
+      "label": "diff",
+      "similarity": -0.05613800138235092,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/2",
+      "video2": "Linda_Dano/2",
+      "label": "diff",
+      "similarity": -0.042170923203229904,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Matero/3",
+      "video2": "Linda_Dano/3",
+      "label": "diff",
+      "similarity": 0.10432784259319305,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/5",
+      "video2": "Penelope_Cruz/4",
+      "label": "diff",
+      "similarity": -0.009803609922528267,
+      "emb_missing": false
+    },
+    {
+      "video1": "Lee_Baca/1",
+      "video2": "Pupi_Avati/0",
+      "label": "diff",
+      "similarity": -0.030779646709561348,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alimzhan_Tokhtakhounov/0",
+      "video2": "Dan_Ackroyd/2",
+      "label": "diff",
+      "similarity": -0.0065231709741055965,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/1",
+      "video2": "Sally_Kirkland/2",
+      "label": "diff",
+      "similarity": 0.005307451821863651,
+      "emb_missing": false
+    },
+    {
+      "video1": "William_Delahunt/2",
+      "video2": "William_Joppy/1",
+      "label": "diff",
+      "similarity": -0.014207310043275356,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tim_Allen/3",
+      "video2": "Wolfgang_Schuessel/5",
+      "label": "diff",
+      "similarity": -0.06332045793533325,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carla_Sullivan/4",
+      "video2": "Lee_Baca/0",
+      "label": "diff",
+      "similarity": -0.10383099317550659,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/4",
+      "video2": "Wolfgang_Schuessel/5",
+      "label": "diff",
+      "similarity": -0.044435564428567886,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/0",
+      "video2": "Fred_Eckhard/4",
+      "label": "diff",
+      "similarity": -0.010792464017868042,
+      "emb_missing": false
+    },
+    {
+      "video1": "El_Hadji_Diouf/3",
+      "video2": "Fred_Eckhard/1",
+      "label": "diff",
+      "similarity": 0.02773333713412285,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrew_Wetzler/1",
+      "video2": "Hans-Christian_Schmid/5",
+      "label": "diff",
+      "similarity": 0.0771297886967659,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cameron_Diaz/5",
+      "video2": "Naomi_Campbell/1",
+      "label": "diff",
+      "similarity": -0.06706595420837402,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/1",
+      "video2": "Tim_Howard/1",
+      "label": "diff",
+      "similarity": -0.013622677884995937,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cristina_Kirchner/4",
+      "video2": "Ralph_Klein/1",
+      "label": "diff",
+      "similarity": 0.019586747512221336,
+      "emb_missing": false
+    },
+    {
+      "video1": "Katalin_Kollat/2",
+      "video2": "Tom_Ridge/2",
+      "label": "diff",
+      "similarity": -0.0008961420389823616,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nathan_Lane/0",
+      "video2": "Theresa_Gattung/1",
+      "label": "diff",
+      "similarity": 0.05180804058909416,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eric_Wedge/5",
+      "video2": "Queen_Silvia/0",
+      "label": "diff",
+      "similarity": -0.006224512122571468,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gary_Carter/3",
+      "video2": "Nora_Ephron/1",
+      "label": "diff",
+      "similarity": 0.04480540379881859,
+      "emb_missing": false
+    },
+    {
+      "video1": "Mariangel_Ruiz_Torrealba/1",
+      "video2": "Richard_Rodriguez/0",
+      "label": "diff",
+      "similarity": 0.05900147557258606,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/4",
+      "video2": "Damon_Stoudamire/2",
+      "label": "diff",
+      "similarity": 0.13243967294692993,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/2",
+      "video2": "Lennart_Johansson/1",
+      "label": "diff",
+      "similarity": 0.03340433910489082,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrew_Wetzler/0",
+      "video2": "Jane_Rooney/1",
+      "label": "diff",
+      "similarity": -0.07417760044336319,
+      "emb_missing": false
+    },
+    {
+      "video1": "Coleen_Rowley/0",
+      "video2": "Robert_Altman/2",
+      "label": "diff",
+      "similarity": 0.057555560022592545,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/3",
+      "video2": "Eliane_Karp/3",
+      "label": "diff",
+      "similarity": -0.03670831769704819,
+      "emb_missing": false
+    },
+    {
+      "video1": "Fred_Eckhard/1",
+      "video2": "Owen_Wilson/5",
+      "label": "diff",
+      "similarity": -0.03262200206518173,
+      "emb_missing": false
+    },
+    {
+      "video1": "Habib_Rizieq/0",
+      "video2": "Mark_Geragos/2",
+      "label": "diff",
+      "similarity": -0.07270598411560059,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/4",
+      "video2": "Felicity_Huffman/4",
+      "label": "diff",
+      "similarity": 0.011280340142548084,
+      "emb_missing": false
+    },
+    {
+      "video1": "El_Hadji_Diouf/3",
+      "video2": "Kirk_Ferentz/0",
+      "label": "diff",
+      "similarity": -0.036262307316064835,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Bettany/2",
+      "video2": "Roger_Suarez/4",
+      "label": "diff",
+      "similarity": -0.10114419460296631,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/0",
+      "video2": "Chuanyun_Li/5",
+      "label": "diff",
+      "similarity": 0.008848285302519798,
+      "emb_missing": false
+    },
+    {
+      "video1": "Craig_Fitzgibbon/1",
+      "video2": "Mariangel_Ruiz_Torrealba/1",
+      "label": "diff",
+      "similarity": -0.04067429527640343,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edwina_Currie/0",
+      "video2": "Tim_Howard/0",
+      "label": "diff",
+      "similarity": -0.014272764325141907,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edwina_Currie/0",
+      "video2": "Hassan_Nasrallah/5",
+      "label": "diff",
+      "similarity": -0.0327606238424778,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dario_Franchitti/3",
+      "video2": "Felicity_Huffman/3",
+      "label": "diff",
+      "similarity": 0.036233749240636826,
+      "emb_missing": false
+    },
+    {
+      "video1": "Geoff_Dixon/0",
+      "video2": "Laura_Bush/2",
+      "label": "diff",
+      "similarity": -0.02143377996981144,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/4",
+      "video2": "Marc_Racicot/5",
+      "label": "diff",
+      "similarity": -0.06700543314218521,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/5",
+      "video2": "Tim_Howard/0",
+      "label": "diff",
+      "similarity": 0.03727998211979866,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alyson_Hannigan/2",
+      "video2": "Dai_Bachtiar/5",
+      "label": "diff",
+      "similarity": 0.0029774506110697985,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/0",
+      "video2": "Laurence_Fishburne/5",
+      "label": "diff",
+      "similarity": 0.03875018656253815,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alex_Sink/5",
+      "video2": "Geoff_Dixon/0",
+      "label": "diff",
+      "similarity": -0.03992930054664612,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/2",
+      "video2": "Keanu_Reeves/0",
+      "label": "diff",
+      "similarity": 0.05655943602323532,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amy_Yasbeck/1",
+      "video2": "Katalin_Kollat/2",
+      "label": "diff",
+      "similarity": 0.021966636180877686,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carla_Sullivan/2",
+      "video2": "Chuanyun_Li/5",
+      "label": "diff",
+      "similarity": 0.03407348692417145,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andrea_De_Cruz/4",
+      "video2": "Carrie-Anne_Moss/2",
+      "label": "diff",
+      "similarity": 0.02667381800711155,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chuanyun_Li/5",
+      "video2": "Clark_Randt/4",
+      "label": "diff",
+      "similarity": 7.622521661687642e-05,
+      "emb_missing": false
+    },
+    {
+      "video1": "Mario_Vasquez_Rana/0",
+      "video2": "Paul_Walker/3",
+      "label": "diff",
+      "similarity": 0.01494337897747755,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ralph_Klein/3",
+      "video2": "Rand_Beers/2",
+      "label": "diff",
+      "similarity": -0.023349646478891373,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paula_Dobriansky/3",
+      "video2": "Peter_OToole/1",
+      "label": "diff",
+      "similarity": 0.012532767839729786,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/4",
+      "video2": "Clark_Randt/5",
+      "label": "diff",
+      "similarity": 0.01227877289056778,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/0",
+      "video2": "Pilar_Montenegro/2",
+      "label": "diff",
+      "similarity": 0.04297429323196411,
+      "emb_missing": false
+    },
+    {
+      "video1": "Bela_Karolyi/1",
+      "video2": "Nora_Ephron/1",
+      "label": "diff",
+      "similarity": -0.025631356984376907,
+      "emb_missing": false
+    },
+    {
+      "video1": "Marc_Racicot/4",
+      "video2": "Wen_Jiabao/3",
+      "label": "diff",
+      "similarity": 0.10455944389104843,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nora_Ephron/4",
+      "video2": "Pierre_Pettigrew/0",
+      "label": "diff",
+      "similarity": -0.0418093241751194,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paula_Dobriansky/2",
+      "video2": "Pupi_Avati/0",
+      "label": "diff",
+      "similarity": -0.04803184047341347,
+      "emb_missing": false
+    },
+    {
+      "video1": "El_Hadji_Diouf/3",
+      "video2": "Gary_Carter/1",
+      "label": "diff",
+      "similarity": -0.021306052803993225,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alimzhan_Tokhtakhounov/0",
+      "video2": "Linda_Dano/2",
+      "label": "diff",
+      "similarity": 0.10967142879962921,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/4",
+      "video2": "Valerie_Harper/3",
+      "label": "diff",
+      "similarity": -0.020465731620788574,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/1",
+      "video2": "Kim_Gandy/3",
+      "label": "diff",
+      "similarity": 0.041193265467882156,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/2",
+      "video2": "Vincent_Gallo/1",
+      "label": "diff",
+      "similarity": -0.019698521122336388,
+      "emb_missing": false
+    },
+    {
+      "video1": "Janez_Drnovsek/1",
+      "video2": "William_Delahunt/4",
+      "label": "diff",
+      "similarity": 0.02193625085055828,
+      "emb_missing": false
+    },
+    {
+      "video1": "Nursultan_Nazarbayev/1",
+      "video2": "Ralph_Klein/1",
+      "label": "diff",
+      "similarity": -0.1041853204369545,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ilie_Nastase/2",
+      "video2": "Liam_Neeson/4",
+      "label": "diff",
+      "similarity": -0.011563031934201717,
+      "emb_missing": false
+    },
+    {
+      "video1": "Thor_Pedersen/2",
+      "video2": "Vincent_Gallo/1",
+      "label": "diff",
+      "similarity": 0.013477446511387825,
+      "emb_missing": false
+    },
+    {
+      "video1": "Charles_Tannok/2",
+      "video2": "Edward_Albee/4",
+      "label": "diff",
+      "similarity": 0.04422060772776604,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/4",
+      "video2": "Eliane_Karp/0",
+      "label": "diff",
+      "similarity": -0.03716827929019928,
+      "emb_missing": false
+    },
+    {
+      "video1": "Bela_Karolyi/3",
+      "video2": "James_Gandolfini/4",
+      "label": "diff",
+      "similarity": 0.05747484415769577,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/5",
+      "video2": "Lennart_Johansson/1",
+      "label": "diff",
+      "similarity": -0.028391214087605476,
+      "emb_missing": false
+    },
+    {
+      "video1": "Bela_Karolyi/1",
+      "video2": "Jack_LaLanne/2",
+      "label": "diff",
+      "similarity": 0.10303240269422531,
+      "emb_missing": false
+    },
+    {
+      "video1": "Charles_Tannok/2",
+      "video2": "Tim_Howard/3",
+      "label": "diff",
+      "similarity": 0.019411418586969376,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/1",
+      "video2": "Cristina_Kirchner/3",
+      "label": "diff",
+      "similarity": -0.020535064861178398,
+      "emb_missing": false
+    },
+    {
+      "video1": "Lee_Baca/2",
+      "video2": "T_Boone_Pickens/2",
+      "label": "diff",
+      "similarity": -0.021515771746635437,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/4",
+      "video2": "Peter_OToole/1",
+      "label": "diff",
+      "similarity": 0.04775324463844299,
+      "emb_missing": false
+    },
+    {
+      "video1": "Catherine_Ndereba/3",
+      "video2": "Crispin_Glover/3",
+      "label": "diff",
+      "similarity": 0.005181817337870598,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/5",
+      "video2": "Paul_Sarbanes/1",
+      "label": "diff",
+      "similarity": -0.04145939648151398,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/0",
+      "video2": "Katalin_Kollat/4",
+      "label": "diff",
+      "similarity": 0.04463544860482216,
+      "emb_missing": false
+    },
+    {
+      "video1": "James_Robertson_Jr/0",
+      "video2": "Vincent_Gallo/0",
+      "label": "diff",
+      "similarity": 0.03633730113506317,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/1",
+      "video2": "Nursultan_Nazarbayev/3",
+      "label": "diff",
+      "similarity": 0.07058022916316986,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/4",
+      "video2": "Gerard_Kleisterlee/1",
+      "label": "diff",
+      "similarity": 0.022797085344791412,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kate_Winslet/5",
+      "video2": "Ralph_Klein/3",
+      "label": "diff",
+      "similarity": 0.00012526691716630012,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edward_Albee/4",
+      "video2": "Nabil_Shaath/0",
+      "label": "diff",
+      "similarity": -0.07485561072826385,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jack_LaLanne/2",
+      "video2": "Keith_Olbermann/0",
+      "label": "diff",
+      "similarity": -0.08399475365877151,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ivan_Stambolic/2",
+      "video2": "Valerie_Harper/3",
+      "label": "diff",
+      "similarity": -0.14422354102134705,
+      "emb_missing": false
+    },
+    {
+      "video1": "Prince_Harry/1",
+      "video2": "Richard_Harris/1",
+      "label": "diff",
+      "similarity": -0.041048843413591385,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/3",
+      "video2": "Paul_Gascoigne/4",
+      "label": "diff",
+      "similarity": 0.06493312865495682,
+      "emb_missing": false
+    },
+    {
+      "video1": "Harvey_Weinstein/2",
+      "video2": "Theresa_Gattung/1",
+      "label": "diff",
+      "similarity": 0.03832387551665306,
+      "emb_missing": false
+    },
+    {
+      "video1": "Cristina_Kirchner/3",
+      "video2": "Marc_Racicot/4",
+      "label": "diff",
+      "similarity": -0.003044565673917532,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlos_Queiroz/1",
+      "video2": "Laura_Bush/5",
+      "label": "diff",
+      "similarity": -0.0046488381922245026,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carlton_Dotson/1",
+      "video2": "Nursultan_Nazarbayev/3",
+      "label": "diff",
+      "similarity": 0.050955407321453094,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alain_Ducasse/3",
+      "video2": "Pilar_Montenegro/5",
+      "label": "diff",
+      "similarity": -0.007158862426877022,
+      "emb_missing": false
+    },
+    {
+      "video1": "Liam_Neeson/4",
+      "video2": "Tim_Blake_Nelson/4",
+      "label": "diff",
+      "similarity": -0.005289883352816105,
+      "emb_missing": false
+    },
+    {
+      "video1": "Elizabeth_Hurley/0",
+      "video2": "Warren_Beatty/3",
+      "label": "diff",
+      "similarity": -0.08430340141057968,
+      "emb_missing": false
+    },
+    {
+      "video1": "T_Boone_Pickens/5",
+      "video2": "Vince_Dooley/0",
+      "label": "diff",
+      "similarity": 0.047478437423706055,
+      "emb_missing": false
+    },
+    {
+      "video1": "El_Hadji_Diouf/3",
+      "video2": "Sally_Kirkland/2",
+      "label": "diff",
+      "similarity": -0.029346534982323647,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/5",
+      "video2": "Thor_Pedersen/2",
+      "label": "diff",
+      "similarity": 0.0333431139588356,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gael_Garcia_Bermal/3",
+      "video2": "Paul_Gascoigne/4",
+      "label": "diff",
+      "similarity": -0.04078971594572067,
+      "emb_missing": false
+    },
+    {
+      "video1": "Damon_Stoudamire/3",
+      "video2": "Lee_Baca/4",
+      "label": "diff",
+      "similarity": 0.006831815466284752,
+      "emb_missing": false
+    },
+    {
+      "video1": "James_Robertson_Jr/0",
+      "video2": "Norah_Jones/4",
+      "label": "diff",
+      "similarity": -0.07709941267967224,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/3",
+      "video2": "Pupi_Avati/3",
+      "label": "diff",
+      "similarity": 0.039946816861629486,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/2",
+      "video2": "Rand_Beers/5",
+      "label": "diff",
+      "similarity": 0.05227356031537056,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/1",
+      "video2": "Sara_Silverman/5",
+      "label": "diff",
+      "similarity": -0.01919521763920784,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christian_Wulff/1",
+      "video2": "Luis_Fonsi/2",
+      "label": "diff",
+      "similarity": 0.016860853880643845,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Dickau/2",
+      "video2": "Felicity_Huffman/2",
+      "label": "diff",
+      "similarity": -0.00013112866145092994,
+      "emb_missing": false
+    },
+    {
+      "video1": "Andy_Roddick/2",
+      "video2": "Ralph_Klein/1",
+      "label": "diff",
+      "similarity": -0.015808194875717163,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carla_Sullivan/2",
+      "video2": "Fred_Eckhard/4",
+      "label": "diff",
+      "similarity": 0.10621082782745361,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/0",
+      "video2": "Karen_Lynn_Gorney/5",
+      "label": "diff",
+      "similarity": 0.07569541037082672,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/3",
+      "video2": "Phil_Gramm/2",
+      "label": "diff",
+      "similarity": -0.0385347343981266,
+      "emb_missing": false
+    },
+    {
+      "video1": "Felicity_Huffman/5",
+      "video2": "Tom_Ridge/3",
+      "label": "diff",
+      "similarity": -0.008436816744506359,
+      "emb_missing": false
+    },
+    {
+      "video1": "Tom_Smothers/0",
+      "video2": "Vince_Gill/0",
+      "label": "diff",
+      "similarity": 0.018637102097272873,
+      "emb_missing": false
+    },
+    {
+      "video1": "Warren_Beatty/3",
+      "video2": "William_Delahunt/2",
+      "label": "diff",
+      "similarity": -0.08778451383113861,
+      "emb_missing": false
+    },
+    {
+      "video1": "Angie_Martinez/1",
+      "video2": "Edward_Albee/3",
+      "label": "diff",
+      "similarity": 0.02012287639081478,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amy_Yasbeck/4",
+      "video2": "Pupi_Avati/0",
+      "label": "diff",
+      "similarity": -0.03583189845085144,
+      "emb_missing": false
+    },
+    {
+      "video1": "James_Caan/2",
+      "video2": "Keith_Olbermann/5",
+      "label": "diff",
+      "similarity": 0.06247357651591301,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/3",
+      "video2": "Norah_Jones/2",
+      "label": "diff",
+      "similarity": 0.029152551665902138,
+      "emb_missing": false
+    },
+    {
+      "video1": "Sara_Silverman/2",
+      "video2": "Thomas_Birmingham/0",
+      "label": "diff",
+      "similarity": 0.005471476819366217,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/2",
+      "video2": "Wolfgang_Schneiderhan/2",
+      "label": "diff",
+      "similarity": -0.05011152848601341,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Bettany/2",
+      "video2": "William_Delahunt/2",
+      "label": "diff",
+      "similarity": -0.09483681619167328,
+      "emb_missing": false
+    },
+    {
+      "video1": "Liam_Neeson/4",
+      "video2": "Sara_Silverman/5",
+      "label": "diff",
+      "similarity": -0.01291883084923029,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alimzhan_Tokhtakhounov/0",
+      "video2": "Norah_Jones/4",
+      "label": "diff",
+      "similarity": 0.043345119804143906,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ilie_Nastase/0",
+      "video2": "Sarah_Michelle_Gellar/4",
+      "label": "diff",
+      "similarity": -0.0061049009673297405,
+      "emb_missing": false
+    },
+    {
+      "video1": "Elizabeth_Hurley/0",
+      "video2": "Mack_Brown/0",
+      "label": "diff",
+      "similarity": 7.252411887748167e-05,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kirk_Ferentz/4",
+      "video2": "Linda_Dano/5",
+      "label": "diff",
+      "similarity": -0.02185044251382351,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/2",
+      "video2": "Thor_Pedersen/2",
+      "label": "diff",
+      "similarity": -0.005321816075593233,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Hernandez/0",
+      "video2": "Tom_Smothers/5",
+      "label": "diff",
+      "similarity": -0.060416724532842636,
+      "emb_missing": false
+    },
+    {
+      "video1": "James_Caan/2",
+      "video2": "Tom_Smothers/2",
+      "label": "diff",
+      "similarity": 0.09589161723852158,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Murphy/1",
+      "video2": "Paul_Sarbanes/1",
+      "label": "diff",
+      "similarity": 0.03828628733754158,
+      "emb_missing": false
+    },
+    {
+      "video1": "Phil_Gramm/1",
+      "video2": "Valerie_Harper/3",
+      "label": "diff",
+      "similarity": 0.09053456038236618,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/0",
+      "video2": "Lindy_Ruff/2",
+      "label": "diff",
+      "similarity": 0.003992724698036909,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Gascoigne/5",
+      "video2": "Wen_Jiabao/3",
+      "label": "diff",
+      "similarity": -0.056252621114254,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ciaran_Hinds/5",
+      "video2": "Pilar_Montenegro/0",
+      "label": "diff",
+      "similarity": -0.01813334971666336,
+      "emb_missing": false
+    },
+    {
+      "video1": "Norah_Jones/2",
+      "video2": "Wen_Jiabao/3",
+      "label": "diff",
+      "similarity": -0.1003890410065651,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alimzhan_Tokhtakhounov/0",
+      "video2": "Paul_Ebert/2",
+      "label": "diff",
+      "similarity": -0.06784797459840775,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gary_Carter/1",
+      "video2": "Kim_Gandy/3",
+      "label": "diff",
+      "similarity": 0.11707029491662979,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/5",
+      "video2": "Wolfgang_Schuessel/5",
+      "label": "diff",
+      "similarity": 0.1185675710439682,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/5",
+      "video2": "Robert_Altman/1",
+      "label": "diff",
+      "similarity": 0.007766944356262684,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Sarbanes/0",
+      "video2": "Tim_Allen/3",
+      "label": "diff",
+      "similarity": 0.030272530391812325,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kim_Gandy/2",
+      "video2": "William_Delahunt/2",
+      "label": "diff",
+      "similarity": 0.027975870296359062,
+      "emb_missing": false
+    },
+    {
+      "video1": "Paul_Murphy/4",
+      "video2": "Yashwant_Sinha/5",
+      "label": "diff",
+      "similarity": -0.027550747618079185,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gary_Bauer/3",
+      "video2": "Laura_Bush/1",
+      "label": "diff",
+      "similarity": 0.05966828018426895,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/5",
+      "video2": "Jack_LaLanne/2",
+      "label": "diff",
+      "similarity": -0.017197439447045326,
+      "emb_missing": false
+    },
+    {
+      "video1": "Naomi_Campbell/3",
+      "video2": "William_Delahunt/0",
+      "label": "diff",
+      "similarity": -0.00920730922371149,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/3",
+      "video2": "Phil_Gramm/4",
+      "label": "diff",
+      "similarity": -0.030472008511424065,
+      "emb_missing": false
+    },
+    {
+      "video1": "Lee_Baca/2",
+      "video2": "Tom_Smothers/2",
+      "label": "diff",
+      "similarity": 0.09825760871171951,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edward_Albee/2",
+      "video2": "T_Boone_Pickens/5",
+      "label": "diff",
+      "similarity": -0.03343211114406586,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/2",
+      "video2": "Peter_OToole/1",
+      "label": "diff",
+      "similarity": 0.02748582325875759,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alex_Sink/5",
+      "video2": "Nathan_Lane/4",
+      "label": "diff",
+      "similarity": -0.02680063247680664,
+      "emb_missing": false
+    },
+    {
+      "video1": "Edwina_Currie/4",
+      "video2": "Felicity_Huffman/4",
+      "label": "diff",
+      "similarity": 0.0984637662768364,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hans-Christian_Schmid/5",
+      "video2": "Thomas_Birmingham/0",
+      "label": "diff",
+      "similarity": 0.0013529296265915036,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carrie-Anne_Moss/2",
+      "video2": "Pilar_Montenegro/2",
+      "label": "diff",
+      "similarity": 0.1426449567079544,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/1",
+      "video2": "Sara_Silverman/4",
+      "label": "diff",
+      "similarity": 0.07630691677331924,
+      "emb_missing": false
+    },
+    {
+      "video1": "Dan_Ackroyd/0",
+      "video2": "T_Boone_Pickens/5",
+      "label": "diff",
+      "similarity": 0.0619126595556736,
+      "emb_missing": false
+    },
+    {
+      "video1": "Agnes_Bruckner/0",
+      "video2": "Clark_Randt/5",
+      "label": "diff",
+      "similarity": 0.029057612642645836,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amram_Mitzna/0",
+      "video2": "Eliane_Karp/0",
+      "label": "diff",
+      "similarity": -0.0054200999438762665,
+      "emb_missing": false
+    },
+    {
+      "video1": "Christopher_Reeve/3",
+      "video2": "Gary_Carter/3",
+      "label": "diff",
+      "similarity": -0.05902065336704254,
+      "emb_missing": false
+    },
+    {
+      "video1": "Hassan_Nasrallah/0",
+      "video2": "Laurence_Fishburne/2",
+      "label": "diff",
+      "similarity": -0.015551270917057991,
+      "emb_missing": false
+    },
+    {
+      "video1": "El_Hadji_Diouf/3",
+      "video2": "Paul_Murphy/4",
+      "label": "diff",
+      "similarity": 0.04855261370539665,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alex_Sink/5",
+      "video2": "El_Hadji_Diouf/3",
+      "label": "diff",
+      "similarity": 0.06562197953462601,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alastair_Campbell/3",
+      "video2": "Prince_Harry/1",
+      "label": "diff",
+      "similarity": 0.05772291123867035,
+      "emb_missing": false
+    },
+    {
+      "video1": "Gary_Carter/1",
+      "video2": "Phil_Gramm/5",
+      "label": "diff",
+      "similarity": 0.0039137969724833965,
+      "emb_missing": false
+    },
+    {
+      "video1": "Clark_Randt/5",
+      "video2": "Richard_Rodriguez/3",
+      "label": "diff",
+      "similarity": 0.1225736066699028,
+      "emb_missing": false
+    },
+    {
+      "video1": "Jane_Rooney/2",
+      "video2": "Ralph_Klein/0",
+      "label": "diff",
+      "similarity": 0.009026718325912952,
+      "emb_missing": false
+    },
+    {
+      "video1": "Ahmed_Ahmed/4",
+      "video2": "Andy_Roddick/5",
+      "label": "diff",
+      "similarity": 0.019168099388480186,
+      "emb_missing": false
+    },
+    {
+      "video1": "Crispin_Glover/5",
+      "video2": "Fred_Eckhard/1",
+      "label": "diff",
+      "similarity": -0.045874010771512985,
+      "emb_missing": false
+    },
+    {
+      "video1": "Geoff_Dixon/0",
+      "video2": "Marc_Racicot/5",
+      "label": "diff",
+      "similarity": -0.02615990675985813,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/3",
+      "video2": "Tim_Howard/3",
+      "label": "diff",
+      "similarity": 0.037394680082798004,
+      "emb_missing": false
+    },
+    {
+      "video1": "Carla_Sullivan/4",
+      "video2": "T_Boone_Pickens/5",
+      "label": "diff",
+      "similarity": -0.07000447809696198,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eric_Lloyd/0",
+      "video2": "Paul_Bettany/1",
+      "label": "diff",
+      "similarity": 0.038085341453552246,
+      "emb_missing": false
+    },
+    {
+      "video1": "Chris_Noth/0",
+      "video2": "Pupi_Avati/0",
+      "label": "diff",
+      "similarity": -0.01575292833149433,
+      "emb_missing": false
+    },
+    {
+      "video1": "Amelia_Vega/2",
+      "video2": "Kim_Gandy/4",
+      "label": "diff",
+      "similarity": -0.11765843629837036,
+      "emb_missing": false
+    },
+    {
+      "video1": "Linda_Dano/3",
+      "video2": "Marc_Racicot/5",
+      "label": "diff",
+      "similarity": -0.09614136070013046,
+      "emb_missing": false
+    },
+    {
+      "video1": "Alex_Sink/5",
+      "video2": "Hassan_Nasrallah/4",
+      "label": "diff",
+      "similarity": -0.06528627127408981,
+      "emb_missing": false
+    },
+    {
+      "video1": "Laura_Bush/2",
+      "video2": "Penelope_Cruz/2",
+      "label": "diff",
+      "similarity": 0.04138186573982239,
+      "emb_missing": false
+    },
+    {
+      "video1": "Eliane_Karp/3",
+      "video2": "Kirk_Ferentz/1",
+      "label": "diff",
+      "similarity": 0.11167880892753601,
+      "emb_missing": false
+    },
+    {
+      "video1": "Kate_Winslet/5",
+      "video2": "Nikolay_Davydenko/3",
+      "label": "diff",
+      "similarity": -0.023022977635264397,
+      "emb_missing": false
+    },
+    {
+      "video1": "Beatriz_Merino/2",
+      "video2": "Tim_Howard/0",
+      "label": "diff",
+      "similarity": 0.018855879083275795,
+      "emb_missing": false
+    }
+  ]
+}

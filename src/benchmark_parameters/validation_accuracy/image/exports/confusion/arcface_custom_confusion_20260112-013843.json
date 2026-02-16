@@ -1,0 +1,21 @@
+{
+  "kind": "confusion_matrix",
+  "model": "arcface",
+  "pairs_total": 2160,
+  "pairs_used": 2128,
+  "pairs_failed": 32,
+  "failure_rate": 0.014814814814814815,
+  "threshold": 0.2,
+  "threshold_source": "manual (--threshold)",
+  "accuracy": 0.8421052631578947,
+  "precision": 0.8303085299455535,
+  "recall": 0.8599624060150376,
+  "specificity": 0.8242481203007519,
+  "f1": 0.8448753462603877,
+  "far": 0.17575187969924813,
+  "frr": 0.1400375939849624,
+  "tn": 877,
+  "fp": 187,
+  "fn": 149,
+  "tp": 915
+}

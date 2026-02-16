@@ -1,4 +1,6 @@
-# Computes ROC metrics for YTF (YouTube Faces) across all 10 official folds
+# logic_roc_ytf_pairs.py
+#
+# # Computes ROC metrics (AUC, EER, best threshold) for YTF (YouTube Faces)
 # using precomputed similarity scores and labels. Exports ROC metrics JSON
 # and saves a ROC curve PNG.
 
@@ -10,6 +12,10 @@ from datetime import datetime
 
 import numpy as np
 from sklearn.metrics import roc_curve, auc
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 # allow importing from project root if needed
@@ -48,11 +54,29 @@ def load_all_scores_labels(exports_dir: Path, model: str, stamp: str):
     return scores, labels
 
 
+# load failure statistics from per-fold pairs.json
+def load_failure_stats(exports_dir: Path, model: str, stamp: str):
+    pairs_total = 0
+    pairs_valid = 0
+    pairs_failed = 0
+
+    for fold in range(10):
+        json_path = exports_dir / f"{model}_ytf_fold{fold}_{stamp}_pairs.json"
+        if not json_path.exists():
+            raise FileNotFoundError(f"Missing pairs file: {json_path}")
+
+        with open(json_path, "r") as f:
+            meta = json.load(f)["meta"]
+
+        pairs_total += meta["num_pairs_total"]
+        pairs_valid += meta["num_pairs_valid"]
+        pairs_failed += meta["num_pairs_failed"]
+
+    return pairs_total, pairs_valid, pairs_failed
+
+
+# Compute ROC metrics
 def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
-    """
-    Compute ROC metrics on all 10 folds (5000 pairs) of YTF
-    using precomputed scores/labels.
-    """
     if exports_dir is None:
         exports_dir = Path(__file__).resolve().parents[2] / "exports"
     else:
@@ -60,9 +84,13 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
 
     scores, labels = load_all_scores_labels(exports_dir, model_name, stamp)
 
-    # --- basic sanity check ---
-    pos_count = int((labels == 1).sum())
-    neg_count = int((labels == 0).sum())
+    pairs_total, pairs_valid, pairs_failed = load_failure_stats(
+        exports_dir, model_name, stamp
+    )
+
+    #  Count positive and negative pairs
+    pos_count = int((labels == 1).sum())  # 2500
+    neg_count = int((labels == 0).sum())  # 2500
     print(f"[YTF ROC] pos_pairs={pos_count}, neg_pairs={neg_count}")
     print(
         f"[YTF ROC] scores range: [{float(scores.min()):.4f}, {float(scores.max()):.4f}]"
@@ -88,25 +116,20 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
     eer_idx = np.nanargmin(np.abs(fnr - fpr))
     eer = (fpr[eer_idx] + fnr[eer_idx]) / 2.0
 
-    # TAR @ FAR = 1e-3
-    target_far = 1e-3
-    idx = np.searchsorted(fpr, target_far, side="right") - 1
-    if 0 <= idx < len(tpr):
-        tar_far_1e3 = tpr[idx]
-    else:
-        tar_far_1e3 = float("nan")
-
     metrics = {
         "kind": "roc_ytf",
         "model": model_name,
         "dataset": "YTF",
+        "pairs_total": pairs_total,
+        "pairs_valid": pairs_valid,
+        "pairs_failed": pairs_failed,
+        "failure_rate": (pairs_failed / pairs_total if pairs_total > 0 else 0.0),
+        "pairs_used": int(len(labels)),
+        "pos_pairs": pos_count,
+        "neg_pairs": neg_count,
         "auc": float(roc_auc),
         "eer": float(eer),
         "best_threshold": float(best_thr),
-        "tar_far_1e3": float(tar_far_1e3),
-        "pairs": int(len(labels)),
-        "pos_pairs": pos_count,
-        "neg_pairs": neg_count,
     }
 
     # --- export JSON ---
@@ -119,7 +142,9 @@ def run_roc_ytf(model_name: str, stamp: str, exports_dir: str | None = None):
         json.dump(metrics, f, indent=2)
 
     # --- export ROC PNG (overwrites same file each time) ---
-    png_path = Path(__file__).with_name("roc_ytf_result.png")
+
+    png_path = exports_dir / f"{model_name}_ytf_roc_{stamp}.png"
+
     plt.figure(figsize=(6, 5))
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
     plt.plot([0, 1], [0, 1], linestyle="--", color="gray")

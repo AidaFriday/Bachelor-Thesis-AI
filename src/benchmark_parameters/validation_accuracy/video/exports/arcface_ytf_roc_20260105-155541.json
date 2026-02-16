@@ -1,0 +1,15 @@
+{
+  "kind": "roc_ytf",
+  "model": "arcface",
+  "dataset": "YTF",
+  "pairs_total": 5000,
+  "pairs_valid": 5000,
+  "pairs_failed": 0,
+  "failure_rate": 0.0,
+  "pairs_used": 5000,
+  "pos_pairs": 2500,
+  "neg_pairs": 2500,
+  "auc": 0.98349552,
+  "eer": 0.043199999999999975,
+  "best_threshold": 0.15355157852172852
+}
